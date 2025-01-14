@@ -1,0 +1,184 @@
+#include "lexer.h"
+#include <cctype>
+#include <climits>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+
+const static std::unordered_map<std::string, TokenKind> KEYWORDS = {
+    {"break", TokenKind::KwBreak},
+    {"continue", TokenKind::KwContinue},
+    {"else", TokenKind::KwElse},
+    {"false", TokenKind::KwFalse},
+    {"fn", TokenKind::KwFn},
+    {"for", TokenKind::KwFor},
+    {"if", TokenKind::KwIf},
+    {"in", TokenKind::KwIf},
+    {"let", TokenKind::KwLet},
+    {"loop", TokenKind::KwLoop},
+    {"return", TokenKind::KwReturn},
+    {"true", TokenKind::KwTrue},
+    {"while", TokenKind::KwWhile}
+};
+
+char Lexer::next() {
+    try {
+        return input.at(cur++);
+    } catch (std::out_of_range) {
+        return '\0';
+    }
+}
+
+char Lexer::peek() {
+    try {
+        return input.at(cur);
+    } catch (std::out_of_range) {
+        return '\0';
+    }
+}
+
+void Lexer::skip_whitespace() {
+    auto c = peek();
+    while (true) {
+        if (c == '\n') {
+            col = 0;
+            line++;
+        }
+        if (!std::isspace(static_cast<unsigned char>(c)))
+            break;
+        next();
+        c = peek();
+    }
+}
+
+Token Lexer::make_token(TokenKind kind) {
+    return Token(kind, input.data() + start, cur - start);
+}
+
+Token Lexer::lex_token() {
+    skip_whitespace();
+    start = cur;
+
+    auto c = next();
+    switch (c) {
+        case '(': return make_token(TokenKind::LParen);
+        case ')': return make_token(TokenKind::RParen);
+        case '{': return make_token(TokenKind::LBrace);
+        case '}': return make_token(TokenKind::RBrace);
+        case '[': return make_token(TokenKind::LBracket);
+        case ']': return make_token(TokenKind::RBracket);
+        case '+': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::PlusEq);
+            return make_token(TokenKind::Plus);
+        }
+        case '-': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::MinusEq);
+            return make_token(TokenKind::Minus);
+        }
+        case '*': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::StarEq);
+            return make_token(TokenKind::Star);
+        }
+        case '/': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::SlashEq);
+            return make_token(TokenKind::Slash);
+        }
+        case '%': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::PercentEq);
+            return make_token(TokenKind::Percent);
+        }
+        case '^': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::CaretEq);
+            return make_token(TokenKind::Caret);
+        }
+        case '!': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::Ne);
+            return make_token(TokenKind::Not);
+        }
+        case '&': {
+            switch (peek()) {
+                case '&': next(); return make_token(TokenKind::AndAnd);
+                case '=': next(); return make_token(TokenKind::AndEq);
+                default: return make_token(TokenKind::And);
+            }
+        }
+        case '|': {
+            switch (peek()) {
+                case '|': next(); return make_token(TokenKind::Or);
+                case '=': next(); return make_token(TokenKind::OrEq);
+                default: return make_token(TokenKind::Or);
+            }
+        }
+        case '<': {
+            c = peek();
+            if (c == '<') {
+                next(); c = peek();
+                if (c == '=')
+                    next(); return make_token(TokenKind::ShlEq);
+                return make_token(TokenKind::Shl);
+            }
+            if (c == '=')
+                next(); return make_token(TokenKind::Le);
+            return make_token(TokenKind::Lt);
+
+        }
+        case '>': {
+            c = peek();
+            if (c == '>') {
+                next(); c = peek();
+                if (c == '=')
+                    next(); return make_token(TokenKind::ShrEq);
+                return make_token(TokenKind::Shr);
+            }
+            if (c == '=')
+                next(); return make_token(TokenKind::Ge);
+            return make_token(TokenKind::Gt);
+
+        }
+        case '=': {
+            if (peek() == '=')
+                next(); return make_token(TokenKind::EqEq);
+            return make_token(TokenKind::Eq);
+        }
+        case ',': return make_token(TokenKind::Comma);
+        case ';': return make_token(TokenKind::Semi);
+        case '\0': return make_token(TokenKind::Eof);
+        default: {
+            if (std::isalpha(static_cast<unsigned char>(c))) {
+                c = peek();
+                while (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
+                    next();
+                    c = peek();
+                }
+
+                auto len = cur - start;
+                auto literal = std::string(input.data() + start, len);
+
+                if (auto kind = KEYWORDS.find(literal); kind != KEYWORDS.end()) {
+                    return make_token(kind->second);
+                }
+
+                return make_token(TokenKind::Identifier);
+            }
+
+            if (std::isdigit(static_cast<unsigned char>(c))) {
+                c = peek();
+                while (std::isdigit(static_cast<unsigned char>(c)) || c == '.') {
+                    next();
+                    c = peek();
+                }
+
+                return make_token(TokenKind::Number);
+            }
+        }
+    }
+
+    return make_token(TokenKind::Unknown);
+}
