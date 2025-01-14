@@ -150,6 +150,23 @@ Token Lexer::lex_token() {
         case ',': return make_token(TokenKind::Comma);
         case ';': return make_token(TokenKind::Semi);
         case '\0': return make_token(TokenKind::Eof);
+        case '"': {
+            c = peek();
+            while (c != '"') {
+                next();
+
+                if (peek() == '\\') {
+                    next();
+                    if (peek() == '"')
+                        next();
+                }
+
+                c = peek();
+            }
+            auto t = Token(TokenKind::String, input.data() + start + 1, cur - start - 1);
+            next();
+            return t;
+        }
         default: {
             if (std::isalpha(static_cast<unsigned char>(c))) {
                 c = peek();

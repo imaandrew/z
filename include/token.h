@@ -1,3 +1,5 @@
+#pragma once
+
 #include <format>
 #include <string>
 #include <unordered_map>
@@ -63,6 +65,7 @@ enum class TokenKind : unsigned char {
 
     Identifier,
     Number,
+    String,
 };
 
 const std::unordered_map<TokenKind, std::string> TOKEN_STR = {
@@ -121,6 +124,7 @@ const std::unordered_map<TokenKind, std::string> TOKEN_STR = {
     {TokenKind::Semi, "TOK_SEMI"},
     {TokenKind::Identifier, "TOK_IDENT"},
     {TokenKind::Number, "TOK_NUM"},
+    {TokenKind::String, "TOK_STRING"}
 };
 
 class Token {
