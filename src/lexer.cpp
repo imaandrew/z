@@ -68,38 +68,72 @@ Token Lexer::lex_token() {
         case '[': return make_token(TokenKind::LBracket);
         case ']': return make_token(TokenKind::RBracket);
         case '+': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::PlusEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::PlusEq);
+            }
             return make_token(TokenKind::Plus);
         }
         case '-': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::MinusEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::MinusEq);
+            }
             return make_token(TokenKind::Minus);
         }
         case '*': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::StarEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::StarEq);
+            }
             return make_token(TokenKind::Star);
         }
         case '/': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::SlashEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::SlashEq);
+            }
+            if (peek() == '/') {
+                next();
+                while (peek() != '\n') next();
+                return lex_token();
+            }
+            if (peek() == '*') {
+                next();
+                int i = 1;
+                while (i > 0) {
+                    auto c = next();
+                    if (c == '*' && peek() == '/') {
+                        i--;
+                        next();
+                    } else if (c == '/' && peek() == '*') {
+                        i++;
+                        next();
+                    }
+                }
+                return lex_token();
+            }
             return make_token(TokenKind::Slash);
         }
         case '%': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::PercentEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::PercentEq);
+            }
             return make_token(TokenKind::Percent);
         }
         case '^': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::CaretEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::CaretEq);
+            }
             return make_token(TokenKind::Caret);
         }
         case '!': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::Ne);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::Ne);
+            }
             return make_token(TokenKind::Not);
         }
         case '&': {
@@ -120,12 +154,16 @@ Token Lexer::lex_token() {
             c = peek();
             if (c == '<') {
                 next(); c = peek();
-                if (c == '=')
-                    next(); return make_token(TokenKind::ShlEq);
+                if (c == '=') {
+                    next();
+                    return make_token(TokenKind::ShlEq);
+                }
                 return make_token(TokenKind::Shl);
             }
-            if (c == '=')
-                next(); return make_token(TokenKind::Le);
+            if (c == '=') {
+                next();
+                return make_token(TokenKind::Le);
+            }
             return make_token(TokenKind::Lt);
 
         }
@@ -133,26 +171,31 @@ Token Lexer::lex_token() {
             c = peek();
             if (c == '>') {
                 next(); c = peek();
-                if (c == '=')
-                    next(); return make_token(TokenKind::ShrEq);
+                if (c == '=') {
+                    next();
+                    return make_token(TokenKind::ShrEq);
+                }
                 return make_token(TokenKind::Shr);
             }
-            if (c == '=')
-                next(); return make_token(TokenKind::Ge);
+            if (c == '=') {
+                next();
+                return make_token(TokenKind::Ge);
+            }
             return make_token(TokenKind::Gt);
 
         }
         case '=': {
-            if (peek() == '=')
-                next(); return make_token(TokenKind::EqEq);
+            if (peek() == '=') {
+                next();
+                return make_token(TokenKind::EqEq);
+            }
             return make_token(TokenKind::Eq);
         }
         case ',': return make_token(TokenKind::Comma);
         case ';': return make_token(TokenKind::Semi);
         case '\0': return make_token(TokenKind::Eof);
         case '"': {
-            c = peek();
-            while (c != '"') {
+            while (peek() != '"') {
                 next();
 
                 if (peek() == '\\') {
@@ -160,8 +203,6 @@ Token Lexer::lex_token() {
                     if (peek() == '"')
                         next();
                 }
-
-                c = peek();
             }
             auto t = Token(TokenKind::String, input.data() + start + 1, cur - start - 1);
             next();
