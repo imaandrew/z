@@ -37,12 +37,17 @@ enum class TokenKind : unsigned char {
     Percent,
     Caret,
     Not,
+    LogicalNot,
     And,
     Or,
     AndAnd,
     OrOr,
     Shl,
     Shr,
+    PlusPlus,
+    MinusMinus,
+    Range,
+    RangeEq,
     PlusEq,
     MinusEq,
     StarEq,
@@ -62,6 +67,8 @@ enum class TokenKind : unsigned char {
     Le,
     Comma,
     Semi,
+    Colon,
+    Question,
 
     Identifier,
     Number,
@@ -96,7 +103,7 @@ const std::unordered_map<TokenKind, std::string> TOKEN_STR = {
     {TokenKind::Slash, "TOK_SLASH"},
     {TokenKind::Percent, "TOK_PERCENT"},
     {TokenKind::Caret, "TOK_CARET"},
-    {TokenKind::Not, "TOK_NOT"},
+    {TokenKind::LogicalNot, "TOK_NOT"},
     {TokenKind::And, "TOK_AND"},
     {TokenKind::Or, "TOK_OR"},
     {TokenKind::AndAnd, "TOK_ANDAND"},
@@ -122,18 +129,36 @@ const std::unordered_map<TokenKind, std::string> TOKEN_STR = {
     {TokenKind::Le, "TOK_LE"},
     {TokenKind::Comma, "TOK_COMMA"},
     {TokenKind::Semi, "TOK_SEMI"},
+    {TokenKind::Colon, "TOK_COLON"},
     {TokenKind::Identifier, "TOK_IDENT"},
     {TokenKind::Number, "TOK_NUM"},
     {TokenKind::String, "TOK_STRING"}
 };
 
+inline std::string tok_kind_to_string(TokenKind kind) {
+    if (auto str = TOKEN_STR.find(kind); str != TOKEN_STR.end()) {
+            return str->second;
+        }
+
+        throw std::runtime_error("Cannot convert tokenkind to string");
+}
+
 class Token {
-public:
     TokenKind kind;
     char* val;
     size_t len;
+
+public:
+    Token() = default;
     Token(TokenKind kind, char* val, int len = 1)
         : kind(kind), val(val), len(len) {}
+
+    TokenKind get_kind() { return kind; }
+    char* get_val() { return val; }
+    size_t get_len() { return len; }
+
+    bool is(TokenKind kind) { return kind == this->kind; }
+
     std::string to_string() {
         if (auto str = TOKEN_STR.find(kind); str != TOKEN_STR.end()) {
             auto val_str = std::string(val, len);

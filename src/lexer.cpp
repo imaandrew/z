@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "token.h"
 #include <cctype>
 #include <climits>
 #include <stdexcept>
@@ -72,12 +73,20 @@ Token Lexer::lex_token() {
                 next();
                 return make_token(TokenKind::PlusEq);
             }
+            if (peek() == '+') {
+                next();
+                return make_token(TokenKind::PlusPlus);
+            }
             return make_token(TokenKind::Plus);
         }
         case '-': {
             if (peek() == '=') {
                 next();
                 return make_token(TokenKind::MinusEq);
+            }
+            if (peek() == '-') {
+                next();
+                return make_token(TokenKind::MinusMinus);
             }
             return make_token(TokenKind::Minus);
         }
@@ -129,6 +138,7 @@ Token Lexer::lex_token() {
             }
             return make_token(TokenKind::Caret);
         }
+        case '~': return make_token(TokenKind::LogicalNot);
         case '!': {
             if (peek() == '=') {
                 next();
@@ -148,6 +158,16 @@ Token Lexer::lex_token() {
                 case '|': next(); return make_token(TokenKind::Or);
                 case '=': next(); return make_token(TokenKind::OrEq);
                 default: return make_token(TokenKind::Or);
+            }
+        }
+        case '.' : {
+            if (peek() == '.') {
+                next();
+                if (peek() == '=') {
+                    next();
+                    return make_token(TokenKind::RangeEq);
+                }
+                return make_token(TokenKind::Range);
             }
         }
         case '<': {
@@ -193,6 +213,7 @@ Token Lexer::lex_token() {
         }
         case ',': return make_token(TokenKind::Comma);
         case ';': return make_token(TokenKind::Semi);
+        case ':': return make_token(TokenKind::Colon);
         case '\0': return make_token(TokenKind::Eof);
         case '"': {
             while (peek() != '"') {
@@ -211,7 +232,7 @@ Token Lexer::lex_token() {
         default: {
             if (std::isalpha(static_cast<unsigned char>(c))) {
                 c = peek();
-                while (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
+                while (std::isalpha(static_cast<unsigned char>(c)) || std::isdigit(static_cast<unsigned char>(c)) || c == '_') {
                     next();
                     c = peek();
                 }

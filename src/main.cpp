@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "parser.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -18,9 +19,6 @@ int main(int argc, char** argv) {
     file.read(buf.data(), file_size);
 
     auto lexer = Lexer(buf);
-    auto t = lexer.lex_token();
-    while (t.kind != TokenKind::Eof) {
-        std::cout << t.to_string() << '\n';
-        t = lexer.lex_token();
-    }
+    auto parser = Parser(lexer);
+    parser.parse();
 }
