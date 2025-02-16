@@ -55,9 +55,9 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
     }
 }
 
-void Parser::parse() {
+FuncDecl Parser::parse() {
     next_token();
-    parse_func_decl();
+    return parse_func_decl();
 }
 
 FuncDecl Parser::parse_func_decl() {
@@ -67,7 +67,7 @@ FuncDecl Parser::parse_func_decl() {
     auto params = parse_func_params();
     next_token();
     auto block = parse_block();
-    return FuncDecl(func_ident, params, block);
+    return FuncDecl(func_ident, params, std::move(block));
 }
 
 std::vector<Param> Parser::parse_func_params() {
@@ -99,52 +99,47 @@ Param Parser::parse_param_decl() {
 
 Block Parser::parse_block() {
     assert(TokenKind::LBrace);
-    std::vector<Stmt> stmts;
+    std::vector<std::unique_ptr<Stmt>> stmts;
     while (!kind(TokenKind::RBrace)) {
         stmts.push_back(parse_stmt());
+        consume(TokenKind::Semi);
     }
 
-    return Block(stmts);
+    return Block(std::move(stmts));
 }
 
-Stmt Parser::parse_stmt() {
-    Stmt stmt;
+std::unique_ptr<Stmt> Parser::parse_stmt() {
     if (tok.is(TokenKind::KwBreak)) {
-        stmt = BreakStmt(tok);
-        consume(TokenKind::Semi);
+        return std::make_unique<BreakStmt>(tok);
     } else if (tok.is(TokenKind::KwContinue)) {
-        stmt = ContinueStmt(tok);
+        return std::make_unique<ContinueStmt>(tok);
         consume(TokenKind::Semi);
     } else if (tok.is(TokenKind::KwLet)) {
         consume(TokenKind::Identifier);
         auto ident = Identifier(tok);
         consume(TokenKind::Eq);
-        stmt = LetStmt(ident, parse_expr());
-        consume(TokenKind::Semi);
+        return std::make_unique<LetStmt>(ident, parse_expr());
     } else if (tok.is(TokenKind::KwReturn)) {
         try {
             auto expr = parse_expr();
-            stmt = ReturnStmt(expr);
+            return std::make_unique<ReturnStmt>(std::move(expr));
         } catch (std::exception) {
-            stmt = ReturnStmt();
+            return std::make_unique<ReturnStmt>();
         }
-        consume(TokenKind::Semi);
     } else {
-        stmt = parse_expr();
+        return parse_expr();
     }
-
-    return stmt;
 }
 
-Expr Parser::parse_expr(int precedence) {
-    Expr lhs;
+std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
+    std::unique_ptr<Expr> lhs;
     switch (tok.get_kind()) {
         case TokenKind::Number:
             lhs = parse_num();
             next_token();
             break;
         case TokenKind::Identifier:
-            lhs = Identifier(tok);
+            lhs = std::make_unique<Identifier>(tok);
             next_token();
             break;
         case TokenKind::PlusPlus:
@@ -156,20 +151,19 @@ Expr Parser::parse_expr(int precedence) {
             break;
         case TokenKind::LParen: {
             next_token();    
-            auto expr = parse_expr();
+            lhs = parse_expr();
             consume(TokenKind::RParen);
             next_token();
-            lhs = expr;
             break;
         }
         case TokenKind::KwFor:
-            return parse_for_expr();
+            return std::make_unique<ForExpr>(parse_for_expr());
         case TokenKind::KwIf:
-            return parse_if_expr();
+            return std::make_unique<IfExpr>(parse_if_expr());
         case TokenKind::KwLoop:
-            return parse_loop_expr();
+            return std::make_unique<LoopExpr>(parse_loop_expr());
         case TokenKind::KwWhile:
-            return parse_while_expr();
+            return std::make_unique<WhileExpr>(parse_while_expr());
         default:
             throw std::runtime_error(std::format("invalid expr {}", tok_kind_to_string(tok.get_kind())));
     }
@@ -178,18 +172,18 @@ Expr Parser::parse_expr(int precedence) {
         switch (tok.get_kind()) {
             case TokenKind::PlusPlus:
             case TokenKind::MinusMinus:
-                lhs = PostfixExpr(tok, lhs);
+                lhs.reset(new PostfixExpr(tok, std::move(lhs)));
                 next_token();
                 break;
             case TokenKind::Question: {
                 auto then_expr = parse_expr();
                 consume(TokenKind::Colon);
                 auto else_expr = parse_expr(static_cast<int>(BinOpPrecedence::Prefix) - 1);
-                lhs = TernaryExpr(tok, lhs, then_expr, else_expr);
+                lhs.reset(new TernaryExpr(tok, std::move(lhs), std::move(then_expr), std::move(else_expr)));
                 break;
             }
             case TokenKind::LParen: {
-                std::vector<Expr> args;
+                std::vector<std::unique_ptr<Expr>> args;
 
                 if (!kind(TokenKind::RParen)) {
                     do {
@@ -199,11 +193,11 @@ Expr Parser::parse_expr(int precedence) {
                     next_token();
                 }
 
-                lhs = CallExpr(lhs, args);
+                lhs.reset(new CallExpr(std::move(lhs), std::move(args)));
                 break;
             }
             case TokenKind::LBracket:
-                lhs = ArrayExpr(lhs, parse_expr());
+                lhs.reset(new ArrayExpr(std::move(lhs), parse_expr()));
                 break;
             case TokenKind::PlusEq:
             case TokenKind::MinusEq:
@@ -216,26 +210,25 @@ Expr Parser::parse_expr(int precedence) {
             case TokenKind::ShlEq:
             case TokenKind::ShrEq:
             case TokenKind::Eq:
-                lhs = BinaryExpr(tok, lhs, parse_expr(static_cast<int>(get_op_precedence(tok.get_kind())) - 1));
+                lhs.reset(new BinaryExpr(tok, std::move(lhs), parse_expr(static_cast<int>(get_op_precedence(tok.get_kind())) - 1)));
                 break;
             case TokenKind::RParen:
             case TokenKind::RBracket:
             case TokenKind::Comma:
-                goto end;
+                return lhs;
             default:
                 auto prec = static_cast<int>(get_op_precedence(tok.get_kind()));
                 if (prec == 0)
                     throw std::runtime_error("invalid operator");
 
-                lhs = BinaryExpr(tok, lhs, parse_expr(static_cast<int>(prec)));
+                lhs.reset(new BinaryExpr(tok, std::move(lhs), parse_expr(static_cast<int>(prec))));
                 break;
         }
     }
-    end:
     return lhs;
 }
 
-Expr Parser::parse_num() {
+std::unique_ptr<Expr> Parser::parse_num() {
     auto val = tok.get_val();
     auto len = tok.get_len();
 
@@ -243,7 +236,7 @@ Expr Parser::parse_num() {
         if (val[i] == '.') {
             double num;
             std::from_chars(val, val + len, num);
-            return FloatExpr(tok, num);
+            return std::make_unique<FloatExpr>(tok, num);
         }
     }
 
@@ -272,7 +265,7 @@ Expr Parser::parse_num() {
         std::from_chars(val, val + len, num);
     }
 
-    return IntExpr(tok, num);
+    return std::make_unique<IntExpr>(tok, num);
 }
 
 ForExpr Parser::parse_for_expr() {
@@ -287,7 +280,7 @@ ForExpr Parser::parse_for_expr() {
     auto expr = parse_expr();
     auto block = parse_block();
 
-    return ForExpr(ident, expr, block);
+    return ForExpr(ident, std::move(expr), std::move(block));
 }
 
 IfExpr Parser::parse_if_expr() {
@@ -303,24 +296,24 @@ IfExpr Parser::parse_if_expr() {
             else_expr = std::make_unique<ElseExpr>(std::make_unique<IfExpr>(std::move(if_expr)));
         } else {
             auto block = parse_block();
-            else_expr = std::make_unique<ElseExpr>(block);
+            else_expr = std::make_unique<ElseExpr>(std::move(block));
         }
 
-        return IfExpr(expr, block, std::move(else_expr));
+        return IfExpr(std::move(expr), std::move(block), std::move(else_expr));
     }
-    return IfExpr(expr, block);
+    return IfExpr(std::move(expr), std::move(block));
 }
 
 LoopExpr Parser::parse_loop_expr() {
     assert(TokenKind::KwLoop);
 
-    std::optional<Expr> expr = std::nullopt;
+    std::optional<std::unique_ptr<Expr>> expr = std::nullopt;
     if (!kind(TokenKind::LBrace)) {
         expr = std::make_optional(parse_expr());
     }
 
     auto block = parse_block();
-    return LoopExpr(expr, block);
+    return LoopExpr(std::move(expr), std::move(block));
 }
 
 WhileExpr Parser::parse_while_expr() {
@@ -328,7 +321,7 @@ WhileExpr Parser::parse_while_expr() {
 
     auto expr = parse_expr();
     auto block = parse_block();
-    return WhileExpr(expr, block);
+    return WhileExpr(std::move(expr), std::move(block));
 }
 
 void Parser::next_token() {

@@ -15,9 +15,10 @@ class Parser {
     std::vector<Param> parse_func_params();
     Param parse_param_decl();
     Block parse_block();
-    Stmt parse_stmt();
-    Expr parse_expr(int precedence=0);
-    Expr parse_num();
+    std::unique_ptr<Stmt> parse_stmt();
+    std::unique_ptr<Expr> prime_parse_expr(int precedence=0);
+    std::unique_ptr<Expr> parse_expr(int precedence=0);
+    std::unique_ptr<Expr> parse_num();
     ForExpr parse_for_expr();
     IfExpr parse_if_expr();
     LoopExpr parse_loop_expr();
@@ -25,5 +26,5 @@ class Parser {
 
 public:
     Parser(Lexer& lexer): lexer(lexer) {};
-    void parse();
+    FuncDecl parse();
 };

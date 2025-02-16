@@ -20,5 +20,6 @@ int main(int argc, char** argv) {
 
     auto lexer = Lexer(buf);
     auto parser = Parser(lexer);
-    parser.parse();
+    auto f = parser.parse();
+    f.print(0);
 }

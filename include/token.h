@@ -154,8 +154,8 @@ public:
         : kind(kind), val(val), len(len) {}
 
     TokenKind get_kind() { return kind; }
-    char* get_val() { return val; }
-    size_t get_len() { return len; }
+    char* get_val() const { return val; }
+    size_t get_len() const { return len; }
 
     bool is(TokenKind kind) { return kind == this->kind; }
 
