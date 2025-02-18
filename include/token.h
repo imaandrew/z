@@ -8,9 +8,12 @@ enum class TokenKind : unsigned char {
     Eof,
     Unknown,
     // Keywords
+    KwAs,
     KwBreak,
+    KwConst,
     KwContinue,
     KwElse,
+    KwEnum,
     KwFalse,
     KwFn,
     KwFor,
@@ -19,6 +22,8 @@ enum class TokenKind : unsigned char {
     KwLet,
     KwLoop,
     KwReturn,
+    KwStatic,
+    KwStruct,
     KwTrue,
     KwWhile,
 
@@ -69,6 +74,8 @@ enum class TokenKind : unsigned char {
     Semi,
     Colon,
     Question,
+    Dot,
+    Arrow,
 
     Identifier,
     Number,

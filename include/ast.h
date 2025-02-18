@@ -197,11 +197,12 @@ public:
 class FuncDecl {
     Identifier name;
     std::vector<Param> params;
+    std::optional<Identifier> ret;
     Block body;
 
 public:
-    FuncDecl(Identifier name, std::vector<Param> params, Block body)
-        : name(name), params(params), body(std::move(body)) {};
+    FuncDecl(Identifier name, std::vector<Param> params, std::optional<Identifier> ret, Block body)
+        : name(name), params(params), ret(ret), body(std::move(body)) {};
 
     void print(int indent) const {
         std::cout << std::string(indent, ' ') << "FuncDecl" << std::endl;
@@ -212,12 +213,16 @@ public:
 
 class BreakStmt : public Stmt {
     Token tok;
+    std::optional<std::unique_ptr<Expr>> expr;
 
 public:
     BreakStmt(Token tok) : tok(tok) {};
+    BreakStmt(Token tok, std::unique_ptr<Expr> expr) : tok(tok), expr(std::move(expr)) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "BreakStmt" << std::endl;
+        if (expr)
+            expr->get()->print(indent + 2);
     }
 };
 

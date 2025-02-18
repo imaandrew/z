@@ -54,6 +54,7 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
         case TokenKind::LBracket:
         case TokenKind::PlusPlus:
         case TokenKind::MinusMinus:
+        case TokenKind::Dot:
             return BinOpPrecedence::Postfix;
         default:
             return BinOpPrecedence::Unknown;
@@ -67,11 +68,21 @@ FuncDecl Parser::parse() {
 
 FuncDecl Parser::parse_func_decl() {
     assert(TokenKind::KwFn);
+
     consume(TokenKind::Identifier);
     auto func_ident = Identifier(tok);
+
     auto params = parse_func_params();
+
+    std::optional<Identifier> ret; 
+    if (tok.is(TokenKind::Arrow)) {
+        consume(TokenKind::Identifier);
+        ret.emplace(tok);
+        next_token();
+    }
+
     auto block = parse_block();
-    return FuncDecl(func_ident, params, std::move(block));
+    return FuncDecl(func_ident, params, ret, std::move(block));
 }
 
 std::vector<Param> Parser::parse_func_params() {
@@ -104,10 +115,19 @@ Param Parser::parse_param_decl() {
 
 Block Parser::parse_block() {
     assert(TokenKind::LBrace);
+    next_token();
+
     std::vector<std::unique_ptr<Stmt>> stmts;
-    while (!kind(TokenKind::RBrace)) {
-        stmts.push_back(parse_stmt());
-        assert(TokenKind::Semi);
+    while (!tok.is(TokenKind::RBrace)) {
+        if (!tok.is(TokenKind::Semi))
+            stmts.push_back(parse_stmt());
+
+        if (required_semi) {
+            assert(TokenKind::Semi);
+            next_token();
+        } else {
+            required_semi = true;
+        }
     }
 
     next_token();
@@ -117,8 +137,12 @@ Block Parser::parse_block() {
 std::unique_ptr<Stmt> Parser::parse_stmt() {
     std::unique_ptr<Stmt> stmt;
     if (tok.is(TokenKind::KwBreak)) {
-        stmt = std::make_unique<BreakStmt>(tok);
-        next_token();
+        try {
+            auto expr = prime_parse_expr();
+            stmt = std::make_unique<BreakStmt>(tok, std::move(expr));
+        } catch (std::exception) {
+            stmt = std::make_unique<BreakStmt>(tok);
+        }
     } else if (tok.is(TokenKind::KwContinue)) {
         stmt = std::make_unique<ContinueStmt>(tok);
         next_token();
@@ -135,7 +159,9 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
             stmt = std::make_unique<ReturnStmt>();
         }
     } else {
+        auto x = tok.is(TokenKind::KwIf) || tok.is(TokenKind::KwFor) || tok.is(TokenKind::KwLoop) || tok.is(TokenKind::KwWhile);
         stmt = parse_expr();
+        required_semi = !x;
     }
     
     return stmt;
@@ -305,7 +331,7 @@ ForExpr Parser::parse_for_expr() {
 IfExpr Parser::parse_if_expr() {
     assert(TokenKind::KwIf);
 
-    auto expr = parse_expr();
+    auto expr = prime_parse_expr();
     auto block = parse_block();
 
     if (tok.is(TokenKind::KwElse)) {
@@ -338,7 +364,7 @@ LoopExpr Parser::parse_loop_expr() {
 WhileExpr Parser::parse_while_expr() {
     assert(TokenKind::KwWhile);
 
-    auto expr = parse_expr();
+    auto expr = prime_parse_expr();
     auto block = parse_block();
     return WhileExpr(std::move(expr), std::move(block));
 }

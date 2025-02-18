@@ -6,6 +6,7 @@
 class Parser {
     Lexer& lexer;
     Token tok;
+    bool required_semi = true;
 
     void next_token();
     void consume(TokenKind kind);

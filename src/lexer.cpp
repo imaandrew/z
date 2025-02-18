@@ -7,9 +7,12 @@
 #include <unordered_map>
 
 const static std::unordered_map<std::string, TokenKind> KEYWORDS = {
+    {"as", TokenKind::KwAs},
     {"break", TokenKind::KwBreak},
+    {"const", TokenKind::KwConst},
     {"continue", TokenKind::KwContinue},
     {"else", TokenKind::KwElse},
+    {"enum", TokenKind::KwEnum},
     {"false", TokenKind::KwFalse},
     {"fn", TokenKind::KwFn},
     {"for", TokenKind::KwFor},
@@ -18,6 +21,8 @@ const static std::unordered_map<std::string, TokenKind> KEYWORDS = {
     {"let", TokenKind::KwLet},
     {"loop", TokenKind::KwLoop},
     {"return", TokenKind::KwReturn},
+    {"static", TokenKind::KwStatic},
+    {"struct", TokenKind::KwStruct},
     {"true", TokenKind::KwTrue},
     {"while", TokenKind::KwWhile}
 };
@@ -87,6 +92,10 @@ Token Lexer::lex_token() {
             if (peek() == '-') {
                 next();
                 return make_token(TokenKind::MinusMinus);
+            }
+            if (peek() == '>') {
+                next();
+                return make_token(TokenKind::Arrow);
             }
             return make_token(TokenKind::Minus);
         }
@@ -169,6 +178,7 @@ Token Lexer::lex_token() {
                 }
                 return make_token(TokenKind::Range);
             }
+            return make_token(TokenKind::Dot);
         }
         case '<': {
             c = peek();
