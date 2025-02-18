@@ -61,6 +61,10 @@ Token Lexer::make_token(TokenKind kind) {
     return Token(kind, input.data() + start, cur - start);
 }
 
+bool Lexer::at_end() {
+    return cur >= input.size();
+}
+
 Token Lexer::lex_token() {
     skip_whitespace();
     start = cur;

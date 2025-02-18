@@ -27,5 +27,5 @@ class Parser {
 
 public:
     Parser(Lexer& lexer): lexer(lexer) {};
-    FuncDecl parse();
+    std::vector<std::unique_ptr<Decl>> parse();
 };

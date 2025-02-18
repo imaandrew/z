@@ -61,9 +61,16 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
     }
 }
 
-FuncDecl Parser::parse() {
+std::vector<std::unique_ptr<Decl>> Parser::parse() {
     next_token();
-    return parse_func_decl();
+
+    std::vector<std::unique_ptr<Decl>> decls;
+
+    while (!lexer.at_end()) {
+        decls.push_back(std::make_unique<FuncDecl>(parse_func_decl()));
+    }
+
+    return decls;
 }
 
 FuncDecl Parser::parse_func_decl() {

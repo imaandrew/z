@@ -21,5 +21,7 @@ int main(int argc, char** argv) {
     auto lexer = Lexer(buf);
     auto parser = Parser(lexer);
     auto f = parser.parse();
-    f.print(0);
+    for (const auto& d : f) {
+        d->print(0);
+    }
 }

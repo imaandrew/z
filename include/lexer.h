@@ -17,4 +17,5 @@ class Lexer {
 public:
     Lexer(std::vector<char>& input) : input(input) {};
     Token lex_token();
+    bool at_end();
 };

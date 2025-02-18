@@ -194,7 +194,12 @@ public:
     Param(Identifier name, Identifier type) : name(name), type(type) {};
 };
 
-class FuncDecl {
+class Decl {
+public:
+    virtual void print(int indent) const = 0;
+};
+
+class FuncDecl : public Decl {
     Identifier name;
     std::vector<Param> params;
     std::optional<Identifier> ret;
@@ -204,7 +209,7 @@ public:
     FuncDecl(Identifier name, std::vector<Param> params, std::optional<Identifier> ret, Block body)
         : name(name), params(params), ret(ret), body(std::move(body)) {};
 
-    void print(int indent) const {
+    void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "FuncDecl" << std::endl;
         name.print(indent + 2);
         body.print(indent + 2);
