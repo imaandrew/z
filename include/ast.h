@@ -355,3 +355,32 @@ public:
         block.print(indent + 2);
     }
 };
+
+class StructField {
+    Identifier ident;
+    Identifier type;
+
+public:
+    StructField(Identifier ident, Identifier type) : ident(ident), type(type) {};
+
+    void print(int indent) const {
+        std::cout << std::string(indent, ' ') << "StructField" << std::endl;
+        ident.print(indent + 2);
+        type.print(indent + 2);
+    }
+};
+
+class StructDecl : public Decl {
+    Identifier ident;
+    std::vector<StructField> fields;
+
+public:
+    StructDecl(Identifier ident, std::vector<StructField> fields) : ident(ident), fields(fields) {};
+
+    void print(int indent) const override {
+        std::cout << std::string(indent, ' ') << "StructDecl" << std::endl;
+        ident.print(indent + 2);
+        for (const auto& f : fields)
+            f.print(indent + 2);
+    }
+};

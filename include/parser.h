@@ -12,6 +12,8 @@ class Parser {
     void consume(TokenKind kind);
     bool kind(TokenKind kind);
     void assert(TokenKind kind);
+    StructDecl parse_struct_decl();
+    StructField parse_struct_field();
     FuncDecl parse_func_decl();
     std::vector<Param> parse_func_params();
     Param parse_param_decl();

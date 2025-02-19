@@ -67,10 +67,52 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
     std::vector<std::unique_ptr<Decl>> decls;
 
     while (!lexer.at_end()) {
-        decls.push_back(std::make_unique<FuncDecl>(parse_func_decl()));
+        switch (tok.get_kind()) {
+            case TokenKind::KwStruct:
+                decls.push_back(std::make_unique<StructDecl>(parse_struct_decl()));
+                break;
+            case TokenKind::KwFn:
+                decls.push_back(std::make_unique<FuncDecl>(parse_func_decl()));
+                break;
+            default:
+                throw std::runtime_error(std::format("Invalid declaration {}", tok_kind_to_string(tok.get_kind())));
+        }
     }
 
     return decls;
+}
+
+StructDecl Parser::parse_struct_decl() {
+    assert(TokenKind::KwStruct);
+
+    consume(TokenKind::Identifier);
+    auto ident = Identifier(tok);
+
+    consume(TokenKind::LBrace);
+
+    std::vector<StructField> fields;
+    while (!kind(TokenKind::RBrace)) {
+        fields.push_back(parse_struct_field());
+
+        if (!kind(TokenKind::Comma)) {
+            assert(TokenKind::RBrace);
+            break;
+        }
+    }
+
+    return StructDecl(ident, fields);
+}
+
+StructField Parser::parse_struct_field() {
+    assert(TokenKind::Identifier);
+    auto ident = Identifier(tok);
+
+    consume(TokenKind::Colon);
+
+    consume(TokenKind::Identifier);
+    auto type = Identifier(tok);
+
+    return StructField(ident, type);
 }
 
 FuncDecl Parser::parse_func_decl() {
