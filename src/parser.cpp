@@ -209,7 +209,7 @@ Param Parser::parse_param_decl() {
     return Param(name, type);
 }
 
-Block Parser::parse_block() {
+Block Parser::parse_block(bool implicit_return) {
     assert(TokenKind::LBrace);
     next_token();
 
@@ -217,6 +217,9 @@ Block Parser::parse_block() {
     while (!tok.is(TokenKind::RBrace)) {
         if (!tok.is(TokenKind::Semi))
             stmts.push_back(parse_stmt());
+
+        if (implicit_return && tok.is(TokenKind::RBrace))
+            break;
 
         if (required_semi) {
             assert(TokenKind::Semi);
@@ -419,7 +422,7 @@ ForExpr Parser::parse_for_expr() {
     consume(TokenKind::KwIn);
 
     auto expr = prime_parse_expr();
-    auto block = parse_block();
+    auto block = parse_block(false);
 
     return ForExpr(ident, std::move(expr), std::move(block));
 }
@@ -453,7 +456,7 @@ LoopExpr Parser::parse_loop_expr() {
         expr = std::make_optional(parse_expr());
     }
 
-    auto block = parse_block();
+    auto block = parse_block(false);
     return LoopExpr(std::move(expr), std::move(block));
 }
 
@@ -461,7 +464,7 @@ WhileExpr Parser::parse_while_expr() {
     assert(TokenKind::KwWhile);
 
     auto expr = prime_parse_expr();
-    auto block = parse_block();
+    auto block = parse_block(false);
     return WhileExpr(std::move(expr), std::move(block));
 }
 

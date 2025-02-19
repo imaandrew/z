@@ -19,7 +19,7 @@ class Parser {
     FuncDecl parse_func_decl();
     std::vector<Param> parse_func_params();
     Param parse_param_decl();
-    Block parse_block();
+    Block parse_block(bool implicit_return=true);
     std::unique_ptr<Stmt> parse_stmt();
     std::unique_ptr<Expr> prime_parse_expr(int precedence=0);
     std::unique_ptr<Expr> parse_expr(int precedence=0);

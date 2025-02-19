@@ -268,6 +268,7 @@ public:
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "LetStmt" << std::endl;
+        ident.print(indent + 2);
         val->print(indent + 2);
     }
 };
@@ -295,10 +296,7 @@ public:
     ElseExpr(std::unique_ptr<IfExpr> expr) : expr(std::move(expr)) {};
     ElseExpr(Block block) : expr(std::move(block)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ElseExpr" << std::endl;
-        // TODO
-    }
+    void print(int indent) const override;
 };
 
 class IfExpr : public Expr {
@@ -323,6 +321,16 @@ public:
         }
     }
 };
+
+inline void ElseExpr::print(int indent) const {
+    std::cout << std::string(indent, ' ') << "ElseExpr" << std::endl;
+    
+    if (auto e = std::get_if<std::unique_ptr<IfExpr>>(&expr)) {
+        e->get()->print(indent + 2);
+    } else if (auto b = std::get_if<Block>(&expr)) {
+        b->print(indent + 2);
+    }
+}
 
 class LoopExpr : public Expr {
     std::optional<std::unique_ptr<Expr>> expr;
