@@ -260,15 +260,21 @@ public:
 
 class LetStmt : public Stmt {
     Identifier ident;
+    std::optional<Identifier> type;
     std::unique_ptr<Expr> val;
 
 public:
     LetStmt(Identifier ident, std::unique_ptr<Expr> val)
         : ident(ident), val(std::move(val)) {};
 
+    LetStmt(Identifier ident, Identifier type, std::unique_ptr<Expr> val)
+        : ident(ident), type(type), val(std::move(val)) {};
+
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "LetStmt" << std::endl;
         ident.print(indent + 2);
+        if (type)
+            type.value().print(indent + 2);
         val->print(indent + 2);
     }
 };

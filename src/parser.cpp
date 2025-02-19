@@ -248,8 +248,15 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
     } else if (tok.is(TokenKind::KwLet)) {
         consume(TokenKind::Identifier);
         auto ident = Identifier(tok);
-        consume(TokenKind::Eq);
-        stmt = std::make_unique<LetStmt>(ident, prime_parse_expr());
+        if (kind(TokenKind::Colon)) {
+            consume(TokenKind::Identifier);
+            auto type = Identifier(tok);
+            consume(TokenKind::Eq);
+            stmt = std::make_unique<LetStmt>(ident, type, prime_parse_expr());
+        } else {
+            assert(TokenKind::Eq);
+            stmt = std::make_unique<LetStmt>(ident, prime_parse_expr());
+        }
     } else if (tok.is(TokenKind::KwReturn)) {
         try {
             auto expr = prime_parse_expr();
