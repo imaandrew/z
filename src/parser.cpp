@@ -253,9 +253,10 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
             auto type = Identifier(tok);
             consume(TokenKind::Eq);
             stmt = std::make_unique<LetStmt>(ident, type, prime_parse_expr());
-        } else {
-            assert(TokenKind::Eq);
+        } else if (tok.is(TokenKind::Eq)) {
             stmt = std::make_unique<LetStmt>(ident, prime_parse_expr());
+        } else {
+            stmt = std::make_unique<LetStmt>(ident);
         }
     } else if (tok.is(TokenKind::KwReturn)) {
         try {

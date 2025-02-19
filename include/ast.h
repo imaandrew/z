@@ -264,6 +264,8 @@ class LetStmt : public Stmt {
     std::unique_ptr<Expr> val;
 
 public:
+    LetStmt(Identifier ident) : ident(ident) {};
+
     LetStmt(Identifier ident, std::unique_ptr<Expr> val)
         : ident(ident), val(std::move(val)) {};
 
@@ -275,7 +277,8 @@ public:
         ident.print(indent + 2);
         if (type)
             type.value().print(indent + 2);
-        val->print(indent + 2);
+        if (val)
+            val->print(indent + 2);
     }
 };
 
