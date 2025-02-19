@@ -71,6 +71,9 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
             case TokenKind::KwStruct:
                 decls.push_back(std::make_unique<StructDecl>(parse_struct_decl()));
                 break;
+            case TokenKind::KwEnum:
+                decls.push_back(std::make_unique<EnumDecl>(parse_enum_decl()));
+                break;
             case TokenKind::KwFn:
                 decls.push_back(std::make_unique<FuncDecl>(parse_func_decl()));
                 break;
@@ -113,6 +116,50 @@ StructField Parser::parse_struct_field() {
     auto type = Identifier(tok);
 
     return StructField(ident, type);
+}
+
+EnumDecl Parser::parse_enum_decl() {
+    assert(TokenKind::KwEnum);
+
+    consume(TokenKind::Identifier);
+    auto ident = Identifier(tok);
+
+    consume(TokenKind::LBrace);
+
+    std::vector<EnumField> fields;
+    while (!kind(TokenKind::RBrace)) {
+        fields.push_back(parse_enum_field());
+
+        if (!tok.is(TokenKind::Comma)) {
+            assert(TokenKind::RBrace);
+            break;
+        }
+    }
+
+    return EnumDecl(ident, fields);
+}
+
+EnumField Parser::parse_enum_field() {
+    assert(TokenKind::Identifier);
+    auto ident = Identifier(tok);
+
+    if (kind(TokenKind::LParen)) {
+        std::vector<Identifier> types;
+        while (!kind(TokenKind::RParen)) {
+            assert(TokenKind::Identifier);
+            types.push_back(Identifier(tok));
+
+            if (!kind(TokenKind::Comma)) {
+                assert(TokenKind::RParen);
+                next_token();
+                break;
+            }
+        }
+
+        return EnumField(ident, types);
+    } else {
+        return EnumField(ident);
+    }
 }
 
 FuncDecl Parser::parse_func_decl() {

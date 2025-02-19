@@ -14,6 +14,8 @@ class Parser {
     void assert(TokenKind kind);
     StructDecl parse_struct_decl();
     StructField parse_struct_field();
+    EnumDecl parse_enum_decl();
+    EnumField parse_enum_field();
     FuncDecl parse_func_decl();
     std::vector<Param> parse_func_params();
     Param parse_param_decl();

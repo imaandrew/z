@@ -384,3 +384,34 @@ public:
             f.print(indent + 2);
     }
 };
+
+class EnumField {
+    Identifier ident;
+    std::vector<Identifier> types;
+
+public:
+    EnumField(Identifier ident) : ident(ident) {};
+    EnumField(Identifier ident, std::vector<Identifier> types) : ident(ident), types(types) {};
+
+    void print(int indent) const {
+        std::cout << std::string(indent, ' ') << "EnumField" << std::endl;
+        ident.print(indent + 2);
+        for (const auto& t : types)
+            t.print(indent + 2);
+    }
+};
+
+class EnumDecl : public Decl {
+    Identifier ident;
+    std::vector<EnumField> fields;
+
+public:
+EnumDecl(Identifier ident, std::vector<EnumField> fields) : ident(ident), fields(fields) {};
+
+    void print(int indent) const override {
+        std::cout << std::string(indent, ' ') << "EnumDecl" << std::endl;
+        ident.print(indent + 2);
+        for (const auto& f : fields)
+            f.print(indent + 2);
+    }
+};
