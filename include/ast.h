@@ -370,6 +370,18 @@ public:
     }
 };
 
+class StringExpr : public Expr {
+    const char* start;
+    size_t len;
+
+public:
+    StringExpr(const char* start, size_t len) : start(start), len(len) {};
+
+    void print(int indent) const {
+        std::cout << std::string(indent, ' ') << "String " << std::string(start, len) << std::endl;
+    }
+};
+
 class StructField {
     Identifier ident;
     Identifier type;

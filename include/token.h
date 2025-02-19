@@ -80,6 +80,7 @@ enum class TokenKind : unsigned char {
     Identifier,
     Number,
     String,
+    Char,
 };
 
 const std::unordered_map<TokenKind, std::string> TOKEN_STR = {
