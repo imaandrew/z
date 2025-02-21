@@ -162,6 +162,20 @@ public:
     }
 };
 
+class ArrayInitExpr : public Expr {
+    std::vector<std::unique_ptr<Expr>> vals;
+
+public:
+    ArrayInitExpr(std::vector<std::unique_ptr<Expr>> vals) : vals(std::move(vals)) {};
+
+    void print(int indent) const override {
+        std::cout << std::string(indent, ' ') << "ArrayInitExpr" << std::endl;
+        for (auto& val : vals) {
+            val->print(indent + 2);
+        }
+    }
+};
+
 class Identifier : public Expr {
     Token tok;
 

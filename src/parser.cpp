@@ -305,6 +305,22 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
             next_token();
             break;
         }
+        case TokenKind::LBrace: {
+            std::vector<std::unique_ptr<Expr>> vals;
+
+            while (!kind(TokenKind::RBrace)) {
+                vals.push_back(parse_expr());
+
+                if (!tok.is(TokenKind::Comma)) {
+                    assert(TokenKind::RBrace);
+                    break;
+                }
+            }
+
+            next_token();
+            lhs.reset(new ArrayInitExpr(std::move(vals)));
+            break;
+        }
         case TokenKind::KwFor:
             return std::make_unique<ForExpr>(parse_for_expr());
         case TokenKind::KwIf:
