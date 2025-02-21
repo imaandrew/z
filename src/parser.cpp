@@ -103,7 +103,7 @@ StructDecl Parser::parse_struct_decl() {
         }
     }
 
-    return StructDecl(ident, fields);
+    return StructDecl(ident, std::move(fields));
 }
 
 StructField Parser::parse_struct_field() {
@@ -112,10 +112,9 @@ StructField Parser::parse_struct_field() {
 
     consume(TokenKind::Colon);
 
-    consume(TokenKind::Identifier);
-    auto type = Identifier(tok);
+    auto type = prime_parse_expr();
 
-    return StructField(ident, type);
+    return StructField(ident, std::move(type));
 }
 
 EnumDecl Parser::parse_enum_decl() {
@@ -136,7 +135,7 @@ EnumDecl Parser::parse_enum_decl() {
         }
     }
 
-    return EnumDecl(ident, fields);
+    return EnumDecl(ident, std::move(fields));
 }
 
 EnumField Parser::parse_enum_field() {
@@ -144,10 +143,9 @@ EnumField Parser::parse_enum_field() {
     auto ident = Identifier(tok);
 
     if (kind(TokenKind::LParen)) {
-        std::vector<Identifier> types;
+        std::vector<std::unique_ptr<Expr>> types;
         while (!kind(TokenKind::RParen)) {
-            assert(TokenKind::Identifier);
-            types.push_back(Identifier(tok));
+            types.push_back(parse_expr());
 
             if (!kind(TokenKind::Comma)) {
                 assert(TokenKind::RParen);
@@ -156,7 +154,7 @@ EnumField Parser::parse_enum_field() {
             }
         }
 
-        return EnumField(ident, types);
+        return EnumField(ident, std::move(types));
     } else {
         return EnumField(ident);
     }
@@ -170,15 +168,14 @@ FuncDecl Parser::parse_func_decl() {
 
     auto params = parse_func_params();
 
-    std::optional<Identifier> ret; 
+    std::optional<std::unique_ptr<Expr>> ret; 
     if (tok.is(TokenKind::Arrow)) {
-        consume(TokenKind::Identifier);
-        ret.emplace(tok);
+        ret.emplace(prime_parse_expr());
         next_token();
     }
 
     auto block = parse_block();
-    return FuncDecl(func_ident, params, ret, std::move(block));
+    return FuncDecl(func_ident, std::move(params), std::move(ret), std::move(block));
 }
 
 std::vector<Param> Parser::parse_func_params() {
@@ -187,7 +184,7 @@ std::vector<Param> Parser::parse_func_params() {
     std::vector<Param> params;
     while (!kind(TokenKind::RParen)) {
         params.push_back(parse_param_decl());
-        if (!kind(TokenKind::Comma)) {
+        if (!tok.is(TokenKind::Comma)) {
             assert(TokenKind::RParen);
             break;
         }
@@ -203,10 +200,9 @@ Param Parser::parse_param_decl() {
 
     consume(TokenKind::Colon);
 
-    consume(TokenKind::Identifier);
-    auto type = Identifier(tok);
+    auto type = prime_parse_expr();
 
-    return Param(name, type);
+    return Param(name, std::move(type));
 }
 
 Block Parser::parse_block(bool implicit_return) {
@@ -249,10 +245,9 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
         consume(TokenKind::Identifier);
         auto ident = Identifier(tok);
         if (kind(TokenKind::Colon)) {
-            consume(TokenKind::Identifier);
-            auto type = Identifier(tok);
-            consume(TokenKind::Eq);
-            stmt = std::make_unique<LetStmt>(ident, type, prime_parse_expr());
+            auto type = prime_parse_expr(static_cast<int>(BinOpPrecedence::Postfix) - 1);
+            assert(TokenKind::Eq);
+            stmt = std::make_unique<LetStmt>(ident, std::move(type), prime_parse_expr());
         } else if (tok.is(TokenKind::Eq)) {
             stmt = std::make_unique<LetStmt>(ident, prime_parse_expr());
         } else {
@@ -354,8 +349,12 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
                 break;
             }
             case TokenKind::LBracket:
-                lhs.reset(new ArrayExpr(std::move(lhs), prime_parse_expr()));
-                assert(TokenKind::RBracket);
+                if (kind(TokenKind::RBracket)) {
+                    lhs.reset(new ArrayExpr(std::move(lhs)));
+                } else {
+                    lhs.reset(new ArrayExpr(std::move(lhs), prime_parse_expr()));
+                    assert(TokenKind::RBracket);
+                }
                 next_token();
                 break;
             case TokenKind::PlusEq:
