@@ -18,6 +18,7 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
         case TokenKind::ShlEq:
         case TokenKind::ShrEq:
         case TokenKind::Eq:
+        case TokenKind::Colon:
             return BinOpPrecedence::Assignment;
         case TokenKind::Range:
         case TokenKind::RangeEq:
@@ -53,6 +54,7 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
             return BinOpPrecedence::Multiplication;
         case TokenKind::LParen:
         case TokenKind::LBracket:
+        case TokenKind::LBrace:
         case TokenKind::PlusPlus:
         case TokenKind::MinusMinus:
         case TokenKind::Dot:
@@ -232,7 +234,9 @@ Block Parser::parse_block(bool implicit_return) {
         }
     }
 
-    next_token();
+    try {
+        next_token();   
+    } catch (std::runtime_error e) {};
     return Block(std::move(stmts));
 }
 
@@ -381,6 +385,22 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
                 }
                 next_token();
                 break;
+            case TokenKind::LBrace: {
+                std::vector<std::unique_ptr<Expr>> vals;
+
+                while (!kind(TokenKind::RBrace)) {
+                    vals.push_back(parse_expr());
+
+                    if (!tok.is(TokenKind::Comma)) {
+                        assert(TokenKind::RBrace);
+                        break;
+                    }
+                }
+
+                next_token();
+                lhs.reset(new StructInitExpr(std::move(lhs), std::move(vals)));
+                break;
+            }
             case TokenKind::PlusEq:
             case TokenKind::MinusEq:
             case TokenKind::StarEq:
@@ -391,7 +411,8 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
             case TokenKind::OrEq:
             case TokenKind::ShlEq:
             case TokenKind::ShrEq:
-            case TokenKind::Eq: {
+            case TokenKind::Eq:
+            case TokenKind::Colon: {
                 auto t = tok;
                 lhs.reset(new BinaryExpr(t, std::move(lhs), prime_parse_expr(static_cast<int>(get_op_precedence(tok.get_kind())) - 1)));
                 break;
@@ -402,7 +423,7 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
                     throw std::runtime_error("invalid operator");
 
                 auto t = tok;
-                lhs.reset(new BinaryExpr(t, std::move(lhs), prime_parse_expr(static_cast<int>(prec))));
+                lhs.reset(new BinaryExpr(t, std::move(lhs), prime_parse_expr(prec)));
                 break;
         }
     }

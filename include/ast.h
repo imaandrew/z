@@ -177,6 +177,22 @@ public:
     }
 };
 
+class StructInitExpr : public Expr {
+    std::unique_ptr<Expr> ident;
+    std::vector<std::unique_ptr<Expr>> vals;
+
+public:
+    StructInitExpr(std::unique_ptr<Expr> ident, std::vector<std::unique_ptr<Expr>> vals) : ident(std::move(ident)), vals(std::move(vals)) {};
+
+    void print(int indent) const override {
+        std::cout << std::string(indent, ' ') << "StructInitExpr" << std::endl;
+        ident->print(indent + 2);
+        for (auto& val : vals) {
+            val->print(indent + 2);
+        }
+    }
+};
+
 class Identifier : public Expr {
     Token tok;
 
@@ -214,6 +230,7 @@ public:
 
 class Decl {
 public:
+    virtual ~Decl() = default;
     virtual void print(int indent) const = 0;
 };
 
