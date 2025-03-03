@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "token.h"
 #include "ast.h"
+#include "type.h"
 #include <charconv>
 #include <exception>
 #include <stdexcept>
@@ -97,11 +98,13 @@ StructDecl Parser::parse_struct_decl() {
     while (!kind(TokenKind::RBrace)) {
         fields.push_back(parse_struct_field());
 
-        if (!kind(TokenKind::Comma)) {
+        if (!tok.is(TokenKind::Comma)) {
             assert(TokenKind::RBrace);
             break;
         }
     }
+
+    next_token();
 
     return StructDecl(ident, std::move(fields));
 }
@@ -111,10 +114,11 @@ StructField Parser::parse_struct_field() {
     auto ident = Identifier(tok);
 
     consume(TokenKind::Colon);
+    next_token();
 
-    auto type = prime_parse_expr();
+    auto type = parse_type();
 
-    return StructField(ident, std::move(type));
+    return StructField(ident, type);
 }
 
 EnumDecl Parser::parse_enum_decl() {
@@ -135,6 +139,8 @@ EnumDecl Parser::parse_enum_decl() {
         }
     }
 
+    next_token();
+
     return EnumDecl(ident, std::move(fields));
 }
 
@@ -143,18 +149,18 @@ EnumField Parser::parse_enum_field() {
     auto ident = Identifier(tok);
 
     if (kind(TokenKind::LParen)) {
-        std::vector<std::unique_ptr<Expr>> types;
+        std::vector<Type> types;
         while (!kind(TokenKind::RParen)) {
-            types.push_back(parse_expr());
+            types.push_back(parse_type());
 
-            if (!kind(TokenKind::Comma)) {
+            if (!tok.is(TokenKind::Comma)) {
                 assert(TokenKind::RParen);
                 next_token();
                 break;
             }
         }
 
-        return EnumField(ident, std::move(types));
+        return EnumField(ident, types);
     } else {
         return EnumField(ident);
     }
@@ -168,14 +174,14 @@ FuncDecl Parser::parse_func_decl() {
 
     auto params = parse_func_params();
 
-    std::optional<std::unique_ptr<Expr>> ret; 
+    std::optional<Type> ret; 
     if (tok.is(TokenKind::Arrow)) {
-        ret.emplace(prime_parse_expr());
         next_token();
+        ret.emplace(parse_type());
     }
 
     auto block = parse_block();
-    return FuncDecl(func_ident, std::move(params), std::move(ret), std::move(block));
+    return FuncDecl(func_ident, params, ret, std::move(block));
 }
 
 std::vector<Param> Parser::parse_func_params() {
@@ -199,10 +205,11 @@ Param Parser::parse_param_decl() {
     auto name = Identifier(tok);
 
     consume(TokenKind::Colon);
+    next_token();
 
-    auto type = prime_parse_expr();
+    auto type = parse_type();
 
-    return Param(name, std::move(type));
+    return Param(name, type);
 }
 
 Block Parser::parse_block(bool implicit_return) {
@@ -245,9 +252,10 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
         consume(TokenKind::Identifier);
         auto ident = Identifier(tok);
         if (kind(TokenKind::Colon)) {
-            auto type = prime_parse_expr(static_cast<int>(BinOpPrecedence::Postfix) - 1);
+            next_token();
+            auto type = parse_type();
             assert(TokenKind::Eq);
-            stmt = std::make_unique<LetStmt>(ident, std::move(type), prime_parse_expr());
+            stmt = std::make_unique<LetStmt>(ident, type, prime_parse_expr());
         } else if (tok.is(TokenKind::Eq)) {
             stmt = std::make_unique<LetStmt>(ident, prime_parse_expr());
         } else {
@@ -494,6 +502,76 @@ WhileExpr Parser::parse_while_expr() {
     auto expr = prime_parse_expr();
     auto block = parse_block(false);
     return WhileExpr(std::move(expr), std::move(block));
+}
+
+Type Parser::parse_type() {
+    Type t;
+    if (tok.is(TokenKind::Identifier)) {
+        auto val_str = std::string(tok.get_val(), tok.get_len());
+        auto v = tok.get_val();
+
+        if (v[0] == 'u') {
+            if (val_str == "u8") {
+                t = IntegerType(1, false);
+            } else if (val_str == "u16") {
+                t = IntegerType(2, false);
+            } else if (val_str == "u32") {
+                t = IntegerType(3, false);
+            } else if (val_str == "u64") {
+                t = IntegerType(4, false);
+            }
+        } else if (v[0] == 'i') {
+            if (val_str == "i8") {
+                t = IntegerType(1, true);
+            } else if (val_str == "i16") {
+                t = IntegerType(2, true);
+            } else if (val_str == "i32") {
+                t = IntegerType(3, true);
+            } else if (val_str == "i64") {
+                t = IntegerType(4, true);
+            }
+        } else if (v[0] == 'f') {
+            if (val_str == "f32") {
+                t = FloatType(3);
+            } else if (val_str == "f64") {
+                t = FloatType(4);
+            }
+        } else if (val_str == "bool") {
+            t = BooleanType();
+        } else if (val_str == "str") {
+            t = StringType();
+        } else if (val_str == "char") {
+            t = CharType();
+        } else {
+            t = UserDefinedType(std::make_unique<Identifier>(tok));
+        }
+
+        while (kind(TokenKind::Star)) {
+            t = PointerType(t);
+        }
+    } else if (tok.is(TokenKind::LBracket)) {
+        auto array_type = parse_type();
+
+        if (tok.is(TokenKind::Semi)) {
+            t = ArrayType(array_type, prime_parse_expr());
+        } else {
+            t = ArrayType(array_type);
+        }
+    } else if (tok.is(TokenKind::LParen)) {
+        std::vector<Type> types;
+
+        while (!kind(TokenKind::RParen)) {
+            types.push_back(parse_type());
+
+            if (!tok.is(TokenKind::Comma)) {
+                assert(TokenKind::RParen);
+                next_token();
+                break;
+            }
+        }
+    }
+
+    return t;
 }
 
 void Parser::next_token() {

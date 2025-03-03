@@ -1,5 +1,6 @@
 #pragma once
 #include "token.h"
+#include "type.h"
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -205,10 +206,10 @@ public:
 
 class Param {
     Identifier name;
-    std::unique_ptr<Expr> type;
+    Type type;
 
 public:
-    Param(Identifier name, std::unique_ptr<Expr> type) : name(name), type(std::move(type)) {};
+    Param(Identifier name, Type type) : name(name), type(type) {};
 };
 
 class Decl {
@@ -219,12 +220,12 @@ public:
 class FuncDecl : public Decl {
     Identifier name;
     std::vector<Param> params;
-    std::optional<std::unique_ptr<Expr>> ret;
+    std::optional<Type> ret;
     Block body;
 
 public:
-    FuncDecl(Identifier name, std::vector<Param> params, std::optional<std::unique_ptr<Expr>> ret, Block body)
-        : name(name), params(std::move(params)), ret(std::move(ret)), body(std::move(body)) {};
+    FuncDecl(Identifier name, std::vector<Param> params, std::optional<Type> ret, Block body)
+        : name(name), params(std::move(params)), ret(ret), body(std::move(body)) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "FuncDecl" << std::endl;
@@ -277,8 +278,8 @@ public:
 
 class LetStmt : public Stmt {
     Identifier ident;
-    std::optional<std::unique_ptr<Expr>> type;
-    std::unique_ptr<Expr> val;
+    std::optional<Type> type;
+    std::optional<std::unique_ptr<Expr>> val;
 
 public:
     LetStmt(Identifier ident) : ident(ident) {};
@@ -286,16 +287,16 @@ public:
     LetStmt(Identifier ident, std::unique_ptr<Expr> val)
         : ident(ident), val(std::move(val)) {};
 
-    LetStmt(Identifier ident, std::unique_ptr<Expr> type, std::unique_ptr<Expr> val)
-        : ident(ident), type(std::move(type)), val(std::move(val)) {};
+    LetStmt(Identifier ident, Type type, std::unique_ptr<Expr> val)
+        : ident(ident), type(type), val(std::move(val)) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "LetStmt" << std::endl;
         ident.print(indent + 2);
         if (type)
-            type.value()->print(indent + 2);
+            //type.value()->print(indent + 2);
         if (val)
-            val->print(indent + 2);
+            val.value()->print(indent + 2);
     }
 };
 
@@ -404,15 +405,15 @@ public:
 
 class StructField {
     Identifier ident;
-    std::unique_ptr<Expr> type;
+    Type type;
 
 public:
-    StructField(Identifier ident, std::unique_ptr<Expr> type) : ident(ident), type(std::move(type)) {};
+    StructField(Identifier ident, Type type) : ident(ident), type(type) {};
 
     void print(int indent) const {
         std::cout << std::string(indent, ' ') << "StructField" << std::endl;
         ident.print(indent + 2);
-        type->print(indent + 2);
+        //type->print(indent + 2);
     }
 };
 
@@ -421,7 +422,7 @@ class StructDecl : public Decl {
     std::vector<StructField> fields;
 
 public:
-    StructDecl(Identifier ident, std::vector<StructField> fields) : ident(ident), fields(std::move(fields)) {};
+    StructDecl(Identifier ident, std::vector<StructField> fields) : ident(ident), fields(fields) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "StructDecl" << std::endl;
@@ -433,17 +434,17 @@ public:
 
 class EnumField {
     Identifier ident;
-    std::vector<std::unique_ptr<Expr>> types;
+    std::vector<Type> types;
 
 public:
     EnumField(Identifier ident) : ident(ident) {};
-    EnumField(Identifier ident, std::vector<std::unique_ptr<Expr>> types) : ident(ident), types(std::move(types)) {};
+    EnumField(Identifier ident, std::vector<Type> types) : ident(ident), types(types) {};
 
     void print(int indent) const {
         std::cout << std::string(indent, ' ') << "EnumField" << std::endl;
         ident.print(indent + 2);
-        for (const auto& t : types)
-            t->print(indent + 2);
+        //for (const auto& t : types)
+            //t->print(indent + 2);
     }
 };
 
@@ -452,7 +453,7 @@ class EnumDecl : public Decl {
     std::vector<EnumField> fields;
 
 public:
-EnumDecl(Identifier ident, std::vector<EnumField> fields) : ident(ident), fields(std::move(fields)) {};
+EnumDecl(Identifier ident, std::vector<EnumField> fields) : ident(ident), fields(fields) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "EnumDecl" << std::endl;

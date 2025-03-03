@@ -28,6 +28,7 @@ class Parser {
     IfExpr parse_if_expr();
     LoopExpr parse_loop_expr();
     WhileExpr parse_while_expr();
+    Type parse_type();
 
 public:
     Parser(Lexer& lexer): lexer(lexer) {};
