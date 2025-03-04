@@ -124,9 +124,8 @@ StructField Parser::parse_struct_field() {
     auto ident = Identifier(tok);
 
     consume(TokenKind::Colon);
-    next_token();
 
-    auto type = parse_type();
+    auto type = prime_parse_type();
 
     return StructField(ident, type);
 }
@@ -183,8 +182,7 @@ ConstDecl Parser::parse_const_decl() {
     auto ident = Identifier(tok);
 
     consume(TokenKind::Colon);
-    next_token();
-    auto type = parse_type();
+    auto type = prime_parse_type();
 
     assert(TokenKind::Eq);
     auto expr = prime_parse_expr();
@@ -202,8 +200,7 @@ StaticDecl Parser::parse_static_decl() {
     auto ident = Identifier(tok);
 
     consume(TokenKind::Colon);
-    next_token();
-    auto type = parse_type();
+    auto type = prime_parse_type();
 
     assert(TokenKind::Eq);
     auto expr = prime_parse_expr();
@@ -224,8 +221,7 @@ FuncDecl Parser::parse_func_decl() {
 
     std::optional<Type> ret; 
     if (tok.is(TokenKind::Arrow)) {
-        next_token();
-        ret.emplace(parse_type());
+        ret.emplace(prime_parse_type());
     }
 
     auto block = parse_block();
@@ -253,9 +249,8 @@ Param Parser::parse_param_decl() {
     auto name = Identifier(tok);
 
     consume(TokenKind::Colon);
-    next_token();
 
-    auto type = parse_type();
+    auto type = prime_parse_type();
 
     return Param(name, type);
 }
@@ -302,8 +297,7 @@ std::unique_ptr<Stmt> Parser::parse_stmt() {
         consume(TokenKind::Identifier);
         auto ident = Identifier(tok);
         if (kind(TokenKind::Colon)) {
-            next_token();
-            auto type = parse_type();
+            auto type = prime_parse_type();
             assert(TokenKind::Eq);
             stmt = std::make_unique<LetStmt>(ident, type, prime_parse_expr());
         } else if (tok.is(TokenKind::Eq)) {
@@ -571,6 +565,11 @@ WhileExpr Parser::parse_while_expr() {
     return WhileExpr(std::move(expr), std::move(block));
 }
 
+Type Parser::prime_parse_type() {
+    next_token();
+    return parse_type();
+}
+
 Type Parser::parse_type() {
     Type t;
     if (tok.is(TokenKind::Identifier)) {
@@ -617,8 +616,7 @@ Type Parser::parse_type() {
             t = PointerType(t);
         }
     } else if (tok.is(TokenKind::LBracket)) {
-        next_token();
-        auto array_type = parse_type();
+        auto array_type = prime_parse_type();
 
         if (tok.is(TokenKind::Semi)) {
             t = ArrayType(array_type, prime_parse_expr());

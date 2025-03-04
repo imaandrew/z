@@ -30,6 +30,7 @@ class Parser {
     IfExpr parse_if_expr();
     LoopExpr parse_loop_expr();
     WhileExpr parse_while_expr();
+    Type prime_parse_type();
     Type parse_type();
 
 public:
