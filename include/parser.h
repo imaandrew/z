@@ -11,7 +11,7 @@ class Parser {
     void next_token();
     void consume(TokenKind kind);
     bool kind(TokenKind kind);
-    void assert(TokenKind kind);
+    void assert(TokenKind kind) const;
     StructDecl parse_struct_decl();
     StructField parse_struct_field();
     EnumDecl parse_enum_decl();
@@ -25,7 +25,7 @@ class Parser {
     std::unique_ptr<Stmt> parse_stmt();
     std::unique_ptr<Expr> prime_parse_expr(int precedence=0);
     std::unique_ptr<Expr> parse_expr(int precedence=0);
-    std::unique_ptr<Expr> parse_num();
+    std::unique_ptr<Expr> parse_num() const;
     ForExpr parse_for_expr();
     IfExpr parse_if_expr();
     LoopExpr parse_loop_expr();

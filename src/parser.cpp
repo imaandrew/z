@@ -470,7 +470,7 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
     return lhs;
 }
 
-std::unique_ptr<Expr> Parser::parse_num() {
+std::unique_ptr<Expr> Parser::parse_num() const {
     auto val = tok.get_val();
     auto len = tok.get_len();
 
@@ -656,7 +656,7 @@ bool Parser::kind(TokenKind kind) {
     return tok.is(kind);
 }
 
-void Parser::assert(TokenKind kind) {
+void Parser::assert(TokenKind kind) const {
     if (!tok.is(kind))
         throw std::runtime_error(std::format("unexpected token {}, wanted {}", tok_kind_to_string(tok.get_kind()), tok_kind_to_string(kind)));
 }

@@ -35,7 +35,7 @@ char Lexer::next() {
     }
 }
 
-char Lexer::peek() {
+char Lexer::peek() const {
     try {
         return input.at(cur);
     } catch (std::out_of_range) {
@@ -57,7 +57,7 @@ void Lexer::skip_whitespace() {
     }
 }
 
-Token Lexer::make_token(TokenKind kind) {
+Token Lexer::make_token(TokenKind kind) const {
     return Token(kind, input.data() + start, cur - start);
 }
 

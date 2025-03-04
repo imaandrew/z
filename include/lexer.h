@@ -10,9 +10,9 @@ class Lexer {
     size_t line = 0;
     size_t col = 0;
     char next();
-    char peek();
+    char peek() const;
     void skip_whitespace();
-    Token make_token(TokenKind kind);
+    Token make_token(TokenKind kind) const;
 
 public:
     Lexer(std::vector<char>& input) : input(input) {};
