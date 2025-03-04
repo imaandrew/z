@@ -380,7 +380,7 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
                 if (kind(TokenKind::RBracket)) {
                     lhs.reset(new ArrayExpr(std::move(lhs)));
                 } else {
-                    lhs.reset(new ArrayExpr(std::move(lhs), prime_parse_expr()));
+                    lhs.reset(new ArrayExpr(std::move(lhs), parse_expr()));
                     assert(TokenKind::RBracket);
                 }
                 next_token();
@@ -571,6 +571,7 @@ Type Parser::parse_type() {
             t = PointerType(t);
         }
     } else if (tok.is(TokenKind::LBracket)) {
+        next_token();
         auto array_type = parse_type();
 
         if (tok.is(TokenKind::Semi)) {
@@ -578,6 +579,8 @@ Type Parser::parse_type() {
         } else {
             t = ArrayType(array_type);
         }
+        assert(TokenKind::RBracket);
+        next_token();
     } else if (tok.is(TokenKind::LParen)) {
         std::vector<Type> types;
 
