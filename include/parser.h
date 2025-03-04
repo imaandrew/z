@@ -16,6 +16,8 @@ class Parser {
     StructField parse_struct_field();
     EnumDecl parse_enum_decl();
     EnumField parse_enum_field();
+    ConstDecl parse_const_decl();
+    StaticDecl parse_static_decl();
     FuncDecl parse_func_decl();
     std::vector<Param> parse_func_params();
     Param parse_param_decl();

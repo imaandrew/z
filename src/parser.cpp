@@ -79,6 +79,12 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
             case TokenKind::KwEnum:
                 decls.push_back(std::make_unique<EnumDecl>(parse_enum_decl()));
                 break;
+            case TokenKind::KwConst:
+                decls.push_back(std::make_unique<ConstDecl>(parse_const_decl()));
+                break;
+            case TokenKind::KwStatic:
+                decls.push_back(std::make_unique<StaticDecl>(parse_static_decl()));
+                break;
             case TokenKind::KwFn:
                 decls.push_back(std::make_unique<FuncDecl>(parse_func_decl()));
                 break;
@@ -168,6 +174,44 @@ EnumField Parser::parse_enum_field() {
     } else {
         return EnumField(ident);
     }
+}
+
+ConstDecl Parser::parse_const_decl() {
+    assert(TokenKind::KwConst);
+
+    consume(TokenKind::Identifier);
+    auto ident = Identifier(tok);
+
+    consume(TokenKind::Colon);
+    next_token();
+    auto type = parse_type();
+
+    assert(TokenKind::Eq);
+    auto expr = prime_parse_expr();
+
+    assert(TokenKind::Semi);
+    next_token();
+
+    return ConstDecl(ident, type, std::move(expr));
+}
+
+StaticDecl Parser::parse_static_decl() {
+    assert(TokenKind::KwStatic);
+
+    consume(TokenKind::Identifier);
+    auto ident = Identifier(tok);
+
+    consume(TokenKind::Colon);
+    next_token();
+    auto type = parse_type();
+
+    assert(TokenKind::Eq);
+    auto expr = prime_parse_expr();
+
+    assert(TokenKind::Semi);
+    next_token();
+
+    return StaticDecl(ident, type, std::move(expr));
 }
 
 FuncDecl Parser::parse_func_decl() {

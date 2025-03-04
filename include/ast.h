@@ -480,3 +480,37 @@ EnumDecl(Identifier ident, std::vector<EnumField> fields) : ident(ident), fields
             f.print(indent + 2);
     }
 };
+
+class ConstDecl : public Decl {
+    Identifier ident;
+    Type type;
+    std::unique_ptr<Expr> val;
+
+public:
+    ConstDecl(Identifier ident, Type type, std::unique_ptr<Expr> val) : ident(ident), type(type), val(std::move(val)) {};
+
+    void print(int indent) const override {
+        std::cout << std::string(indent, ' ') << "ConstDecl" << std::endl;
+        ident.print(indent + 2);
+        // print type
+        if (val)
+            val->print(indent + 2);
+    }
+};
+
+class StaticDecl : public Decl {
+    Identifier ident;
+    Type type;
+    std::unique_ptr<Expr> val;
+
+public:
+    StaticDecl(Identifier ident, Type type, std::unique_ptr<Expr> val) : ident(ident), type(type), val(std::move(val)) {};
+
+    void print(int indent) const override {
+        std::cout << std::string(indent, ' ') << "StaticDecl" << std::endl;
+        ident.print(indent + 2);
+        // print type
+        if (val)
+            val->print(indent + 2);
+    }
+};
