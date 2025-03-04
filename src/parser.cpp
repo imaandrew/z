@@ -52,6 +52,8 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
         case TokenKind::Slash:
         case TokenKind::Percent:
             return BinOpPrecedence::Multiplication;
+        case TokenKind::ColonColon:
+            return BinOpPrecedence::ScopeRes;
         case TokenKind::LParen:
         case TokenKind::LBracket:
         case TokenKind::LBrace:

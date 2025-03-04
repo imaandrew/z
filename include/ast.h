@@ -22,7 +22,8 @@ enum class BinOpPrecedence {
     Addition,
     Multiplication,
     Prefix,
-    Postfix
+    ScopeRes,
+    Postfix,
 };
 
 class Stmt {

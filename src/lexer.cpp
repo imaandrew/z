@@ -227,7 +227,13 @@ Token Lexer::lex_token() {
         }
         case ',': return make_token(TokenKind::Comma);
         case ';': return make_token(TokenKind::Semi);
-        case ':': return make_token(TokenKind::Colon);
+        case ':': {
+            if (peek() == ':') {
+                next();
+                return make_token(TokenKind::ColonColon);
+            }
+            return make_token(TokenKind::Colon);
+        }
         case '\0': return make_token(TokenKind::Eof);
         case '"': {
             while (peek() != '"') {
