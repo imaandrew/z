@@ -171,11 +171,14 @@ class Token {
     TokenKind kind;
     char* val;
     size_t len;
+    size_t pos;
+    size_t line;
+    size_t col;
 
 public:
     Token() = default;
-    Token(TokenKind kind, char* val, int len = 1)
-        : kind(kind), val(val), len(len) {}
+    Token(TokenKind kind, char* val, size_t pos, size_t line, size_t col, int len = 1)
+        : kind(kind), val(val), len(len), pos(pos), line(line), col(col) {}
 
     TokenKind get_kind() const { return kind; }
     char* get_val() const { return val; }
@@ -186,7 +189,7 @@ public:
     std::string to_string() const {
         if (auto str = TOKEN_STR.find(kind); str != TOKEN_STR.end()) {
             auto val_str = std::string(val, len);
-            return std::format("[{}, '{}', {}]", str->second, val_str, len);
+            return std::format("[{}:{} {}, '{}', {}]", line, col, str->second, val_str, len);
         }
 
         throw std::runtime_error("Cannot convert tokenkind to string");

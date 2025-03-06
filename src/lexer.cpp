@@ -47,8 +47,9 @@ void Lexer::skip_whitespace() {
     auto c = peek();
     while (true) {
         if (c == '\n') {
-            col = 0;
+            col = 1;
             line++;
+            line_start = cur + 1;
         }
         if (!std::isspace(static_cast<unsigned char>(c)))
             break;
@@ -58,7 +59,7 @@ void Lexer::skip_whitespace() {
 }
 
 Token Lexer::make_token(TokenKind kind) const {
-    return Token(kind, input.data() + start, cur - start);
+    return Token(kind, input.data() + start, start, line, col, cur - start);
 }
 
 bool Lexer::at_end() {
@@ -67,6 +68,7 @@ bool Lexer::at_end() {
 
 Token Lexer::lex_token() {
     skip_whitespace();
+    col = cur - line_start + 1;
     start = cur;
 
     auto c = next();
@@ -245,7 +247,7 @@ Token Lexer::lex_token() {
                         next();
                 }
             }
-            auto t = Token(TokenKind::String, input.data() + start + 1, cur - start - 1);
+            auto t = Token(TokenKind::String, input.data() + start + 1, start, line, col, cur - start - 1);
             next();
             return t;
         }
