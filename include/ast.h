@@ -204,6 +204,10 @@ public:
         std::cout << std::string(indent, ' ') << "Identifier " << std::string(tok.get_val(), tok.get_len())
                   << std::endl;
     }
+
+    std::string to_string() const {
+        return std::string(tok.get_val(), tok.get_len());
+    }
 };
 
 class Block : public Stmt {
@@ -314,7 +318,7 @@ public:
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "LetStmt" << std::endl;
         ident.print(indent + 2);
-        if (type)
+        //if (type)
             //type.value()->print(indent + 2);
         if (val)
             val->print(indent + 2);
