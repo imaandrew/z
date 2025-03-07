@@ -237,17 +237,20 @@ public:
 
 class FuncDecl : public Decl {
     Identifier name;
+    std::optional<Identifier> impl_type;
     std::vector<Param> params;
     std::optional<Type> ret;
     Block body;
 
 public:
-    FuncDecl(Identifier name, std::vector<Param> params, std::optional<Type> ret, Block body)
-        : name(name), params(std::move(params)), ret(ret), body(std::move(body)) {};
+    FuncDecl(Identifier name, std::optional<Identifier> impl_type, std::vector<Param> params, std::optional<Type> ret, Block body)
+        : name(name), impl_type(impl_type), params(std::move(params)), ret(ret), body(std::move(body)) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "FuncDecl" << std::endl;
         name.print(indent + 2);
+        if (impl_type)
+            impl_type->print(indent + 2);
         body.print(indent + 2);
     }
 };

@@ -4,6 +4,7 @@
 #include "type.h"
 #include <charconv>
 #include <exception>
+#include <optional>
 #include <stdexcept>
 
 BinOpPrecedence get_op_precedence(TokenKind kind) {
@@ -216,6 +217,14 @@ FuncDecl Parser::parse_func_decl() {
 
     consume(TokenKind::Identifier);
     auto func_ident = Identifier(tok);
+    
+    std::optional<Identifier> impl_type;
+    if (kind(TokenKind::ColonColon)) {
+        consume(TokenKind::Identifier);
+
+        impl_type.emplace(Identifier(tok));
+        next_token();
+    }
 
     auto params = parse_func_params();
 
@@ -225,11 +234,11 @@ FuncDecl Parser::parse_func_decl() {
     }
 
     auto block = parse_block();
-    return FuncDecl(func_ident, params, ret, std::move(block));
+    return FuncDecl(func_ident, impl_type, params, ret, std::move(block));
 }
 
 std::vector<Param> Parser::parse_func_params() {
-    consume(TokenKind::LParen);
+    assert(TokenKind::LParen);
     
     std::vector<Param> params;
     while (!kind(TokenKind::RParen)) {
