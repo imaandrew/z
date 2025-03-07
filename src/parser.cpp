@@ -347,9 +347,9 @@ std::unique_ptr<Expr> Parser::parse_expr(int precedence) {
             next_token();
             break;
         case TokenKind::String: {
-            auto t = tok;
+            lhs = std::make_unique<StringExpr>(tok.get_val(), tok.get_len());
             next_token();
-            return std::make_unique<StringExpr>(t.get_val(), t.get_len());
+            break;
         }
         case TokenKind::PlusPlus:
         case TokenKind::MinusMinus:
