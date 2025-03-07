@@ -39,7 +39,7 @@ public:
 
 class ArrayType : public Type {
     Type type;
-    std::optional<std::unique_ptr<Expr>> size;
+    std::unique_ptr<Expr> size;
 
 public:
     ArrayType(Type type) : type(type) {};

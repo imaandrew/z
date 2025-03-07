@@ -548,9 +548,10 @@ IfExpr Parser::parse_if_expr() {
 LoopExpr Parser::parse_loop_expr() {
     assert(TokenKind::KwLoop);
 
-    std::optional<std::unique_ptr<Expr>> expr = std::nullopt;
+    std::unique_ptr<Expr> expr;
+    
     if (!kind(TokenKind::LBrace)) {
-        expr = std::make_optional(parse_expr());
+        expr = parse_expr();
     }
 
     auto block = parse_block(false);

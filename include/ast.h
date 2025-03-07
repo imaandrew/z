@@ -254,7 +254,7 @@ public:
 
 class BreakStmt : public Stmt {
     Token tok;
-    std::optional<std::unique_ptr<Expr>> expr;
+    std::unique_ptr<Expr> expr;
 
 public:
     BreakStmt(Token tok) : tok(tok) {};
@@ -263,7 +263,7 @@ public:
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "BreakStmt" << std::endl;
         if (expr)
-            expr->get()->print(indent + 2);
+            expr->print(indent + 2);
     }
 };
 
@@ -297,7 +297,7 @@ public:
 class LetStmt : public Stmt {
     Identifier ident;
     std::optional<Type> type;
-    std::optional<std::unique_ptr<Expr>> val;
+    std::unique_ptr<Expr> val;
 
 public:
     LetStmt(Identifier ident) : ident(ident) {};
@@ -314,12 +314,12 @@ public:
         if (type)
             //type.value()->print(indent + 2);
         if (val)
-            val.value()->print(indent + 2);
+            val->print(indent + 2);
     }
 };
 
 class ReturnStmt : public Stmt {
-    std::optional<std::unique_ptr<Expr>> expr;
+    std::unique_ptr<Expr> expr;
 
 public:
     ReturnStmt() {}
@@ -328,7 +328,7 @@ public:
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "ReturnStmt" << std::endl;
         if (expr)
-            expr->get()->print(indent + 2);
+            expr->print(indent + 2);
     }
 };
 
@@ -378,17 +378,17 @@ inline void ElseExpr::print(int indent) const {
 }
 
 class LoopExpr : public Expr {
-    std::optional<std::unique_ptr<Expr>> expr;
+    std::unique_ptr<Expr> expr;
     Block block;
 
 public:
-    LoopExpr(std::optional<std::unique_ptr<Expr>> expr, Block block)
+    LoopExpr(std::unique_ptr<Expr> expr, Block block)
         : expr(std::move(expr)), block(std::move(block)) {};
 
     void print(int indent) const override {
         std::cout << std::string(indent, ' ') << "LoopExpr" << std::endl;
-        if (expr.has_value()) {
-            expr->get()->print(indent + 2);
+        if (expr) {
+            expr->print(indent + 2);
         }
         block.print(indent + 2);
     }
