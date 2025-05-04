@@ -2,7 +2,6 @@
 #include "token.h"
 #include <cctype>
 #include <climits>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
@@ -28,23 +27,24 @@ const static std::unordered_map<std::string, TokenKind> KEYWORDS = {
 };
 
 char Lexer::next() {
-    try {
-        return input.at(cur++);
-    } catch (std::out_of_range) {
-        return '\0';
-    }
+    auto c = peek();
+    cur++;
+    
+    return c;
 }
 
 char Lexer::peek() const {
-    try {
-        return input.at(cur);
-    } catch (std::out_of_range) {
+    auto c = source.get_char(cur);
+
+    if (!c)
         return '\0';
-    }
+    
+    return c.value();
 }
 
 void Lexer::skip_whitespace() {
-    auto c = peek();
+    char c = peek();
+
     while (true) {
         if (c == '\n') {
             col = 1;
@@ -59,19 +59,20 @@ void Lexer::skip_whitespace() {
 }
 
 Token Lexer::make_token(TokenKind kind) const {
-    return Token(kind, input.data() + start, start, line, col, cur - start);
+    return Token(kind, source.get_char_ptr(start), start, line, col, cur - start);
 }
 
-bool Lexer::at_end() {
-    return cur >= input.size();
+bool Lexer::at_end() const {
+    return source.in_bounds(cur);
 }
 
 Token Lexer::lex_token() {
     skip_whitespace();
+
     col = cur - line_start + 1;
     start = cur;
 
-    auto c = next();
+    char c = next();
     switch (c) {
         case '(': return make_token(TokenKind::LParen);
         case ')': return make_token(TokenKind::RParen);
@@ -247,7 +248,7 @@ Token Lexer::lex_token() {
                         next();
                 }
             }
-            auto t = Token(TokenKind::String, input.data() + start + 1, start, line, col, cur - start - 1);
+            auto t = Token(TokenKind::String, source.get_char_ptr(start + 1), start, line, col, cur - start - 1);
             next();
             return t;
         }
@@ -260,7 +261,7 @@ Token Lexer::lex_token() {
                 }
 
                 auto len = cur - start;
-                auto literal = std::string(input.data() + start, len);
+                auto literal = std::string(source.get_char_ptr(start), len);
 
                 if (auto kind = KEYWORDS.find(literal); kind != KEYWORDS.end()) {
                     return make_token(kind->second);

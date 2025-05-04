@@ -1,10 +1,10 @@
 #pragma once
 
+#include "sourceman.h"
 #include "token.h"
-#include <vector>
 
 class Lexer {
-    std::vector<char>& input;
+    SourceManager& source;
     size_t start = 0;
     size_t cur = 0;
     size_t line = 1;
@@ -16,7 +16,7 @@ class Lexer {
     Token make_token(TokenKind kind) const;
 
 public:
-    Lexer(std::vector<char>& input) : input(input) {};
+    Lexer(SourceManager& source) : source(source) {};
     Token lex_token();
-    bool at_end();
+    bool at_end() const;
 };
