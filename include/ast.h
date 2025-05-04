@@ -1,4 +1,5 @@
 #pragma once
+
 #include "token.h"
 #include "type.h"
 #include <iostream>
@@ -26,10 +27,35 @@ enum class BinOpPrecedence {
     Postfix,
 };
 
-class Stmt {
+class ASTNode {
+    bool valid = true;
+public:
+    virtual ~ASTNode() = default;
+
+    inline bool is_valid() const {
+        return valid;
+    }
+
+    inline void mark_invalid() {
+        valid = false;
+    }
+
+    virtual void print(int indent=0) const = 0;
+    //virtual void dump(std::ostream& = std::cout, int indent=0) const;
+};
+
+class Stmt : public ASTNode {
 public:
     virtual ~Stmt() = default;
-    virtual void print(int indent) const = 0;
+};
+
+class InvalidStmt : public Stmt {
+public:
+    InvalidStmt() { mark_invalid(); };
+    
+    void print(int indent) const override {
+        std::cout << "InvalidStmt" << std::endl;
+    }
 };
 
 class Expr : public Stmt {
@@ -233,10 +259,9 @@ public:
     Param(Identifier name, Type type) : name(name), type(type) {};
 };
 
-class Decl {
+class Decl : public ASTNode {
 public:
     virtual ~Decl() = default;
-    virtual void print(int indent) const = 0;
 };
 
 class FuncDecl : public Decl {
@@ -342,11 +367,12 @@ public:
 class IfExpr;
 
 class ElseExpr : public Expr {
-    std::variant<std::unique_ptr<IfExpr>, Block> expr;
+    std::variant<std::unique_ptr<Expr>, Block> expr;
 
 public:
-    ElseExpr(std::unique_ptr<IfExpr> expr) : expr(std::move(expr)) {};
-    ElseExpr(Block block) : expr(std::move(block)) {};
+    ElseExpr(std::unique_ptr<Expr> if_expr);
+    ElseExpr(Block block);
+    ~ElseExpr();
 
     void print(int indent) const override;
 };
@@ -374,10 +400,14 @@ public:
     }
 };
 
+inline ElseExpr::ElseExpr(std::unique_ptr<Expr> if_expr) : expr(std::move(if_expr)) {};
+inline ElseExpr::ElseExpr(Block block) : expr(std::move(block)) {};
+inline ElseExpr::~ElseExpr() = default;
+
 inline void ElseExpr::print(int indent) const {
     std::cout << std::string(indent, ' ') << "ElseExpr" << std::endl;
     
-    if (auto e = std::get_if<std::unique_ptr<IfExpr>>(&expr)) {
+    if (auto e = std::get_if<std::unique_ptr<Expr>>(&expr)) {
         e->get()->print(indent + 2);
     } else if (auto b = std::get_if<Block>(&expr)) {
         b->print(indent + 2);

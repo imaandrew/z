@@ -1,6 +1,5 @@
 #pragma once
 
-#include "ast.h"
 #include <vector>
 #include <memory>
 
@@ -42,8 +41,9 @@ class ArrayType : public Type {
     std::unique_ptr<Expr> size;
 
 public:
-    ArrayType(Type type) : type(type) {};
-    ArrayType(Type type, std::unique_ptr<Expr> size) : type(type), size(std::move(size)) {};
+    ArrayType(Type type);
+    ArrayType(Type type, std::unique_ptr<Expr> size);
+    ~ArrayType();
 };
 
 class TupleType : public Type {
@@ -57,5 +57,6 @@ class UserDefinedType : public Type {
     std::unique_ptr<Identifier> ident;
 
 public:
-    UserDefinedType(std::unique_ptr<Identifier> ident) : ident(std::move(ident)) {};
+    UserDefinedType(std::unique_ptr<Identifier> ident);
+    ~UserDefinedType();
 };

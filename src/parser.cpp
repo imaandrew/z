@@ -7,6 +7,12 @@
 #include <optional>
 #include <stdexcept>
 
+ArrayType::ArrayType(Type type) : type(type), size() {};
+ArrayType::ArrayType(Type type, std::unique_ptr<Expr> size) : type(type), size(std::move(size)) {};
+ArrayType::~ArrayType() = default;
+UserDefinedType::UserDefinedType(std::unique_ptr<Identifier> ident) : ident(std::move(ident)) {};
+UserDefinedType::~UserDefinedType() = default;
+
 BinOpPrecedence get_op_precedence(TokenKind kind) {
     switch (kind) {
         case TokenKind::PlusEq:
