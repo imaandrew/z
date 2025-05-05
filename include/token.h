@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <format>
 #include <string>
 #include <unordered_map>
@@ -169,7 +170,7 @@ inline std::string tok_kind_to_string(TokenKind kind) {
 
 class Token {
     TokenKind kind;
-    char* val;
+    const char* val;
     size_t len;
     size_t pos;
     size_t line;
@@ -177,12 +178,16 @@ class Token {
 
 public:
     Token() = default;
-    Token(TokenKind kind, char* val, size_t pos, size_t line, size_t col, int len = 1)
+    Token(TokenKind kind, const char* val, size_t pos, size_t line, size_t col,
+          int len = 1)
         : kind(kind), val(val), len(len), pos(pos), line(line), col(col) {}
 
     TokenKind get_kind() const { return kind; }
-    char* get_val() const { return val; }
+    const char* get_val() const { return val; }
+    size_t get_line() const { return line; }
+    size_t get_col() const { return col; }
     size_t get_len() const { return len; }
+    size_t get_pos() const { return pos; }
 
     bool is(TokenKind kind) const { return kind == this->kind; }
 
