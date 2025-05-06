@@ -1,12 +1,22 @@
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <utility>
+#include <vector>
 
 class Expr;
 class Identifier;
 
-class Type {};
+class Type {
+public:
+    virtual ~Type() = default;
+    Type() = default;
+
+    Type(const Type&) = delete;
+    Type& operator=(const Type&) = delete;
+    Type(Type&&) = delete;
+    Type& operator=(Type&&) = delete;
+};
 
 class IntegerType : public Type {
     int size;
@@ -20,7 +30,7 @@ class FloatType : public Type {
     int size;
 
 public:
-    FloatType(int size) : size(size) {};
+    explicit FloatType(int size) : size(size) {};
 };
 
 class BooleanType : public Type {};
@@ -30,33 +40,43 @@ class StringType : public Type {};
 class CharType : public Type {};
 
 class PointerType : public Type {
-    Type type;
+    std::unique_ptr<Type> type;
 
 public:
-    PointerType(Type type) : type(type) {};
+    explicit PointerType(std::unique_ptr<Type> type) : type(std::move(type)) {};
 };
 
 class ArrayType : public Type {
-    Type type;
+    std::unique_ptr<Type> type;
     std::unique_ptr<Expr> size;
 
 public:
-    ArrayType(Type type);
-    ArrayType(Type type, std::unique_ptr<Expr> size);
-    ~ArrayType();
+    explicit ArrayType(std::unique_ptr<Type> type);
+    ArrayType(std::unique_ptr<Type> type, std::unique_ptr<Expr> size);
+    ~ArrayType() override;
+
+    ArrayType(const ArrayType&) = delete;
+    ArrayType& operator=(const ArrayType&) = delete;
+    ArrayType(ArrayType&&) = delete;
+    ArrayType& operator=(ArrayType&&) = delete;
 };
 
 class TupleType : public Type {
     std::vector<Type> types;
 
 public:
-    TupleType(std::vector<Type> types) : types(types) {};
+    explicit TupleType(std::vector<Type> types) : types(std::move(types)) {};
 };
 
 class UserDefinedType : public Type {
     std::unique_ptr<Identifier> ident;
 
 public:
-    UserDefinedType(std::unique_ptr<Identifier> ident);
-    ~UserDefinedType();
+    explicit UserDefinedType(std::unique_ptr<Identifier> ident);
+    ~UserDefinedType() override;
+
+    UserDefinedType(const UserDefinedType&) = delete;
+    UserDefinedType& operator=(const UserDefinedType&) = delete;
+    UserDefinedType(UserDefinedType&&) = delete;
+    UserDefinedType& operator=(UserDefinedType&&) = delete;
 };

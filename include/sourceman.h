@@ -5,26 +5,30 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 class SourceManager {
     std::vector<char> input;
     std::optional<std::filesystem::path> path;
 
-    SourceManager(std::filesystem::path& path, std::vector<char> input) : path(path), input(input) {};
-    SourceManager(std::vector<char> input) : input(input), path(std::nullopt) {};
+    SourceManager(std::filesystem::path& path, std::vector<char> input)
+        : path(path), input(std::move(input)) {};
+    explicit SourceManager(std::vector<char> input)
+        : input(std::move(input)), path(std::nullopt) {};
+
 public:
     static SourceManager Create(std::vector<char> input) {
-        return SourceManager(input);
+        return SourceManager(std::move(input));
     }
 
-    static SourceManager Create(const char* path) {
-        auto p = std::filesystem::path(path);
-        if (!std::filesystem::exists(p)) {
+    static SourceManager Create(const char* path_) {
+        auto path = std::filesystem::path(path_);
+        if (!std::filesystem::exists(path)) {
             // err
         }
 
-        auto file = std::ifstream(p, std::ios::ate);
+        auto file = std::ifstream(path, std::ios::ate);
         if (!file.is_open()) {
             // err
         }
@@ -32,14 +36,14 @@ public:
         auto size = file.tellg();
         file.seekg(0);
         auto input = std::vector<char>(size);
-        if (!file.read(&input[0], size)) {
+        if (!file.read(input.data(), size)) {
             // err
         }
 
-        return SourceManager(p, input);
+        return SourceManager(path, input);
     }
 
-    inline std::optional<char> get_char(std::size_t index) const {
+    [[nodiscard]] std::optional<char> get_char(std::size_t index) const {
         if (in_bounds(index)) {
             return std::nullopt;
         }
@@ -47,7 +51,7 @@ public:
         return input[index];
     }
 
-    inline std::optional<std::string> get_line(std::size_t index) {
+    [[nodiscard]] std::optional<std::string> get_line(std::size_t index) {
         if (in_bounds(index)) {
             return std::nullopt;
         }
@@ -61,21 +65,21 @@ public:
         while (!in_bounds(end) && input[end] != '\n')
             end++;
 
-        return std::string(input.data() + start, input.data() + end);
+        return std::string(&input[start], end - start);
     }
 
-    inline bool in_bounds(std::size_t index) const {
+    [[nodiscard]] bool in_bounds(std::size_t index) const {
         return index >= input.size();
     }
 
-    inline const char* get_char_ptr(std::size_t index) const {
+    [[nodiscard]] const char* get_char_ptr(std::size_t index) const {
         if (in_bounds(index))
             return nullptr;
 
         return &input[index];
     }
 
-    inline const std::string get_path() const {
+    [[nodiscard]] std::string get_path() const {
         if (path) {
             return path->string();
         }

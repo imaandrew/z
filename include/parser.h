@@ -9,17 +9,17 @@
 using StmtResult = Result<std::unique_ptr<Stmt>>;
 using ExprResult = Result<std::unique_ptr<Expr>>;
 using DeclResult = Result<std::unique_ptr<Decl>>;
-using TypeResult = Result<Type>;
+using TypeResult = Result<std::unique_ptr<Type>>;
 
 inline StmtResult StmtError() { return StmtResult(false); }
 inline ExprResult ExprError() { return ExprResult(false); }
 inline DeclResult DeclError() { return DeclResult(false); }
 inline TypeResult TypeError() { return TypeResult(false); }
 
-enum class SyncFlags : unsigned char {
+enum class SyncFlags : std::uint8_t {
     None = 0,
-    StopAtSemi = 1 << 0,
-    BreakBefore = 1 << 1,
+    StopAtSemi = 1U << 0U,
+    BreakBefore = 1U << 1U,
 };
 
 inline SyncFlags operator|(const SyncFlags& lhs, const SyncFlags& rhs) {
@@ -33,19 +33,19 @@ inline SyncFlags operator&(const SyncFlags& lhs, const SyncFlags& rhs) {
 }
 
 class Parser {
-    Lexer& lexer;
+    Lexer lexer;
     DiagnosticEmitter diag;
-    Token tok;
-    Token prev_tok;
+    Token tok{};
+    Token prev_tok{};
     bool required_semi = true;
 
     void next_token();
     bool consume(TokenKind kind);
     bool kind(TokenKind kind);
     bool assert(TokenKind kind);
-    bool sync(TokenKind kind, SyncFlags = static_cast<SyncFlags>(0));
-    bool sync(std::vector<TokenKind> kinds,
-              SyncFlags = static_cast<SyncFlags>(0));
+    bool sync(TokenKind kind, SyncFlags flags = static_cast<SyncFlags>(0));
+    bool sync(std::vector<TokenKind> const& kinds,
+              SyncFlags flags = static_cast<SyncFlags>(0));
     void recover_decl();
     void recover_stmt();
     bool can_be_expr();
@@ -56,13 +56,13 @@ class Parser {
     DeclResult parse_const_decl();
     DeclResult parse_static_decl();
     DeclResult parse_func_decl();
-    Result<std::vector<Param>> parse_func_params();
-    Result<Param> parse_param_decl();
-    Result<Block> parse_block(bool implicit_return = true);
+    Result<std::vector<std::unique_ptr<Expr>>> parse_func_params();
+    ExprResult parse_param_decl();
+    Result<std::unique_ptr<Block>> parse_block(bool implicit_return = true);
     StmtResult parse_stmt();
     ExprResult prime_parse_expr(int precedence = 0);
     ExprResult parse_expr(int precedence = 0);
-    std::unique_ptr<Expr> parse_num() const;
+    [[nodiscard]] std::unique_ptr<Expr> parse_num() const;
     ExprResult parse_for_expr();
     ExprResult parse_if_expr();
     ExprResult parse_loop_expr();
@@ -71,6 +71,6 @@ class Parser {
     TypeResult parse_type();
 
 public:
-    Parser(Lexer& lexer, SourceManager& sm) : lexer(lexer), diag(sm) {};
+    Parser(Lexer& lexer, SourceManager* source) : lexer(lexer), diag(source) {};
     std::vector<std::unique_ptr<Decl>> parse();
 };

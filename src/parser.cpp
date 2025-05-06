@@ -4,15 +4,22 @@
 #include "token.h"
 #include "type.h"
 #include <charconv>
-#include <exception>
+#include <cmath>
+#include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
-ArrayType::ArrayType(Type type) : type(type), size() {};
-ArrayType::ArrayType(Type type, std::unique_ptr<Expr> size) : type(type), size(std::move(size)) {};
+ArrayType::ArrayType(std::unique_ptr<Type> type) : type(std::move(type)) {};
+ArrayType::ArrayType(std::unique_ptr<Type> type, std::unique_ptr<Expr> size)
+    : type(std::move(type)), size(std::move(size)) {};
 ArrayType::~ArrayType() = default;
 UserDefinedType::UserDefinedType(std::unique_ptr<Identifier> ident) : ident(std::move(ident)) {};
 UserDefinedType::~UserDefinedType() = default;
+
+namespace {
 
 BinOpPrecedence get_op_precedence(TokenKind kind) {
     switch (kind) {
@@ -73,28 +80,30 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
     }
 }
 
+} // namespace
+
 std::vector<std::unique_ptr<Decl>> Parser::parse() {
     next_token();
 
     std::vector<std::unique_ptr<Decl>> decls;
 
-    DeclResult d(false);
-    while (!lexer.at_end()) {
+    DeclResult decl(false);
+    while (!tok.is(TokenKind::Eof)) {
         switch (tok.get_kind()) {
             case TokenKind::KwStruct:
-                d = parse_struct_decl();
+                decl = parse_struct_decl();
                 break;
             case TokenKind::KwEnum:
-                d = parse_enum_decl();
+                decl = parse_enum_decl();
                 break;
             case TokenKind::KwConst:
-                d = parse_const_decl();
+                decl = parse_const_decl();
                 break;
             case TokenKind::KwStatic:
-                d = parse_static_decl();
+                decl = parse_static_decl();
                 break;
             case TokenKind::KwFn:
-                d = parse_func_decl();
+                decl = parse_func_decl();
                 break;
             default:
                 diag.emit(tok, ErrorKind::ExpectedDecl,
@@ -103,8 +112,8 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
                 break;
             }
 
-            if (d.is_valid()) {
-                decls.push_back(d.take());
+            if (decl.is_valid()) {
+                decls.push_back(decl.take());
             } else {
                 recover_decl();
             }
@@ -120,7 +129,7 @@ DeclResult Parser::parse_struct_decl() {
         return DeclError();
     }
 
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::LBrace)) {
         return DeclError();
@@ -144,14 +153,15 @@ DeclResult Parser::parse_struct_decl() {
 
     next_token();
 
-    return DeclResult(std::make_unique<StructDecl>(ident, std::move(fields)));
+    return DeclResult(
+        std::make_unique<StructDecl>(std::move(ident), std::move(fields)));
 }
 
 Result<StructField> Parser::parse_struct_field() {
     if (!assert(TokenKind::Identifier)) {
         return Result<StructField>(false);
     }
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::Colon)) {
         return Result<StructField>(false);
@@ -162,7 +172,7 @@ Result<StructField> Parser::parse_struct_field() {
         return Result<StructField>(false);
     }
 
-    return StructField(ident, type.take());
+    return Result(StructField(std::move(ident), type.take()));
 }
 
 DeclResult Parser::parse_enum_decl() {
@@ -172,7 +182,7 @@ DeclResult Parser::parse_enum_decl() {
         return DeclError();
     }
 
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::LBrace)) {
         return DeclError();
@@ -194,7 +204,8 @@ DeclResult Parser::parse_enum_decl() {
 
     next_token();
 
-    return DeclResult(std::make_unique<EnumDecl>(ident, std::move(fields)));
+    return DeclResult(
+        std::make_unique<EnumDecl>(std::move(ident), std::move(fields)));
 }
 
 Result<EnumField> Parser::parse_enum_field() {
@@ -202,10 +213,10 @@ Result<EnumField> Parser::parse_enum_field() {
         return Result<EnumField>(false);
     }
 
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (kind(TokenKind::LParen)) {
-        std::vector<Type> types;
+        std::vector<std::unique_ptr<Type>> types;
         while (!consume(TokenKind::RParen)) {
             auto type = parse_type();
 
@@ -220,10 +231,10 @@ Result<EnumField> Parser::parse_enum_field() {
             }
         }
 
-        return EnumField(ident, types);
-    } else {
-        return EnumField(ident);
+        return Result(EnumField(std::move(ident), std::move(types)));
     }
+
+    return Result(EnumField(std::move(ident)));
 }
 
 DeclResult Parser::parse_const_decl() {
@@ -232,7 +243,7 @@ DeclResult Parser::parse_const_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::Colon))
         return DeclError();
@@ -251,7 +262,7 @@ DeclResult Parser::parse_const_decl() {
     if (assert(TokenKind::Semi))
         next_token();
 
-    return DeclResult(std::make_unique<ConstDecl>(ident, type.take(),
+    return DeclResult(std::make_unique<ConstDecl>(std::move(ident), type.take(),
                                                   std::move(expr.take())));
 }
 
@@ -261,7 +272,7 @@ DeclResult Parser::parse_static_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::Colon))
         return DeclError();
@@ -280,8 +291,8 @@ DeclResult Parser::parse_static_decl() {
     if (assert(TokenKind::Semi))
         next_token();
 
-    return DeclResult(std::make_unique<StaticDecl>(ident, type.take(),
-                                                   std::move(expr.take())));
+    return DeclResult(std::make_unique<StaticDecl>(
+        std::move(ident), type.take(), std::move(expr.take())));
 }
 
 DeclResult Parser::parse_func_decl() {
@@ -290,14 +301,14 @@ DeclResult Parser::parse_func_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    auto func_ident = Identifier(tok);
-    
-    std::optional<Identifier> impl_type;
+    auto func_ident = std::make_unique<Identifier>(tok);
+
+    std::optional<std::unique_ptr<Identifier>> impl_type;
     if (kind(TokenKind::ColonColon)) {
         if (!consume(TokenKind::Identifier))
             return DeclError();
 
-        impl_type.emplace(Identifier(tok));
+        impl_type.emplace(std::make_unique<Identifier>(tok));
         next_token();
     }
 
@@ -305,7 +316,7 @@ DeclResult Parser::parse_func_decl() {
     if (!params.is_valid())
         return DeclError();
 
-    std::optional<Type> ret; 
+    std::optional<std::unique_ptr<Type>> ret;
     if (tok.is(TokenKind::Arrow)) {
         auto type = prime_parse_type();
         if (!type.is_valid())
@@ -319,48 +330,50 @@ DeclResult Parser::parse_func_decl() {
         return DeclError();
 
     return DeclResult(std::make_unique<FuncDecl>(
-        func_ident, impl_type, params.take(), ret, std::move(block.take())));
+        std::move(func_ident), std::move(impl_type), std::move(params.take()),
+        std::move(ret), std::move(block.take())));
 }
 
-Result<std::vector<Param>> Parser::parse_func_params() {
+Result<std::vector<std::unique_ptr<Expr>>> Parser::parse_func_params() {
     assert(TokenKind::LParen);
-    
-    std::vector<Param> params;
+
+    std::vector<std::unique_ptr<Expr>> params;
     next_token();
     while (!tok.is(TokenKind::RParen)) {
         auto param_decl = parse_param_decl();
         if (!param_decl.is_valid())
-            return Result<std::vector<Param>>(false);
+            return Result<std::vector<std::unique_ptr<Expr>>>(false);
 
         params.push_back(param_decl.take());
 
         if (!tok.is(TokenKind::RParen) && !assert(TokenKind::Comma)) {
-            return Result<std::vector<Param>>(false);
+            return Result<std::vector<std::unique_ptr<Expr>>>(false);
         }
     }
 
     next_token();
 
-    return params;
+    return Result(std::move(params));
 }
 
-Result<Param> Parser::parse_param_decl() {
+ExprResult Parser::parse_param_decl() {
     if (!assert(TokenKind::Identifier))
-        return Result<Param>(false);
+        return ExprError();
 
-    auto name = Identifier(tok);
+    auto name = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::Colon))
-        return Result<Param>(false);
+        return ExprError();
 
     auto type = prime_parse_type();
     if (!type.is_valid())
-        return Result<Param>(false);
+        return ExprError();
 
-    return Param(name, type.take());
+    return ExprResult(
+        std::make_unique<Param>(std::move(name), std::move(type.take())));
 }
 
-Result<Block> Parser::parse_block(bool implicit_return) {
+Result<std::unique_ptr<Block>> Parser::parse_block(bool implicit_return) {
     assert(TokenKind::LBrace);
     next_token();
 
@@ -393,7 +406,7 @@ Result<Block> Parser::parse_block(bool implicit_return) {
 
     next_token();
 
-    return Result(Block(std::move(stmts)));
+    return Result(std::make_unique<Block>(std::move(stmts)));
 }
 
 StmtResult Parser::parse_stmt() {
@@ -417,7 +430,7 @@ StmtResult Parser::parse_stmt() {
         if (!consume(TokenKind::Identifier))
             return StmtError();
 
-        auto ident = Identifier(tok);
+        auto ident = std::make_unique<Identifier>(tok);
 
         if (kind(TokenKind::Colon)) {
             auto type = prime_parse_type();
@@ -431,37 +444,42 @@ StmtResult Parser::parse_stmt() {
             if (!expr.is_valid())
                 return StmtError();
 
-            stmt = std::make_unique<LetStmt>(ident, type.take(), expr.take());
+            stmt = std::make_unique<LetStmt>(std::move(ident), type.take(),
+                                             expr.take());
         } else if (tok.is(TokenKind::Eq)) {
             auto expr = prime_parse_expr();
             if (!expr.is_valid())
                 return StmtError();
 
-            stmt = std::make_unique<LetStmt>(ident, expr.take());
+            stmt = std::make_unique<LetStmt>(std::move(ident), expr.take());
         } else {
-            stmt = std::make_unique<LetStmt>(ident);
+            stmt = std::make_unique<LetStmt>(std::move(ident));
         }
     } else if (tok.is(TokenKind::KwReturn)) {
-        try {
+        next_token();
+
+        if (can_be_expr()) {
             auto expr = prime_parse_expr();
             if (!expr.is_valid())
                 return StmtError();
 
             stmt = std::make_unique<ReturnStmt>(expr.take());
-        } catch (std::exception) {
+        } else {
             stmt = std::make_unique<ReturnStmt>();
         }
     } else {
-        auto x = tok.is(TokenKind::KwIf) || tok.is(TokenKind::KwFor) || tok.is(TokenKind::KwLoop) || tok.is(TokenKind::KwWhile);
+        auto expr_no_semi =
+            tok.is(TokenKind::KwIf) || tok.is(TokenKind::KwFor) ||
+            tok.is(TokenKind::KwLoop) || tok.is(TokenKind::KwWhile);
         auto expr = parse_expr();
         if (!expr.is_valid())
             return StmtError();
 
         stmt = expr.take();
-        required_semi = !x;
+        required_semi = !expr_no_semi;
     }
     
-    return stmt;
+    return Result(std::move(stmt));
 }
 
 ExprResult Parser::prime_parse_expr(int precedence) {
@@ -490,13 +508,13 @@ ExprResult Parser::parse_expr(int precedence) {
         case TokenKind::LogicalNot:
         case TokenKind::Not:
         case TokenKind::Minus: {
-            auto t = tok;
+            auto prefix_tok = tok;
             auto expr =
                 prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix));
             if (!expr.is_valid())
                 return ExprError();
 
-            lhs = std::make_unique<PrefixExpr>(t, expr.take());
+            lhs = std::make_unique<PrefixExpr>(prefix_tok, expr.take());
             break;
         }
         case TokenKind::LParen: {
@@ -529,7 +547,7 @@ ExprResult Parser::parse_expr(int precedence) {
             }
 
             next_token();
-            lhs.reset(new ArrayInitExpr(std::move(vals)));
+            lhs = std::make_unique<ArrayInitExpr>(std::move(vals));
             break;
         }
         case TokenKind::KwFor:
@@ -541,7 +559,6 @@ ExprResult Parser::parse_expr(int precedence) {
         case TokenKind::KwWhile:
             return parse_while_expr();
         default:
-            // TODO: emit error
             return ExprError();
     }
 
@@ -549,11 +566,11 @@ ExprResult Parser::parse_expr(int precedence) {
         switch (tok.get_kind()) {
             case TokenKind::PlusPlus:
             case TokenKind::MinusMinus:
-                lhs.reset(new PostfixExpr(tok, std::move(lhs)));
+                lhs = std::make_unique<PostfixExpr>(tok, std::move(lhs));
                 next_token();
                 break;
             case TokenKind::Question: {
-                auto t = tok;
+                auto operator_tok = tok;
 
                 auto then_expr = prime_parse_expr();
                 if (!then_expr.is_valid())
@@ -566,8 +583,9 @@ ExprResult Parser::parse_expr(int precedence) {
                 if (!else_expr.is_valid())
                     return ExprError();
 
-                lhs.reset(new TernaryExpr(t, std::move(lhs), then_expr.take(),
-                                          else_expr.take()));
+                lhs = std::make_unique<TernaryExpr>(
+                    operator_tok, std::move(lhs), then_expr.take(),
+                    else_expr.take());
                 break;
             }
             case TokenKind::LParen: {
@@ -588,18 +606,20 @@ ExprResult Parser::parse_expr(int precedence) {
                 }
 
                 next_token();
-                lhs.reset(new CallExpr(std::move(lhs), std::move(args)));
+                lhs =
+                    std::make_unique<CallExpr>(std::move(lhs), std::move(args));
                 break;
             }
             case TokenKind::LBracket:
                 if (kind(TokenKind::RBracket)) {
-                    lhs.reset(new ArrayExpr(std::move(lhs)));
+                    lhs = std::make_unique<ArrayExpr>(std::move(lhs));
                 } else {
                     auto expr = parse_expr();
                     if (!expr.is_valid())
                         return ExprError();
 
-                    lhs.reset(new ArrayExpr(std::move(lhs), expr.take()));
+                    lhs = std::make_unique<ArrayExpr>(std::move(lhs),
+                                                      expr.take());
                     if (!assert(TokenKind::RBracket))
                         return ExprError();
                 }
@@ -623,7 +643,8 @@ ExprResult Parser::parse_expr(int precedence) {
                 }
 
                 next_token();
-                lhs.reset(new StructInitExpr(std::move(lhs), std::move(vals)));
+                lhs = std::make_unique<StructInitExpr>(std::move(lhs),
+                                                       std::move(vals));
                 break;
             }
             case TokenKind::PlusEq:
@@ -638,46 +659,49 @@ ExprResult Parser::parse_expr(int precedence) {
             case TokenKind::ShrEq:
             case TokenKind::Eq:
             case TokenKind::Colon: {
-                auto t = tok;
+                auto operator_tok = tok;
                 auto expr = prime_parse_expr(
                     static_cast<int>(get_op_precedence(tok.get_kind())) - 1);
                 if (!expr.is_valid())
                     return ExprError();
 
-                lhs.reset(new BinaryExpr(t, std::move(lhs), expr.take()));
+                lhs = std::make_unique<BinaryExpr>(operator_tok, std::move(lhs),
+                                                   expr.take());
                 break;
             }
-            default:
+            default: {
                 auto prec = static_cast<int>(get_op_precedence(tok.get_kind()));
                 if (prec == 0)
                     throw std::runtime_error("invalid operator");
 
-                auto t = tok;
+                auto operator_tok = tok;
                 auto expr = prime_parse_expr(prec);
                 if (!expr.is_valid())
                     return ExprError();
 
-                lhs.reset(new BinaryExpr(t, std::move(lhs), expr.take()));
+                lhs = std::make_unique<BinaryExpr>(operator_tok, std::move(lhs),
+                                                   expr.take());
                 break;
+            }
         }
     }
-    return lhs;
+    return Result(std::move(lhs));
 }
 
 std::unique_ptr<Expr> Parser::parse_num() const {
-    auto val = tok.get_val();
+    auto val = std::span(tok.get_val(), tok.get_len());
     auto len = tok.get_len();
 
     for (int i = 0; i < len; i++) {
         if (val[i] == '.') {
-            double num;
-            std::from_chars(val, val + len, num);
+            double num = NAN;
+            std::from_chars(val.data(), val.data() + val.size_bytes(), num);
             return std::make_unique<FloatExpr>(tok, num);
         }
     }
 
     auto base = 10;
-    if (len >= 3 && *val == '0') {
+    if (len >= 3 && val.front() == '0') {
         switch (val[1]) {
             case 'b':
             case 'B':
@@ -691,14 +715,16 @@ std::unique_ptr<Expr> Parser::parse_num() const {
             case 'X':
                 base = 16;
                 break;
+            default:
+                base = 10;
         }
     }
-    
-    long long num;
+
+    long long num = 0;
     if (base != 10) {
-        std::from_chars(val + 2, val + len, num, base);
+        std::from_chars(val.data() + 2, val.data() + val.size(), num, base);
     } else {
-        std::from_chars(val, val + len, num);
+        std::from_chars(val.data(), val.data() + val.size(), num);
     }
 
     return std::make_unique<IntExpr>(tok, num);
@@ -710,7 +736,7 @@ ExprResult Parser::parse_for_expr() {
     if (!consume(TokenKind::Identifier))
         return ExprError();
 
-    auto ident = Identifier(tok);
+    auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::KwIn))
         return ExprError();
@@ -723,8 +749,8 @@ ExprResult Parser::parse_for_expr() {
     if (!block.is_valid())
         return ExprError();
 
-    return ExprResult(
-        std::make_unique<ForExpr>(ident, expr.take(), block.take()));
+    return ExprResult(std::make_unique<ForExpr>(std::move(ident), expr.take(),
+                                                std::move(block.take())));
 }
 
 ExprResult Parser::parse_if_expr() {
@@ -799,49 +825,49 @@ TypeResult Parser::prime_parse_type() {
 }
 
 TypeResult Parser::parse_type() {
-    Type t;
+    std::unique_ptr<Type> type;
     if (tok.is(TokenKind::Identifier)) {
         auto val_str = std::string(tok.get_val(), tok.get_len());
-        auto v = tok.get_val();
 
-        if (v[0] == 'u') {
+        if (val_str.at(0) == 'u') {
             if (val_str == "u8") {
-                t = IntegerType(1, false);
+                type = std::make_unique<IntegerType>(1, false);
             } else if (val_str == "u16") {
-                t = IntegerType(2, false);
+                type = std::make_unique<IntegerType>(2, false);
             } else if (val_str == "u32") {
-                t = IntegerType(3, false);
+                type = std::make_unique<IntegerType>(3, false);
             } else if (val_str == "u64") {
-                t = IntegerType(4, false);
+                type = std::make_unique<IntegerType>(4, false);
             }
-        } else if (v[0] == 'i') {
+        } else if (val_str.at(0) == 'i') {
             if (val_str == "i8") {
-                t = IntegerType(1, true);
+                type = std::make_unique<IntegerType>(1, true);
             } else if (val_str == "i16") {
-                t = IntegerType(2, true);
+                type = std::make_unique<IntegerType>(2, true);
             } else if (val_str == "i32") {
-                t = IntegerType(3, true);
+                type = std::make_unique<IntegerType>(3, true);
             } else if (val_str == "i64") {
-                t = IntegerType(4, true);
+                type = std::make_unique<IntegerType>(4, true);
             }
-        } else if (v[0] == 'f') {
+        } else if (val_str.at(0) == 'f') {
             if (val_str == "f32") {
-                t = FloatType(3);
+                type = std::make_unique<FloatType>(3);
             } else if (val_str == "f64") {
-                t = FloatType(4);
+                type = std::make_unique<FloatType>(4);
             }
         } else if (val_str == "bool") {
-            t = BooleanType();
+            type = std::make_unique<BooleanType>();
         } else if (val_str == "str") {
-            t = StringType();
+            type = std::make_unique<StringType>();
         } else if (val_str == "char") {
-            t = CharType();
+            type = std::make_unique<CharType>();
         } else {
-            t = UserDefinedType(std::make_unique<Identifier>(tok));
+            type = std::make_unique<UserDefinedType>(
+                std::make_unique<Identifier>(tok));
         }
 
         while (kind(TokenKind::Star)) {
-            t = PointerType(t);
+            type = std::make_unique<PointerType>(std::move(type));
         }
     } else if (tok.is(TokenKind::LBracket)) {
         auto array_type = prime_parse_type();
@@ -853,14 +879,14 @@ TypeResult Parser::parse_type() {
             if (!size.is_valid())
                 return TypeError();
 
-            t = ArrayType(array_type.take(), size.take());
+            type = std::make_unique<ArrayType>(array_type.take(), size.take());
         } else {
-            t = ArrayType(array_type.take());
+            type = std::make_unique<ArrayType>(array_type.take());
         }
         assert(TokenKind::RBracket);
         next_token();
     } else if (tok.is(TokenKind::LParen)) {
-        std::vector<Type> types;
+        std::vector<std::unique_ptr<Type>> types;
 
         while (!kind(TokenKind::RParen)) {
             auto type = parse_type();
@@ -881,7 +907,7 @@ TypeResult Parser::parse_type() {
         return TypeError();
     }
 
-    return TypeResult(t);
+    return TypeResult(std::move(type));
 }
 
 void Parser::next_token() {
@@ -902,11 +928,12 @@ bool Parser::kind(TokenKind kind) {
 bool Parser::assert(TokenKind kind) {
     if (!tok.is(kind)) {
         if (kind == TokenKind::Semi) {
-            auto t = Token(TokenKind::Semi, prev_tok.get_val(),
-                           prev_tok.get_pos() + 1, prev_tok.get_line(),
-                           prev_tok.get_col() + 1);
-            diag.emit(t, ErrorKind::ExpectedSemi, tok_kind_to_string(kind),
-                      tok_kind_to_string(t.get_kind()));
+            auto semi_tok = Token(TokenKind::Semi, prev_tok.get_val(),
+                                  prev_tok.get_pos() + 1, prev_tok.get_line(),
+                                  prev_tok.get_col() + 1);
+            diag.emit(semi_tok, ErrorKind::ExpectedSemi,
+                      tok_kind_to_string(kind),
+                      tok_kind_to_string(semi_tok.get_kind()));
         } else {
             diag.emit(tok, ErrorKind::ExpectedToken, tok_kind_to_string(kind),
                       tok_kind_to_string(tok.get_kind()));
@@ -921,9 +948,9 @@ bool Parser::sync(TokenKind kind, SyncFlags flags) {
     return sync(std::vector<TokenKind>{kind}, flags);
 }
 
-bool Parser::sync(std::vector<TokenKind> kinds, SyncFlags flags) {
+bool Parser::sync(std::vector<TokenKind> const& kinds, SyncFlags flags) {
     int braces = 0;
-    while (!lexer.at_end()) {
+    while (!tok.is(TokenKind::Eof)) {
         for (auto kind : kinds) {
             if (tok.is(kind) && braces <= 0) {
                 if ((flags & SyncFlags::BreakBefore) != SyncFlags::BreakBefore)
