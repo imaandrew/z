@@ -13,6 +13,6 @@ int main(int argc, char** argv) {
     auto parser = Parser(lexer, &source_man);
     auto decls = parser.parse();
     for (const auto& decl : decls) {
-        decl->print(0);
+        decl->dump(0);
     }
 }

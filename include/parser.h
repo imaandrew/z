@@ -50,9 +50,9 @@ class Parser {
     void recover_stmt();
     bool can_be_expr();
     DeclResult parse_struct_decl();
-    Result<StructField> parse_struct_field();
+    Result<std::unique_ptr<StructField>> parse_struct_field();
     DeclResult parse_enum_decl();
-    Result<EnumField> parse_enum_field();
+    Result<std::unique_ptr<EnumField>> parse_enum_field();
     DeclResult parse_const_decl();
     DeclResult parse_static_decl();
     DeclResult parse_func_decl();

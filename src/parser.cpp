@@ -135,7 +135,7 @@ DeclResult Parser::parse_struct_decl() {
         return DeclError();
     }
 
-    std::vector<StructField> fields;
+    std::vector<std::unique_ptr<StructField>> fields;
     next_token();
     while (!tok.is(TokenKind::RBrace)) {
         auto struct_field = parse_struct_field();
@@ -157,22 +157,22 @@ DeclResult Parser::parse_struct_decl() {
         std::make_unique<StructDecl>(std::move(ident), std::move(fields)));
 }
 
-Result<StructField> Parser::parse_struct_field() {
+Result<std::unique_ptr<StructField>> Parser::parse_struct_field() {
     if (!assert(TokenKind::Identifier)) {
-        return Result<StructField>(false);
+        return Result<std::unique_ptr<StructField>>(false);
     }
     auto ident = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::Colon)) {
-        return Result<StructField>(false);
+        return Result<std::unique_ptr<StructField>>(false);
     }
 
     auto type = prime_parse_type();
     if (!type.is_valid()) {
-        return Result<StructField>(false);
+        return Result<std::unique_ptr<StructField>>(false);
     }
 
-    return Result(StructField(std::move(ident), type.take()));
+    return Result(std::make_unique<StructField>(std::move(ident), type.take()));
 }
 
 DeclResult Parser::parse_enum_decl() {
@@ -188,7 +188,7 @@ DeclResult Parser::parse_enum_decl() {
         return DeclError();
     }
 
-    std::vector<EnumField> fields;
+    std::vector<std::unique_ptr<EnumField>> fields;
     while (!kind(TokenKind::RBrace)) {
         auto enum_field = parse_enum_field();
         if (!enum_field.is_valid()) {
@@ -208,9 +208,9 @@ DeclResult Parser::parse_enum_decl() {
         std::make_unique<EnumDecl>(std::move(ident), std::move(fields)));
 }
 
-Result<EnumField> Parser::parse_enum_field() {
+Result<std::unique_ptr<EnumField>> Parser::parse_enum_field() {
     if (!assert(TokenKind::Identifier)) {
-        return Result<EnumField>(false);
+        return Result<std::unique_ptr<EnumField>>(false);
     }
 
     auto ident = std::make_unique<Identifier>(tok);
@@ -221,20 +221,21 @@ Result<EnumField> Parser::parse_enum_field() {
             auto type = parse_type();
 
             if (!type.is_valid()) {
-                return Result<EnumField>(false);
+                return Result<std::unique_ptr<EnumField>>(false);
             }
 
             types.push_back(type.take());
 
             if (!tok.is(TokenKind::RParen) && !assert(TokenKind::Comma)) {
-                return Result<EnumField>(false);
+                return Result<std::unique_ptr<EnumField>>(false);
             }
         }
 
-        return Result(EnumField(std::move(ident), std::move(types)));
+        return Result(
+            std::make_unique<EnumField>(std::move(ident), std::move(types)));
     }
 
-    return Result(EnumField(std::move(ident)));
+    return Result(std::make_unique<EnumField>(std::move(ident)));
 }
 
 DeclResult Parser::parse_const_decl() {

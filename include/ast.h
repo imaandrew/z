@@ -41,8 +41,8 @@ public:
 
     void mark_invalid() { valid = false; }
 
-    virtual void print(int indent=0) const = 0;
-    //virtual void dump(std::ostream& = std::cout, int indent=0) const;
+    virtual void dump(int indent = 0,
+                      std::ostream& stream = std::cout) const = 0;
 };
 
 class Stmt : public ASTNode {
@@ -59,8 +59,8 @@ class InvalidStmt : public Stmt {
 public:
     InvalidStmt() { mark_invalid(); };
 
-    void print(int /*indent*/) const override {
-        std::cout << "InvalidStmt" << '\n';
+    void dump(int /*indent*/, std::ostream& stream) const override {
+        stream << "InvalidStmt" << '\n';
     }
 };
 
@@ -81,8 +81,8 @@ class IntExpr : public Expr {
 public:
     IntExpr(Token tok, long long val) : tok(tok), val(val) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "IntExpr " << val << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "IntExpr " << val << '\n';
     }
 };
 
@@ -93,8 +93,8 @@ class FloatExpr : public Expr {
 public:
     FloatExpr(Token tok, double val) : tok(tok), val(val) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "FloatExpr " << val << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "FloatExpr " << val << '\n';
     }
 };
 
@@ -108,10 +108,10 @@ public:
     PrefixExpr(Token op, std::unique_ptr<Expr> expr)
         : op(op), expr(std::move(expr)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "PrefixExpr "
-                  << std::string(op.get_val(), op.get_len()) << '\n';
-        expr->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "PrefixExpr "
+               << std::string(op.get_val(), op.get_len()) << '\n';
+        expr->dump(indent + 2, stream);
     }
 };
 
@@ -123,10 +123,10 @@ public:
     PostfixExpr(Token op, std::unique_ptr<Expr> expr)
         : op(op), expr(std::move(expr)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "PostfixExpr "
-                  << std::string(op.get_val(), op.get_len()) << '\n';
-        expr->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "PostfixExpr "
+               << std::string(op.get_val(), op.get_len()) << '\n';
+        expr->dump(indent + 2, stream);
     }
 };
 
@@ -139,11 +139,11 @@ public:
     BinaryExpr(Token op, std::unique_ptr<Expr> lhs, std::unique_ptr<Expr> rhs)
         : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "BinaryExpr "
-                  << std::string(op.get_val(), op.get_len()) << '\n';
-        lhs->print(indent + 2);
-        rhs->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "BinaryExpr "
+               << std::string(op.get_val(), op.get_len()) << '\n';
+        lhs->dump(indent + 2, stream);
+        rhs->dump(indent + 2, stream);
     }
 };
 
@@ -159,12 +159,12 @@ public:
         : op(op), lhs(std::move(lhs)), mhs(std::move(mhs)),
           rhs(std::move(rhs)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "TernaryExpr "
-                  << std::string(op.get_val(), op.get_len()) << '\n';
-        lhs->print(indent + 2);
-        mhs->print(indent + 2);
-        rhs->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "TernaryExpr "
+               << std::string(op.get_val(), op.get_len()) << '\n';
+        lhs->dump(indent + 2, stream);
+        mhs->dump(indent + 2, stream);
+        rhs->dump(indent + 2, stream);
     }
 };
 
@@ -178,11 +178,11 @@ public:
     CallExpr(std::unique_ptr<Expr> func, std::vector<std::unique_ptr<Expr>> args)
         : func(std::move(func)), args(std::move(args)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "CallExpr" << '\n';
-        func->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "CallExpr" << '\n';
+        func->dump(indent + 2, stream);
         for (const auto& arg : args) {
-            arg->print(indent + 2);
+            arg->dump(indent + 2, stream);
         }
     }
 };
@@ -198,11 +198,11 @@ public:
     ArrayExpr(std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
         : ident(std::move(ident)), val(std::move(val)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ArrayExpr" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ArrayExpr" << '\n';
+        ident->dump(indent + 2, stream);
         if (val)
-            val->print(indent + 2);
+            val->dump(indent + 2, stream);
     }
 };
 
@@ -213,10 +213,10 @@ public:
     explicit ArrayInitExpr(std::vector<std::unique_ptr<Expr>> vals)
         : vals(std::move(vals)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ArrayInitExpr" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ArrayInitExpr" << '\n';
         for (const auto& val : vals) {
-            val->print(indent + 2);
+            val->dump(indent + 2, stream);
         }
     }
 };
@@ -228,11 +228,11 @@ class StructInitExpr : public Expr {
 public:
     StructInitExpr(std::unique_ptr<Expr> ident, std::vector<std::unique_ptr<Expr>> vals) : ident(std::move(ident)), vals(std::move(vals)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "StructInitExpr" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "StructInitExpr" << '\n';
+        ident->dump(indent + 2, stream);
         for (const auto& val : vals) {
-            val->print(indent + 2);
+            val->dump(indent + 2, stream);
         }
     }
 };
@@ -243,9 +243,9 @@ class Identifier : public Expr {
 public:
     explicit Identifier(Token tok) : tok(tok) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "Identifier "
-                  << std::string(tok.get_val(), tok.get_len()) << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "Identifier "
+               << std::string(tok.get_val(), tok.get_len()) << '\n';
     }
 
     [[nodiscard]] std::string to_string() const {
@@ -260,10 +260,10 @@ public:
     explicit Block(std::vector<std::unique_ptr<Stmt>> stmts)
         : stmts(std::move(stmts)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "Block" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "Block" << '\n';
         for (const auto& stmt : stmts) {
-            stmt->print(indent + 2);
+            stmt->dump(indent + 2, stream);
         }
     }
 };
@@ -276,7 +276,7 @@ public:
     Param(std::unique_ptr<Identifier> name, std::unique_ptr<Type> type)
         : name(std::move(name)), type(std::move(type)) {};
 
-    void print(int indent) const override {
+    void dump(int indent, std::ostream& stream) const override {
         // TODO
     }
 };
@@ -308,12 +308,12 @@ public:
           params(std::move(params)), ret(std::move(ret)),
           body(std::move(body)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "FuncDecl" << '\n';
-        name->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "FuncDecl" << '\n';
+        name->dump(indent + 2, stream);
         if (impl_type && impl_type.has_value())
-            impl_type.value()->print(indent + 2);
-        body->print(indent + 2);
+            impl_type.value()->dump(indent + 2, stream);
+        body->dump(indent + 2, stream);
     }
 };
 
@@ -325,10 +325,10 @@ public:
     explicit BreakStmt(Token tok) : tok(tok) {};
     BreakStmt(Token tok, std::unique_ptr<Expr> expr) : tok(tok), expr(std::move(expr)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "BreakStmt" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "BreakStmt" << '\n';
         if (expr)
-            expr->print(indent + 2);
+            expr->dump(indent + 2, stream);
     }
 };
 
@@ -338,8 +338,8 @@ class ContinueStmt : public Stmt {
 public:
     explicit ContinueStmt(Token tok) : tok(tok) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ContinueStmt" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ContinueStmt" << '\n';
     }
 };
 
@@ -354,10 +354,10 @@ public:
         : ident(std::move(ident)), expr(std::move(expr)),
           block(std::move(block)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ForExpr" << '\n';
-        expr->print(indent + 2);
-        block->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ForExpr" << '\n';
+        expr->dump(indent + 2, stream);
+        block->dump(indent + 2, stream);
     }
 };
 
@@ -378,13 +378,13 @@ public:
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "LetStmt" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "LetStmt" << '\n';
+        ident->dump(indent + 2, stream);
         //if (type)
             //type.value()->print(indent + 2);
         if (val)
-            val->print(indent + 2);
+            val->dump(indent + 2, stream);
     }
 };
 
@@ -395,10 +395,10 @@ public:
     ReturnStmt() = default;
     explicit ReturnStmt(std::unique_ptr<Expr> expr) : expr(std::move(expr)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ReturnStmt" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ReturnStmt" << '\n';
         if (expr)
-            expr->print(indent + 2);
+            expr->dump(indent + 2, stream);
     }
 };
 
@@ -414,13 +414,13 @@ public:
     explicit ElseExpr(std::unique_ptr<Expr> if_expr)
         : if_expr(std::move(if_expr)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ElseExpr" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ElseExpr" << '\n';
 
         if (if_expr) {
-            if_expr->print(indent + 2);
+            if_expr->dump(indent + 2, stream);
         } else if (block) {
-            block->print(indent + 2);
+            block->dump(indent + 2, stream);
         }
     }
 };
@@ -438,12 +438,12 @@ public:
         : expr(std::move(expr)), block(std::move(block)),
           else_expr(std::move(else_expr)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "IfExpr" << '\n';
-        expr->print(indent + 2);
-        block->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "IfExpr" << '\n';
+        expr->dump(indent + 2, stream);
+        block->dump(indent + 2, stream);
         if (else_expr) {
-            else_expr->print(indent + 2);
+            else_expr->dump(indent + 2, stream);
         }
     }
 };
@@ -456,12 +456,12 @@ public:
     LoopExpr(std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
         : expr(std::move(expr)), block(std::move(block)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "LoopExpr" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "LoopExpr" << '\n';
         if (expr) {
-            expr->print(indent + 2);
+            expr->dump(indent + 2, stream);
         }
-        block->print(indent + 2);
+        block->dump(indent + 2, stream);
     }
 };
 
@@ -473,10 +473,10 @@ public:
     WhileExpr(std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
         : expr(std::move(expr)), block(std::move(block)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "WhileExpr" << '\n';
-        expr->print(indent + 2);
-        block->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "WhileExpr" << '\n';
+        expr->dump(indent + 2, stream);
+        block->dump(indent + 2, stream);
     }
 };
 
@@ -487,13 +487,13 @@ class StringExpr : public Expr {
 public:
     StringExpr(const char* start, size_t len) : start(start), len(len) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "String "
-                  << std::string(start, len) << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "String "
+               << std::string(start, len) << '\n';
     }
 };
 
-class StructField {
+class StructField : public Decl {
     std::unique_ptr<Identifier> ident;
     std::unique_ptr<Type> type;
 
@@ -501,31 +501,31 @@ public:
     StructField(std::unique_ptr<Identifier> ident, std::unique_ptr<Type> type)
         : ident(std::move(ident)), type(std::move(type)) {};
 
-    void print(int indent) const {
-        std::cout << std::string(indent, ' ') << "StructField" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "StructField" << '\n';
+        ident->dump(indent + 2, stream);
         //type->print(indent + 2);
     }
 };
 
 class StructDecl : public Decl {
     std::unique_ptr<Identifier> ident;
-    std::vector<StructField> fields;
+    std::vector<std::unique_ptr<StructField>> fields;
 
 public:
     StructDecl(std::unique_ptr<Identifier> ident,
-               std::vector<StructField> fields)
+               std::vector<std::unique_ptr<StructField>> fields)
         : ident(std::move(ident)), fields(std::move(fields)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "StructDecl" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "StructDecl" << '\n';
+        ident->dump(indent + 2, stream);
         for (const auto& field : fields)
-            field.print(indent + 2);
+            field->dump(indent + 2, stream);
     }
 };
 
-class EnumField {
+class EnumField : public Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<Type>> types;
 
@@ -536,9 +536,9 @@ public:
               std::vector<std::unique_ptr<Type>> types)
         : ident(std::move(ident)), types(std::move(types)) {};
 
-    void print(int indent) const {
-        std::cout << std::string(indent, ' ') << "EnumField" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "EnumField" << '\n';
+        ident->dump(indent + 2, stream);
         //for (const auto& t : types)
             //t->print(indent + 2);
     }
@@ -546,17 +546,18 @@ public:
 
 class EnumDecl : public Decl {
     std::unique_ptr<Identifier> ident;
-    std::vector<EnumField> fields;
+    std::vector<std::unique_ptr<EnumField>> fields;
 
 public:
-    EnumDecl(std::unique_ptr<Identifier> ident, std::vector<EnumField> fields)
+    EnumDecl(std::unique_ptr<Identifier> ident,
+             std::vector<std::unique_ptr<EnumField>> fields)
         : ident(std::move(ident)), fields(std::move(fields)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "EnumDecl" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "EnumDecl" << '\n';
+        ident->dump(indent + 2, stream);
         for (const auto& field : fields)
-            field.print(indent + 2);
+            field->dump(indent + 2, stream);
     }
 };
 
@@ -571,12 +572,12 @@ public:
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "ConstDecl" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "ConstDecl" << '\n';
+        ident->dump(indent + 2, stream);
         // print type
         if (val)
-            val->print(indent + 2);
+            val->dump(indent + 2, stream);
     }
 };
 
@@ -591,11 +592,11 @@ public:
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
-    void print(int indent) const override {
-        std::cout << std::string(indent, ' ') << "StaticDecl" << '\n';
-        ident->print(indent + 2);
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "StaticDecl" << '\n';
+        ident->dump(indent + 2, stream);
         // print type
         if (val)
-            val->print(indent + 2);
+            val->dump(indent + 2, stream);
     }
 };
