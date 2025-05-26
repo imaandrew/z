@@ -36,7 +36,12 @@ enum class ErrorKind : std::uint8_t {
     EndOfTokens,
     ExpectedToken,
     ExpectedSemi,
-    ExpectedDecl
+    ExpectedDecl,
+    RedeclaredType,
+    RedeclaredFunc,
+    RedeclaredVar,
+    DuplicateField,
+    UndeclaredType
 };
 
 class LexerError : public Error {
@@ -49,11 +54,16 @@ public:
 
 inline const std::string& get_err_msg(ErrorKind kind) {
     static std::unordered_map<ErrorKind, const std::string> err_msgs = {
-        {ErrorKind::InvalidChar, "unknown character '{0}'"},
+        {ErrorKind::InvalidChar, "unknown character `{0}`"},
         {ErrorKind::EndOfTokens, "unexpectedly reached end of input"},
         {ErrorKind::ExpectedToken, "expected `{0}`, found `{1}`"},
         {ErrorKind::ExpectedSemi, "expected `;` after statement"},
-        {ErrorKind::ExpectedDecl, "expected declaration, found `{0}`"}};
+        {ErrorKind::ExpectedDecl, "expected declaration, found `{0}`"},
+        {ErrorKind::RedeclaredType, "redeclaration of type `{0}`"},
+        {ErrorKind::RedeclaredFunc, "redeclaration of function `{0}`"},
+        {ErrorKind::RedeclaredVar, "redeclaration of variable `{0}`"},
+        {ErrorKind::DuplicateField, "duplicate field `{0}`"},
+        {ErrorKind::UndeclaredType, "use of undeclared type `{0}`"}};
 
     if (auto str = err_msgs.find(kind); str != err_msgs.end()) {
         return str->second;

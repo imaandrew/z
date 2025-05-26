@@ -2,7 +2,6 @@
 #include "token.h"
 #include <cassert>
 #include <cctype>
-#include <climits>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -15,7 +14,7 @@ TokenKind get_keyword(const std::string& keyword) {
         {"else", TokenKind::KwElse},     {"enum", TokenKind::KwEnum},
         {"false", TokenKind::KwFalse},   {"fn", TokenKind::KwFn},
         {"for", TokenKind::KwFor},       {"if", TokenKind::KwIf},
-        {"in", TokenKind::KwIf},         {"let", TokenKind::KwLet},
+        {"in", TokenKind::KwIn},         {"let", TokenKind::KwLet},
         {"loop", TokenKind::KwLoop},     {"return", TokenKind::KwReturn},
         {"static", TokenKind::KwStatic}, {"struct", TokenKind::KwStruct},
         {"true", TokenKind::KwTrue},     {"while", TokenKind::KwWhile}};

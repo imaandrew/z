@@ -1,5 +1,7 @@
 #pragma once
 
+#include "error.h"
+#include "sym_table.h"
 #include "token.h"
 #include "type.h"
 #include <iostream>
@@ -27,9 +29,78 @@ enum class BinOpPrecedence : std::uint8_t {
     Postfix,
 };
 
-class ASTNode {
-    bool valid = true;
+struct InvalidStmt;
+struct IntExpr;
+struct FloatExpr;
+struct PrefixExpr;
+struct PostfixExpr;
+struct BinaryExpr;
+struct TernaryExpr;
+struct CallExpr;
+struct ArrayExpr;
+struct ArrayInitExpr;
+struct StructInitExpr;
+struct Identifier;
+struct Block;
+struct Param;
+struct FuncDecl;
+struct BreakStmt;
+struct ContinueStmt;
+struct ForExpr;
+struct LetStmt;
+struct ReturnStmt;
+struct IfExpr;
+struct ElseExpr;
+struct LoopExpr;
+struct WhileExpr;
+struct StringExpr;
+struct StructField;
+struct StructDecl;
+struct EnumField;
+struct EnumDecl;
+struct ConstDecl;
+struct StaticDecl;
+
+class ASTVisitor {
 public:
+    virtual ~ASTVisitor() = default;
+    virtual void visit(InvalidStmt&) = 0;
+    virtual void visit(IntExpr&) = 0;
+    virtual void visit(FloatExpr&) = 0;
+    virtual void visit(PrefixExpr&) = 0;
+    virtual void visit(PostfixExpr&) = 0;
+    virtual void visit(BinaryExpr&) = 0;
+    virtual void visit(TernaryExpr&) = 0;
+    virtual void visit(CallExpr&) = 0;
+    virtual void visit(ArrayExpr&) = 0;
+    virtual void visit(ArrayInitExpr&) = 0;
+    virtual void visit(StructInitExpr&) = 0;
+    virtual void visit(Identifier&) = 0;
+    virtual void visit(Block&) = 0;
+    virtual void visit(Param&) = 0;
+    virtual void visit(FuncDecl&) = 0;
+    virtual void visit(BreakStmt&) = 0;
+    virtual void visit(ContinueStmt&) = 0;
+    virtual void visit(ForExpr&) = 0;
+    virtual void visit(LetStmt&) = 0;
+    virtual void visit(ReturnStmt&) = 0;
+    virtual void visit(IfExpr&) = 0;
+    virtual void visit(ElseExpr&) = 0;
+    virtual void visit(LoopExpr&) = 0;
+    virtual void visit(WhileExpr&) = 0;
+    virtual void visit(StringExpr&) = 0;
+    virtual void visit(StructField&) = 0;
+    virtual void visit(StructDecl&) = 0;
+    virtual void visit(EnumField&) = 0;
+    virtual void visit(EnumDecl&) = 0;
+    virtual void visit(ConstDecl&) = 0;
+    virtual void visit(StaticDecl&) = 0;
+};
+
+struct ASTNode {
+    bool valid = true;
+    std::shared_ptr<Type> node_type = nullptr;
+
     ASTNode() = default;
     virtual ~ASTNode() = default;
 
@@ -37,15 +108,16 @@ public:
     ASTNode& operator=(const ASTNode&) = delete;
     ASTNode(ASTNode&&) = delete;
     ASTNode& operator=(ASTNode&&) = delete;
-    [[nodiscard]] bool is_valid() const { return valid; }
 
+    [[nodiscard]] bool is_valid() const { return valid; }
     void mark_invalid() { valid = false; }
+    virtual void accept(ASTVisitor& visitor) = 0;
 
     virtual void dump(int indent = 0,
                       std::ostream& stream = std::cout) const = 0;
 };
 
-class Stmt : public ASTNode {
+struct Stmt : public ASTNode {
 public:
     Stmt() = default;
     ~Stmt() override = default;
@@ -55,17 +127,18 @@ public:
     Stmt& operator=(Stmt&&) = delete;
 };
 
-class InvalidStmt : public Stmt {
+struct InvalidStmt : public Stmt {
 public:
     InvalidStmt() { mark_invalid(); };
 
     void dump(int /*indent*/, std::ostream& stream) const override {
         stream << "InvalidStmt" << '\n';
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class Expr : public Stmt {
-public:
+struct Expr : Stmt {
     Expr() = default;
     ~Expr() override = default;
     Expr(const Expr&) = delete;
@@ -74,19 +147,52 @@ public:
     Expr& operator=(Expr&&) = delete;
 };
 
-class IntExpr : public Expr {
+struct Identifier : public Expr {
     Token tok;
-    long long val;
+
+    explicit Identifier(Token tok) : tok(tok) {};
+
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "Identifier "
+               << std::string(tok.get_val(), tok.get_len()) << '\n';
+    }
+
+    [[nodiscard]] std::string to_string() const {
+        return std::string(tok.get_val(), tok.get_len());
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    bool operator==(const Identifier& other) const {
+        if (tok.get_len() != other.tok.get_len())
+            return false;
+
+        const auto* x = tok.get_val();
+        const auto* y = other.tok.get_val();
+        for (int i = 0; i < tok.get_len(); i++) {
+            if (x[i] != y[i])
+                return false;
+        }
+
+        return true;
+    }
+};
+
+struct IntExpr : public Expr {
+    Token tok;
+    unsigned long long val;
 
 public:
-    IntExpr(Token tok, long long val) : tok(tok), val(val) {};
+    IntExpr(Token tok, unsigned long long val) : tok(tok), val(val) {};
 
     void dump(int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "IntExpr " << val << '\n';
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class FloatExpr : public Expr {
+struct FloatExpr : public Expr {
     Token tok;
     double val;
 
@@ -96,13 +202,15 @@ public:
     void dump(int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FloatExpr " << val << '\n';
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 // NOLINTBEGIN(readability-identifier-length)
 
-class PrefixExpr : public Expr {
+struct PrefixExpr : public Expr {
     Token op;
-    std::unique_ptr<Expr> expr;
+    std::shared_ptr<Expr> expr;
 
 public:
     PrefixExpr(Token op, std::unique_ptr<Expr> expr)
@@ -113,9 +221,11 @@ public:
                << std::string(op.get_val(), op.get_len()) << '\n';
         expr->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class PostfixExpr : public Expr {
+struct PostfixExpr : public Expr {
     Token op;
     std::unique_ptr<Expr> expr;
 
@@ -128,9 +238,11 @@ public:
                << std::string(op.get_val(), op.get_len()) << '\n';
         expr->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class BinaryExpr : public Expr {
+struct BinaryExpr : public Expr {
     Token op;
     std::unique_ptr<Expr> lhs;
     std::unique_ptr<Expr> rhs;
@@ -145,9 +257,11 @@ public:
         lhs->dump(indent + 2, stream);
         rhs->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class TernaryExpr : public Expr {
+struct TernaryExpr : public Expr {
     Token op;
     std::unique_ptr<Expr> lhs;
     std::unique_ptr<Expr> mhs;
@@ -166,28 +280,33 @@ public:
         mhs->dump(indent + 2, stream);
         rhs->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 // NOLINTEND(readability-identifier-length)
 
-class CallExpr : public Expr {
-    std::unique_ptr<Expr> func;
+struct CallExpr : public Expr {
+    std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<Expr>> args;
 
 public:
-    CallExpr(std::unique_ptr<Expr> func, std::vector<std::unique_ptr<Expr>> args)
-        : func(std::move(func)), args(std::move(args)) {};
+    CallExpr(std::unique_ptr<Expr> func,
+             std::vector<std::unique_ptr<Expr>> args)
+        : ident(std::move(func)), args(std::move(args)) {};
 
     void dump(int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "CallExpr" << '\n';
-        func->dump(indent + 2, stream);
+        ident->dump(indent + 2, stream);
         for (const auto& arg : args) {
             arg->dump(indent + 2, stream);
         }
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class ArrayExpr : public Expr {
+struct ArrayExpr : public Expr {
     std::unique_ptr<Expr> ident;
     std::unique_ptr<Expr> val;
 
@@ -204,9 +323,11 @@ public:
         if (val)
             val->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class ArrayInitExpr : public Expr {
+struct ArrayInitExpr : public Expr {
     std::vector<std::unique_ptr<Expr>> vals;
 
 public:
@@ -219,9 +340,11 @@ public:
             val->dump(indent + 2, stream);
         }
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class StructInitExpr : public Expr {
+struct StructInitExpr : public Expr {
     std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<Expr>> vals;
 
@@ -235,25 +358,11 @@ public:
             val->dump(indent + 2, stream);
         }
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class Identifier : public Expr {
-    Token tok;
-
-public:
-    explicit Identifier(Token tok) : tok(tok) {};
-
-    void dump(int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Identifier "
-               << std::string(tok.get_val(), tok.get_len()) << '\n';
-    }
-
-    [[nodiscard]] std::string to_string() const {
-        return std::string(tok.get_val(), tok.get_len());
-    }
-};
-
-class Block : public Stmt {
+struct Block : public Stmt {
     std::vector<std::unique_ptr<Stmt>> stmts;
 
 public:
@@ -266,22 +375,26 @@ public:
             stmt->dump(indent + 2, stream);
         }
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class Param : public Expr {
+struct Param : public Expr {
     std::unique_ptr<Identifier> name;
-    std::unique_ptr<Type> type;
+    std::shared_ptr<Type> type;
 
 public:
-    Param(std::unique_ptr<Identifier> name, std::unique_ptr<Type> type)
+    Param(std::unique_ptr<Identifier> name, std::shared_ptr<Type> type)
         : name(std::move(name)), type(std::move(type)) {};
 
     void dump(int indent, std::ostream& stream) const override {
         // TODO
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class Decl : public ASTNode {
+struct Decl : public ASTNode {
 public:
     Decl() = default;
     ~Decl() override = default;
@@ -289,21 +402,23 @@ public:
     Decl& operator=(const Decl&) = delete;
     Decl(Decl&&) = delete;
     Decl& operator=(Decl&&) = delete;
+
+    virtual void declare_type(SymbolTable* syms) = 0;
+    virtual void resolve_sym(SymbolTable* syms) = 0;
 };
 
-class FuncDecl : public Decl {
+struct FuncDecl : public Decl {
     std::unique_ptr<Identifier> name;
     std::optional<std::unique_ptr<Identifier>> impl_type;
-    std::vector<std::unique_ptr<Expr>> params;
-    std::optional<std::unique_ptr<Type>> ret;
+    std::vector<std::unique_ptr<Param>> params;
+    std::shared_ptr<Type> ret;
     std::unique_ptr<Block> body;
 
 public:
     FuncDecl(std::unique_ptr<Identifier> name,
              std::optional<std::unique_ptr<Identifier>> impl_type,
-             std::vector<std::unique_ptr<Expr>> params,
-             std::optional<std::unique_ptr<Type>> ret,
-             std::unique_ptr<Block> body)
+             std::vector<std::unique_ptr<Param>> params,
+             std::shared_ptr<Type> ret, std::unique_ptr<Block> body)
         : name(std::move(name)), impl_type(std::move(impl_type)),
           params(std::move(params)), ret(std::move(ret)),
           body(std::move(body)) {};
@@ -315,9 +430,44 @@ public:
             impl_type.value()->dump(indent + 2, stream);
         body->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    void declare_type(SymbolTable* syms) override {
+        auto name = this->name->to_string();
+        if (impl_type)
+            name = impl_type->get()->to_string().append("::").append(name);
+
+        auto param_types = std::vector<std::shared_ptr<Type>>();
+        for (auto& param : params) {
+            param_types.push_back(param->type);
+        }
+
+        valid = syms->declare_func(
+            this->name, std::make_shared<FunctionType>(param_types, ret));
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        auto func_type = syms->get_func(name->to_string());
+
+        for (auto& param : params) {
+            if (param->type->is_unknown() &&
+                !syms->resolve_unk_type(param->type)) {
+                valid = false;
+            }
+        }
+
+        if (ret->is_unknown()) {
+            if (syms->resolve_unk_type(ret)) {
+                func_type->set_return_val(ret);
+            } else {
+                valid = false;
+            }
+        }
+    }
 };
 
-class BreakStmt : public Stmt {
+struct BreakStmt : public Stmt {
     Token tok;
     std::unique_ptr<Expr> expr;
 
@@ -330,9 +480,11 @@ public:
         if (expr)
             expr->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class ContinueStmt : public Stmt {
+struct ContinueStmt : public Stmt {
     Token tok;
 
 public:
@@ -341,9 +493,11 @@ public:
     void dump(int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ContinueStmt" << '\n';
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class ForExpr : public Expr {
+struct ForExpr : public Expr {
     std::unique_ptr<Identifier> ident;
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
@@ -359,11 +513,13 @@ public:
         expr->dump(indent + 2, stream);
         block->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class LetStmt : public Stmt {
+struct LetStmt : public Stmt {
     std::unique_ptr<Identifier> ident;
-    std::unique_ptr<Type> type;
+    std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
 public:
@@ -373,7 +529,7 @@ public:
     LetStmt(std::unique_ptr<Identifier> ident, std::unique_ptr<Expr> val)
         : ident(std::move(ident)), val(std::move(val)) {};
 
-    LetStmt(std::unique_ptr<Identifier> ident, std::unique_ptr<Type> type,
+    LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
             std::unique_ptr<Expr> val)
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
@@ -386,9 +542,11 @@ public:
         if (val)
             val->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class ReturnStmt : public Stmt {
+struct ReturnStmt : public Stmt {
     std::unique_ptr<Expr> expr;
 
 public:
@@ -400,11 +558,13 @@ public:
         if (expr)
             expr->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class IfExpr;
+struct IfExpr;
 
-class ElseExpr : public Expr {
+struct ElseExpr : public Expr {
     std::unique_ptr<Expr> if_expr;
     std::unique_ptr<Block> block;
 
@@ -423,9 +583,11 @@ public:
             block->dump(indent + 2, stream);
         }
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class IfExpr : public Expr {
+struct IfExpr : public Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
     std::unique_ptr<ElseExpr> else_expr;
@@ -446,9 +608,11 @@ public:
             else_expr->dump(indent + 2, stream);
         }
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class LoopExpr : public Expr {
+struct LoopExpr : public Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
@@ -463,9 +627,11 @@ public:
         }
         block->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class WhileExpr : public Expr {
+struct WhileExpr : public Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
@@ -478,9 +644,11 @@ public:
         expr->dump(indent + 2, stream);
         block->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class StringExpr : public Expr {
+struct StringExpr : public Expr {
     const char* start;
     size_t len;
 
@@ -491,14 +659,16 @@ public:
         stream << std::string(indent, ' ') << "String "
                << std::string(start, len) << '\n';
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class StructField : public Decl {
-    std::unique_ptr<Identifier> ident;
-    std::unique_ptr<Type> type;
+struct StructField : public ASTNode {
+    std::shared_ptr<Identifier> ident;
+    std::shared_ptr<Type> type;
 
 public:
-    StructField(std::unique_ptr<Identifier> ident, std::unique_ptr<Type> type)
+    StructField(std::shared_ptr<Identifier> ident, std::shared_ptr<Type> type)
         : ident(std::move(ident)), type(std::move(type)) {};
 
     void dump(int indent, std::ostream& stream) const override {
@@ -506,9 +676,11 @@ public:
         ident->dump(indent + 2, stream);
         //type->print(indent + 2);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class StructDecl : public Decl {
+struct StructDecl : public Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<StructField>> fields;
 
@@ -523,17 +695,59 @@ public:
         for (const auto& field : fields)
             field->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    void declare_type(SymbolTable* syms) override {
+        auto name = ident->to_string();
+
+        const bool is_unique =
+            syms->declare_type(ident, std::make_shared<StructType>(ident));
+        if (!is_unique) {
+            valid = false;
+            return;
+        }
+
+        auto* struct_type =
+            dynamic_cast<StructType*>(syms->get_type(name).get());
+
+        for (auto& field : fields) {
+            const bool is_unique = struct_type->define_field(
+                field->ident->to_string(), field->type);
+            if (!is_unique) {
+                syms->diag.emit(field->ident->tok, ErrorKind::DuplicateField,
+                                field->ident->to_string());
+                valid = false;
+            }
+        }
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        auto* struct_type =
+            dynamic_cast<StructType*>(syms->get_type(ident->to_string()).get());
+
+        for (auto& field : fields) {
+            if (field->type->is_unknown()) {
+                if (syms->resolve_unk_type(field->type)) {
+                    struct_type->replace_field_type(field->ident->to_string(),
+                                                    field->type);
+                } else {
+                    valid = false;
+                }
+            }
+        }
+    }
 };
 
-class EnumField : public Decl {
+struct EnumField : public ASTNode {
     std::unique_ptr<Identifier> ident;
-    std::vector<std::unique_ptr<Type>> types;
+    std::vector<std::shared_ptr<Type>> types;
 
 public:
     explicit EnumField(std::unique_ptr<Identifier> ident)
         : ident(std::move(ident)) {};
     EnumField(std::unique_ptr<Identifier> ident,
-              std::vector<std::unique_ptr<Type>> types)
+              std::vector<std::shared_ptr<Type>> types)
         : ident(std::move(ident)), types(std::move(types)) {};
 
     void dump(int indent, std::ostream& stream) const override {
@@ -542,9 +756,11 @@ public:
         //for (const auto& t : types)
             //t->print(indent + 2);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-class EnumDecl : public Decl {
+struct EnumDecl : public Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<EnumField>> fields;
 
@@ -559,15 +775,51 @@ public:
         for (const auto& field : fields)
             field->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    void declare_type(SymbolTable* syms) override {
+        auto name = ident->to_string();
+
+        const bool is_unique =
+            syms->declare_type(ident, std::make_shared<EnumType>(ident));
+        if (!is_unique) {
+            valid = false;
+            return;
+        }
+
+        auto* enum_type = dynamic_cast<EnumType*>(syms->get_type(name).get());
+
+        for (auto& field : fields) {
+            const bool is_unique = enum_type->define_field(
+                field->ident->to_string(), field->types);
+            if (!is_unique) {
+                syms->diag.emit(field->ident->tok, ErrorKind::DuplicateField,
+                                field->ident->to_string());
+                valid = false;
+            }
+        }
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        for (auto& field : fields) {
+            for (auto& field_type : field->types) {
+                if (field_type->is_unknown() &&
+                    !syms->resolve_unk_type(field_type)) {
+                    valid = false;
+                }
+            }
+        }
+    }
 };
 
-class ConstDecl : public Decl {
+struct ConstDecl : public Decl {
     std::unique_ptr<Identifier> ident;
-    std::unique_ptr<Type> type;
+    std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
 public:
-    ConstDecl(std::unique_ptr<Identifier> ident, std::unique_ptr<Type> type,
+    ConstDecl(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
               std::unique_ptr<Expr> val)
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
@@ -579,15 +831,37 @@ public:
         if (val)
             val->dump(indent + 2, stream);
     }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    void declare_type(SymbolTable* syms) override {
+        valid = syms->declare_type(ident,
+                                   std::make_shared<VariableType>(type, true));
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        if (!type->is_unknown()) {
+            return;
+        }
+
+        if (!syms->resolve_unk_type(type)) {
+            valid = false;
+            return;
+        }
+
+        auto* const_type = dynamic_cast<VariableType*>(
+            syms->get_type(ident->to_string()).get());
+        const_type->replace_type(type);
+    }
 };
 
-class StaticDecl : public Decl {
+struct StaticDecl : public Decl {
     std::unique_ptr<Identifier> ident;
-    std::unique_ptr<Type> type;
+    std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
 public:
-    StaticDecl(std::unique_ptr<Identifier> ident, std::unique_ptr<Type> type,
+    StaticDecl(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
                std::unique_ptr<Expr> val)
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
@@ -598,5 +872,27 @@ public:
         // print type
         if (val)
             val->dump(indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    void declare_type(SymbolTable* syms) override {
+        valid = syms->declare_type(
+            ident, std::make_shared<VariableType>(type, false, true));
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        if (!type->is_unknown()) {
+            return;
+        }
+
+        if (!syms->resolve_unk_type(type)) {
+            valid = false;
+            return;
+        }
+
+        auto* static_type = dynamic_cast<VariableType*>(
+            syms->get_type(ident->to_string()).get());
+        static_type->replace_type(type);
     }
 };

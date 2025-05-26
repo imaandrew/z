@@ -56,8 +56,8 @@ class Parser {
     DeclResult parse_const_decl();
     DeclResult parse_static_decl();
     DeclResult parse_func_decl();
-    Result<std::vector<std::unique_ptr<Expr>>> parse_func_params();
-    ExprResult parse_param_decl();
+    Result<std::vector<std::unique_ptr<Param>>> parse_func_params();
+    Result<std::unique_ptr<Param>> parse_param_decl();
     Result<std::unique_ptr<Block>> parse_block(bool implicit_return = true);
     StmtResult parse_stmt();
     ExprResult prime_parse_expr(int precedence = 0);

@@ -1,6 +1,8 @@
 #include "lexer.h"
 #include "parser.h"
+#include "sem.h"
 #include "sourceman.h"
+#include "sym_table.h"
 #include <span>
 
 int main(int argc, char** argv) {
@@ -14,5 +16,14 @@ int main(int argc, char** argv) {
     auto decls = parser.parse();
     for (const auto& decl : decls) {
         decl->dump(0);
+    }
+
+    auto syms = SymbolTable(&source_man);
+    auto sem = SemChecker(&syms, &source_man);
+
+    sem.fill_top_level_syms(decls);
+
+    for (const auto& decl : decls) {
+        decl->accept(sem);
     }
 }

@@ -12,13 +12,6 @@
 #include <utility>
 #include <vector>
 
-ArrayType::ArrayType(std::unique_ptr<Type> type) : type(std::move(type)) {};
-ArrayType::ArrayType(std::unique_ptr<Type> type, std::unique_ptr<Expr> size)
-    : type(std::move(type)), size(std::move(size)) {};
-ArrayType::~ArrayType() = default;
-UserDefinedType::UserDefinedType(std::unique_ptr<Identifier> ident) : ident(std::move(ident)) {};
-UserDefinedType::~UserDefinedType() = default;
-
 namespace {
 
 BinOpPrecedence get_op_precedence(TokenKind kind) {
@@ -27,6 +20,7 @@ BinOpPrecedence get_op_precedence(TokenKind kind) {
         case TokenKind::MinusEq:
         case TokenKind::StarEq:
         case TokenKind::SlashEq:
+        case TokenKind::PercentEq:
         case TokenKind::CaretEq:
         case TokenKind::AndEq:
         case TokenKind::OrEq:
@@ -148,6 +142,7 @@ DeclResult Parser::parse_struct_decl() {
 
         if (!tok.is(TokenKind::RBrace)) {
             assert(TokenKind::Comma);
+            next_token();
         }
     }
 
@@ -216,7 +211,7 @@ Result<std::unique_ptr<EnumField>> Parser::parse_enum_field() {
     auto ident = std::make_unique<Identifier>(tok);
 
     if (kind(TokenKind::LParen)) {
-        std::vector<std::unique_ptr<Type>> types;
+        std::vector<std::shared_ptr<Type>> types;
         while (!consume(TokenKind::RParen)) {
             auto type = parse_type();
 
@@ -317,13 +312,15 @@ DeclResult Parser::parse_func_decl() {
     if (!params.is_valid())
         return DeclError();
 
-    std::optional<std::unique_ptr<Type>> ret;
+    std::unique_ptr<Type> ret;
     if (tok.is(TokenKind::Arrow)) {
         auto type = prime_parse_type();
         if (!type.is_valid())
             return DeclError();
 
-        ret.emplace(type.take());
+        ret = type.take();
+    } else {
+        ret = std::make_unique<VoidType>();
     }
 
     auto block = parse_block();
@@ -335,20 +332,20 @@ DeclResult Parser::parse_func_decl() {
         std::move(ret), std::move(block.take())));
 }
 
-Result<std::vector<std::unique_ptr<Expr>>> Parser::parse_func_params() {
+Result<std::vector<std::unique_ptr<Param>>> Parser::parse_func_params() {
     assert(TokenKind::LParen);
 
-    std::vector<std::unique_ptr<Expr>> params;
+    std::vector<std::unique_ptr<Param>> params;
     next_token();
     while (!tok.is(TokenKind::RParen)) {
         auto param_decl = parse_param_decl();
         if (!param_decl.is_valid())
-            return Result<std::vector<std::unique_ptr<Expr>>>(false);
+            return Result<std::vector<std::unique_ptr<Param>>>(false);
 
         params.push_back(param_decl.take());
 
         if (!tok.is(TokenKind::RParen) && !assert(TokenKind::Comma)) {
-            return Result<std::vector<std::unique_ptr<Expr>>>(false);
+            return Result<std::vector<std::unique_ptr<Param>>>(false);
         }
     }
 
@@ -357,20 +354,20 @@ Result<std::vector<std::unique_ptr<Expr>>> Parser::parse_func_params() {
     return Result(std::move(params));
 }
 
-ExprResult Parser::parse_param_decl() {
+Result<std::unique_ptr<Param>> Parser::parse_param_decl() {
     if (!assert(TokenKind::Identifier))
-        return ExprError();
+        return Result<std::unique_ptr<Param>>(false);
 
     auto name = std::make_unique<Identifier>(tok);
 
     if (!consume(TokenKind::Colon))
-        return ExprError();
+        return Result<std::unique_ptr<Param>>(false);
 
     auto type = prime_parse_type();
     if (!type.is_valid())
-        return ExprError();
+        return Result<std::unique_ptr<Param>>(false);
 
-    return ExprResult(
+    return Result(
         std::make_unique<Param>(std::move(name), std::move(type.take())));
 }
 
@@ -721,7 +718,7 @@ std::unique_ptr<Expr> Parser::parse_num() const {
         }
     }
 
-    long long num = 0;
+    unsigned long long num = 0;
     if (base != 10) {
         std::from_chars(val.data() + 2, val.data() + val.size(), num, base);
     } else {
@@ -863,7 +860,7 @@ TypeResult Parser::parse_type() {
         } else if (val_str == "char") {
             type = std::make_unique<CharType>();
         } else {
-            type = std::make_unique<UserDefinedType>(
+            type = std::make_unique<UnknownType>(
                 std::make_unique<Identifier>(tok));
         }
 
