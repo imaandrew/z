@@ -182,6 +182,12 @@ public:
         case TokenKind::Colon:
         case TokenKind::OrOr:
         case TokenKind::AndAnd:
+        case TokenKind::EqEq:
+        case TokenKind::Ne:
+        case TokenKind::Gt:
+        case TokenKind::Lt:
+        case TokenKind::Ge:
+        case TokenKind::Le:
             if (!l_type->is_logical()) {
                 // error
             }
