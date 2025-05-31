@@ -22,5 +22,8 @@ Checks: '*,
         -misc-no-recursion,
         -readability-function-cognitive-complexity,
         -cppcoreguidelines-avoid-magic-numbers,
-        -readability-magic-numbers'
+        -readability-magic-numbers,
+        -misc-non-private-member-variables-in-classes,
+        -cppcoreguidelines-non-private-member-variables-in-classes,
+        -readability-identifier-length'
 FormatStyle: 'file'

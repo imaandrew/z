@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <format>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 
@@ -85,7 +87,7 @@ enum class TokenKind : std::uint8_t {
     Char,
 };
 
-inline const std::string& tok_kind_to_string(TokenKind kind) {
+inline const std::string& tok_kind_to_string(const TokenKind kind) {
     static std::unordered_map<TokenKind, const std::string> token_strs = {
         {TokenKind::Eof, "TOK_EOF"},
         {TokenKind::Unknown, "TOK_UNK"},
@@ -161,7 +163,7 @@ inline const std::string& tok_kind_to_string(TokenKind kind) {
         {TokenKind::Char, "TOK_CHAR"},
     };
 
-    if (auto str = token_strs.find(kind); str != token_strs.end()) {
+    if (const auto str = token_strs.find(kind); str != token_strs.end()) {
         return str->second;
     }
 
@@ -178,8 +180,8 @@ class Token {
 
 public:
     Token() = default;
-    Token(TokenKind kind, const char* val, size_t pos, size_t line, size_t col,
-          size_t len = 1)
+    Token(const TokenKind kind, const char* val, const size_t pos,
+          const size_t line, const size_t col, const size_t len = 1)
         : kind(kind), val(val), len(len), pos(pos), line(line), col(col) {}
 
     [[nodiscard]] TokenKind get_kind() const { return kind; }
@@ -189,7 +191,9 @@ public:
     [[nodiscard]] size_t get_len() const { return len; }
     [[nodiscard]] size_t get_pos() const { return pos; }
 
-    [[nodiscard]] bool is(TokenKind kind) const { return kind == this->kind; }
+    [[nodiscard]] bool is(const TokenKind kind) const {
+        return kind == this->kind;
+    }
 
     [[nodiscard]] std::string to_string() const {
         auto str = tok_kind_to_string(kind);

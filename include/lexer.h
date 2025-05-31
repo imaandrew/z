@@ -2,6 +2,7 @@
 
 #include "sourceman.h"
 #include "token.h"
+#include <cstddef>
 
 class Lexer {
     SourceManager* source;

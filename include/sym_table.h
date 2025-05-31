@@ -1,8 +1,10 @@
 #pragma once
 
+#include "sourceman.h"
 #include "type.h"
 #include <cstddef>
 #include <error.h>
+#include <memory>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -15,7 +17,7 @@ class Symbol {
     std::span<const char> span;
 
 public:
-    Symbol(SymbolIndex idx, const char* ptr, std::size_t len)
+    Symbol(const SymbolIndex idx, const char* ptr, const std::size_t len)
         : idx(idx), span(ptr, len) {};
 
     [[nodiscard]] SymbolIndex get_index() const { return idx; }

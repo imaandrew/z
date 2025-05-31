@@ -7,7 +7,9 @@
 #include "token.h"
 #include "type.h"
 #include <cstdint>
+#include <memory>
 #include <utility>
+#include <vector>
 
 class SemChecker : public ASTVisitor {
     SymbolTable* syms;
@@ -16,14 +18,33 @@ class SemChecker : public ASTVisitor {
 public:
     SemChecker(SymbolTable* syms, SourceManager* src)
         : syms(syms), diag(src) {};
-    virtual ~SemChecker() = default;
+    ~SemChecker() override = default;
+    SemChecker(const SemChecker& other) : syms(other.syms), diag(other.diag) {};
+    SemChecker(SemChecker&& other) noexcept
+        : syms(std::move(other.syms)), diag(std::move(other.diag)) {};
+    SemChecker& operator=(const SemChecker& other) {
+        if (this != &other) {
+            syms = other.syms;
+            diag = other.diag;
+        }
+        return *this;
+    }
 
-    void fill_top_level_syms(std::vector<std::unique_ptr<Decl>>& decls) {
-        for (auto& decl : decls) {
+    SemChecker& operator=(SemChecker&& other) noexcept {
+        if (this != &other) {
+            syms = std::move(other.syms);
+            diag = std::move(other.diag);
+        }
+        return *this;
+    }
+
+    void
+    fill_top_level_syms(const std::vector<std::unique_ptr<Decl>>& decls) const {
+        for (const auto& decl : decls) {
             decl->declare_type(syms);
         }
 
-        for (auto& decl : decls) {
+        for (const auto& decl : decls) {
             decl->resolve_sym(syms);
         }
     }
@@ -152,7 +173,7 @@ public:
                 // error
             }
 
-            if (!l_type->is_assignment_compatable(r_type)) {
+            if (!l_type->is_assignment_compatible(r_type)) {
                 // error
             }
 
@@ -187,7 +208,7 @@ public:
                 // error
             }
 
-            if (!l_type->is_arithmetic_compatable(r_type)) {
+            if (!l_type->is_arithmetic_compatible(r_type)) {
                 // error
             }
 
@@ -205,7 +226,7 @@ public:
                 // error
             }
 
-            if (!l_type->is_arithmetic_compatable(r_type)) {
+            if (!l_type->is_arithmetic_compatible(r_type)) {
                 // error
             }
 

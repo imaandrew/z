@@ -3,10 +3,12 @@
 #include "sourceman.h"
 #include "token.h"
 #include <cstddef>
-#include <expected>
+#include <cstdint>
 #include <format>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 
 template <class T> class Result {
@@ -14,7 +16,8 @@ template <class T> class Result {
     bool valid = true;
 
 public:
-    explicit Result(bool valid = true) : val(std::nullopt), valid(valid) {};
+    explicit Result(const bool valid = true)
+        : val(std::nullopt), valid(valid) {};
     explicit Result(T&& val) : val(std::move(val)) {}
 
     [[nodiscard]] bool is_valid() const { return valid; }
@@ -49,10 +52,11 @@ class LexerError : public Error {
     std::size_t pos;
 
 public:
-    LexerError(ErrorKind kind, std::size_t pos) : kind(kind), pos(pos) {};
+    LexerError(const ErrorKind kind, const std::size_t pos)
+        : kind(kind), pos(pos) {};
 };
 
-inline const std::string& get_err_msg(ErrorKind kind) {
+inline const std::string& get_err_msg(const ErrorKind kind) {
     static std::unordered_map<ErrorKind, const std::string> err_msgs = {
         {ErrorKind::InvalidChar, "unknown character `{0}`"},
         {ErrorKind::EndOfTokens, "unexpectedly reached end of input"},
@@ -65,7 +69,7 @@ inline const std::string& get_err_msg(ErrorKind kind) {
         {ErrorKind::DuplicateField, "duplicate field `{0}`"},
         {ErrorKind::UndeclaredType, "use of undeclared type `{0}`"}};
 
-    if (auto str = err_msgs.find(kind); str != err_msgs.end()) {
+    if (const auto str = err_msgs.find(kind); str != err_msgs.end()) {
         return str->second;
     }
 
@@ -80,8 +84,8 @@ public:
     explicit DiagnosticEmitter(SourceManager* source) : source(source) {};
     template <typename... Args>
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    void emit(const Token& tok, ErrorKind kind, Args&&... args) {
-        auto str = get_err_msg(kind);
+    void emit(const Token& tok, const ErrorKind kind, Args&&... args) {
+        const auto str = get_err_msg(kind);
         std::cerr << std::format("{}:{}:{}: \x1B[31merror:\033[0m ",
                                  source->get_path(), tok.get_line(),
                                  tok.get_col());
@@ -94,11 +98,11 @@ public:
         std::cerr << std::format("{}| {}", line_prefix,
                                  val.value())
                   << '\n';
-        for (int i = 0; i < line_prefix.length(); i++) {
+        for (size_t i = 0; i < line_prefix.length(); i++) {
             std::cerr << ' ';
         }
         std::cerr << '|';
-        for (int i = 0; i < tok.get_col(); i++) {
+        for (size_t i = 0; i < tok.get_col(); i++) {
             std::cerr << ' ';
         }
         std::cerr << "\x1B[32m^\033[0m" << '\n';

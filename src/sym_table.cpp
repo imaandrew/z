@@ -1,5 +1,10 @@
 #include "sym_table.h"
 #include "ast.h"
+#include "error.h"
+#include "type.h"
+#include <memory>
+#include <string>
+#include <utility>
 
 bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
                               std::shared_ptr<Type> type) {
@@ -49,14 +54,14 @@ std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) {
 }
 
 std::shared_ptr<FunctionType> SymbolTable::get_func(const std::string& name) {
-    if (auto func = funcs.find(name); func != funcs.end())
+    if (const auto func = funcs.find(name); func != funcs.end())
         return func->second;
 
     return nullptr;
 }
 
 std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) {
-    if (auto type = user_defined_types.find(name);
+    if (const auto type = user_defined_types.find(name);
         type != user_defined_types.end())
         return type->second;
 
@@ -65,8 +70,8 @@ std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) {
 
 bool SymbolTable::resolve_unk_type(std::shared_ptr<Type>& type) {
     if (auto* unk_type = dynamic_cast<UnknownType*>(type.get())) {
-        auto ident = unk_type->to_string();
-        if (auto new_type = get_type(ident)) {
+        const auto ident = unk_type->to_string();
+        if (const auto new_type = get_type(ident)) {
             type = new_type;
             return true;
         }

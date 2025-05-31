@@ -13,7 +13,7 @@ class SourceManager {
     std::optional<std::filesystem::path> path;
 
     SourceManager(std::filesystem::path& path, std::vector<char> input)
-        : path(path), input(std::move(input)) {};
+        : input(std::move(input)), path(path) {};
     explicit SourceManager(std::vector<char> input)
         : input(std::move(input)), path(std::nullopt) {};
 
@@ -43,7 +43,7 @@ public:
         return SourceManager(path, input);
     }
 
-    [[nodiscard]] std::optional<char> get_char(std::size_t index) const {
+    [[nodiscard]] std::optional<char> get_char(const std::size_t index) const {
         if (in_bounds(index)) {
             return std::nullopt;
         }
@@ -51,7 +51,8 @@ public:
         return input[index];
     }
 
-    [[nodiscard]] std::optional<std::string> get_line(std::size_t index) {
+    [[nodiscard]] std::optional<std::string>
+    get_line(const std::size_t index) const {
         if (in_bounds(index)) {
             return std::nullopt;
         }
@@ -68,11 +69,11 @@ public:
         return std::string(&input[start], end - start);
     }
 
-    [[nodiscard]] bool in_bounds(std::size_t index) const {
+    [[nodiscard]] bool in_bounds(const std::size_t index) const {
         return index >= input.size();
     }
 
-    [[nodiscard]] const char* get_char_ptr(std::size_t index) const {
+    [[nodiscard]] const char* get_char_ptr(const std::size_t index) const {
         if (in_bounds(index))
             return nullptr;
 

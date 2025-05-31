@@ -19,7 +19,7 @@ TokenKind get_keyword(const std::string& keyword) {
         {"static", TokenKind::KwStatic}, {"struct", TokenKind::KwStruct},
         {"true", TokenKind::KwTrue},     {"while", TokenKind::KwWhile}};
 
-    if (auto kind = keywords.find(keyword); kind != keywords.end()) {
+    if (const auto kind = keywords.find(keyword); kind != keywords.end()) {
         return kind->second;
     }
 
@@ -28,14 +28,14 @@ TokenKind get_keyword(const std::string& keyword) {
 } // namespace
 
 char Lexer::next() {
-    auto next_char = peek();
+    const auto next_char = peek();
     cur++;
 
     return next_char;
 }
 
 char Lexer::peek() const {
-    auto cur_char = source->get_char(cur);
+    const auto cur_char = source->get_char(cur);
 
     if (!cur_char)
         return '\0';
@@ -59,7 +59,7 @@ void Lexer::skip_whitespace() {
     }
 }
 
-Token Lexer::make_token(TokenKind kind) const {
+Token Lexer::make_token(const TokenKind kind) const {
     return Token(kind, source->get_char_ptr(start), start, line, col,
                  cur - start);
 }
@@ -70,8 +70,7 @@ Token Lexer::lex_token() {
     col = cur - line_start + 1;
     start = cur;
 
-    auto cur_char = next();
-    switch (cur_char) {
+    switch (auto cur_char = next()) {
     case '(':
         return make_token(TokenKind::LParen);
     case ')':
@@ -131,8 +130,8 @@ Token Lexer::lex_token() {
                 next();
                 int comment_level = 1;
                 while (comment_level > 0) {
-                    auto next_char = next();
-                    if (next_char == '*' && peek() == '/') {
+                    if (const auto next_char = next();
+                        next_char == '*' && peek() == '/') {
                         comment_level--;
                         next();
                     } else if (next_char == '/' && peek() == '*') {
@@ -266,10 +265,11 @@ Token Lexer::lex_token() {
                     cur_char = peek();
                 }
 
-                auto len = cur - start;
-                auto literal = std::string(source->get_char_ptr(start), len);
+                const auto len = cur - start;
+                const auto literal =
+                    std::string(source->get_char_ptr(start), len);
 
-                if (auto keyword = get_keyword(literal);
+                if (const auto keyword = get_keyword(literal);
                     keyword != TokenKind::Unknown) {
                     return make_token(keyword);
                 }

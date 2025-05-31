@@ -19,11 +19,11 @@ public:
     Type(Type&&) = delete;
     Type& operator=(Type&&) = delete;
 
-    virtual bool is_arithmetic_compatable(Type* /*other*/) { return false; }
+    virtual bool is_arithmetic_compatible(Type* /*other*/) { return false; }
 
     virtual bool is_assignable() { return false; }
 
-    virtual bool is_assignment_compatable(Type* other) {
+    virtual bool is_assignment_compatible(Type* other) {
         return typeid(*this) == typeid(*other);
     }
 
@@ -41,17 +41,17 @@ public:
     virtual bool is_variable() { return false; }
 };
 
-class IntegerType : public Type {
+class IntegerType final : public Type {
     int bit_width;
     bool is_signed;
 
 public:
-    IntegerType(int bit_width, bool is_signed)
+    IntegerType(const int bit_width, const bool is_signed)
         : bit_width(bit_width), is_signed(is_signed) {};
 
-    bool is_arithmetic_compatable(Type* other) override {
+    bool is_arithmetic_compatible(Type* other) override {
         if (typeid(*this) == typeid(*other)) {
-            auto* other_int = dynamic_cast<IntegerType*>(other);
+            const auto* other_int = dynamic_cast<IntegerType*>(other);
             return this->bit_width == other_int->bit_width &&
                    this->is_signed == other_int->is_signed;
         }
@@ -63,9 +63,9 @@ public:
 
     bool is_numeric() override { return true; }
 
-    bool is_assignment_compatable(Type* other) override {
-        if (Type::is_assignment_compatable(other)) {
-            auto* other_int = dynamic_cast<IntegerType*>(other);
+    bool is_assignment_compatible(Type* other) override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_int = dynamic_cast<IntegerType*>(other);
             return this->bit_width == other_int->bit_width &&
                    this->is_signed == other_int->is_signed;
         }
@@ -74,15 +74,15 @@ public:
     }
 };
 
-class FloatType : public Type {
+class FloatType final : public Type {
     int bit_width;
 
 public:
-    explicit FloatType(int bit_width) : bit_width(bit_width) {};
+    explicit FloatType(const int bit_width) : bit_width(bit_width) {};
 
-    bool is_arithmetic_compatable(Type* other) override {
-        if (Type::is_arithmetic_compatable(other)) {
-            auto* other_float = dynamic_cast<FloatType*>(other);
+    bool is_arithmetic_compatible(Type* other) override {
+        if (Type::is_arithmetic_compatible(other)) {
+            const auto* other_float = dynamic_cast<FloatType*>(other);
             return this->bit_width == other_float->bit_width;
         }
 
@@ -91,9 +91,9 @@ public:
 
     bool is_numeric() override { return true; }
 
-    bool is_assignment_compatable(Type* other) override {
-        if (Type::is_assignment_compatable(other)) {
-            auto* other_float = dynamic_cast<FloatType*>(other);
+    bool is_assignment_compatible(Type* other) override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_float = dynamic_cast<FloatType*>(other);
             return this->bit_width == other_float->bit_width;
         }
 
@@ -101,16 +101,16 @@ public:
     }
 };
 
-class BooleanType : public Type {
+class BooleanType final : public Type {
 public:
     bool is_logical() override { return true; }
 };
 
-class StringType : public Type {};
+class StringType final : public Type {};
 
-class CharType : public Type {};
+class CharType final : public Type {};
 
-class PointerType : public Type {
+class PointerType final : public Type {
     std::unique_ptr<Type> type;
 
 public:
@@ -118,17 +118,17 @@ public:
 
     bool is_logical() override { return true; }
 
-    bool is_assignment_compatable(Type* other) override {
-        if (Type::is_assignment_compatable(other)) {
-            auto* ptr = dynamic_cast<PointerType*>(other);
-            return type->is_assignment_compatable(ptr->type.get());
+    bool is_assignment_compatible(Type* other) override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* ptr = dynamic_cast<PointerType*>(other);
+            return type->is_assignment_compatible(ptr->type.get());
         }
 
         return false;
     }
 };
 
-class ArrayType : public Type {
+class ArrayType final : public Type {
     std::unique_ptr<Type> type;
     std::unique_ptr<Expr> size;
 
@@ -142,10 +142,10 @@ public:
     ArrayType(ArrayType&&) = delete;
     ArrayType& operator=(ArrayType&&) = delete;
 
-    bool is_assignment_compatable(Type* other) override {
-        if (Type::is_assignment_compatable(other)) {
-            auto* other_array = dynamic_cast<ArrayType*>(other);
-            if (!type->is_assignment_compatable(other_array->type.get())) {
+    bool is_assignment_compatible(Type* other) override {
+        if (Type::is_assignment_compatible(other)) {
+            if (const auto* other_array = dynamic_cast<ArrayType*>(other);
+                !type->is_assignment_compatible(other_array->type.get())) {
                 return false;
             }
 
@@ -157,7 +157,7 @@ public:
     }
 };
 
-class UnknownType : public Type {
+class UnknownType final : public Type {
     std::unique_ptr<Identifier> ident;
 
 public:
@@ -169,28 +169,28 @@ public:
     UnknownType(UnknownType&&) = delete;
     UnknownType& operator=(UnknownType&&) = delete;
 
-    std::string to_string();
-    const Identifier* get_ident() { return ident.get(); }
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] const Identifier* get_ident() const { return ident.get(); }
 
-    bool is_assignment_compatable(Type* /*other*/) override { return false; }
+    bool is_assignment_compatible(Type* /*other*/) override { return false; }
 
     bool is_unknown() override { return true; }
 };
 
-class FunctionType : public Type {
+class FunctionType final : public Type {
     std::vector<std::shared_ptr<Type>> params;
     std::shared_ptr<Type> return_val;
 
 public:
-    explicit FunctionType(std::vector<std::shared_ptr<Type>>& params,
+    explicit FunctionType(const std::vector<std::shared_ptr<Type>>& params,
                           const std::shared_ptr<Type>& return_val)
         : params(params), return_val(return_val) {};
 
-    bool is_assignment_compatable(Type* /*other*/) override { return false; }
+    bool is_assignment_compatible(Type* /*other*/) override { return false; }
     void set_return_val(const std::shared_ptr<Type>& ret) { return_val = ret; }
 };
 
-class StructType : public Type {
+class StructType final : public Type {
     std::string name;
     std::unordered_map<std::string, std::shared_ptr<Type>> fields;
 
@@ -207,10 +207,10 @@ public:
         fields.insert_or_assign(field, type);
     }
 
-    bool is_assignment_compatable(Type* other) override;
+    bool is_assignment_compatible(Type* other) override;
 };
 
-class EnumType : public Type {
+class EnumType final : public Type {
     std::string name;
     std::unordered_map<std::string, std::vector<std::shared_ptr<Type>>&> fields;
 
@@ -222,32 +222,35 @@ public:
         return fields.insert({field, types}).second;
     }
 
-    bool is_assignment_compatable(Type* other) override;
+    bool is_assignment_compatible(Type* other) override;
 };
 
-class VariableType : public Type {
+class VariableType final : public Type {
     std::shared_ptr<Type> internal_type;
     bool is_const;
     bool is_static;
 
 public:
     explicit VariableType(std::shared_ptr<Type> internal_type,
-                          bool is_const = false, bool is_static = false)
+                          const bool is_const = false,
+                          const bool is_static = false)
         : internal_type(std::move(internal_type)), is_const(is_const),
           is_static(is_static) {};
 
-    void replace_type(std::shared_ptr<Type>& type) { internal_type = type; }
+    void replace_type(const std::shared_ptr<Type>& type) {
+        internal_type = type;
+    }
 
     bool is_assignable() override { return true; }
 
-    bool is_assignment_compatable(Type* other) override {
-        if (Type::is_assignment_compatable(other)) {
-            auto* other_var = dynamic_cast<VariableType*>(other);
-            return internal_type->is_assignment_compatable(
+    bool is_assignment_compatible(Type* other) override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_var = dynamic_cast<VariableType*>(other);
+            return internal_type->is_assignment_compatible(
                 other_var->internal_type.get());
         }
 
-        return internal_type->is_assignment_compatable(other);
+        return internal_type->is_assignment_compatible(other);
     }
 
     bool is_logical() override { return internal_type->is_logical(); }
@@ -259,9 +262,9 @@ public:
     bool is_variable() override { return true; }
 };
 
-class VoidType : public Type {};
+class VoidType final : public Type {};
 
-class InvalidType : public Type {
+class InvalidType final : public Type {
 public:
-    bool is_assignment_compatable(Type* /*other*/) override { return false; }
+    bool is_assignment_compatible(Type* /*other*/) override { return false; }
 };

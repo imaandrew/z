@@ -5,16 +5,18 @@
 #include "type.h"
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <span>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
 namespace {
 
-BinOpPrecedence get_op_precedence(TokenKind kind) {
+BinOpPrecedence get_op_precedence(const TokenKind kind) {
     switch (kind) {
         case TokenKind::PlusEq:
         case TokenKind::MinusEq:
@@ -259,7 +261,7 @@ DeclResult Parser::parse_const_decl() {
         next_token();
 
     return DeclResult(std::make_unique<ConstDecl>(std::move(ident), type.take(),
-                                                  std::move(expr.take())));
+                                                  expr.take()));
 }
 
 DeclResult Parser::parse_static_decl() {
@@ -287,8 +289,8 @@ DeclResult Parser::parse_static_decl() {
     if (assert(TokenKind::Semi))
         next_token();
 
-    return DeclResult(std::make_unique<StaticDecl>(
-        std::move(ident), type.take(), std::move(expr.take())));
+    return DeclResult(std::make_unique<StaticDecl>(std::move(ident),
+                                                   type.take(), expr.take()));
 }
 
 DeclResult Parser::parse_func_decl() {
@@ -328,8 +330,8 @@ DeclResult Parser::parse_func_decl() {
         return DeclError();
 
     return DeclResult(std::make_unique<FuncDecl>(
-        std::move(func_ident), std::move(impl_type), std::move(params.take()),
-        std::move(ret), std::move(block.take())));
+        std::move(func_ident), std::move(impl_type), params.take(),
+        std::move(ret), block.take()));
 }
 
 Result<std::vector<std::unique_ptr<Param>>> Parser::parse_func_params() {
@@ -367,11 +369,10 @@ Result<std::unique_ptr<Param>> Parser::parse_param_decl() {
     if (!type.is_valid())
         return Result<std::unique_ptr<Param>>(false);
 
-    return Result(
-        std::make_unique<Param>(std::move(name), std::move(type.take())));
+    return Result(std::make_unique<Param>(std::move(name), type.take()));
 }
 
-Result<std::unique_ptr<Block>> Parser::parse_block(bool implicit_return) {
+Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
     assert(TokenKind::LBrace);
     next_token();
 
@@ -384,7 +385,7 @@ Result<std::unique_ptr<Block>> Parser::parse_block(bool implicit_return) {
 
         auto res = parse_stmt();
         if (res.is_valid()) {
-            stmts.push_back(std::move(res.take()));
+            stmts.push_back(res.take());
         } else {
             recover_stmt();
             continue;
@@ -466,7 +467,7 @@ StmtResult Parser::parse_stmt() {
             stmt = std::make_unique<ReturnStmt>();
         }
     } else {
-        auto expr_no_semi =
+        const auto expr_no_semi =
             tok.is(TokenKind::KwIf) || tok.is(TokenKind::KwFor) ||
             tok.is(TokenKind::KwLoop) || tok.is(TokenKind::KwWhile);
         auto expr = parse_expr();
@@ -480,12 +481,12 @@ StmtResult Parser::parse_stmt() {
     return Result(std::move(stmt));
 }
 
-ExprResult Parser::prime_parse_expr(int precedence) {
+ExprResult Parser::prime_parse_expr(const int precedence) {
     next_token();
     return parse_expr(precedence);
 }
 
-ExprResult Parser::parse_expr(int precedence) {
+ExprResult Parser::parse_expr(const int precedence) {
     std::unique_ptr<Expr> lhs;
     switch (tok.get_kind()) {
         case TokenKind::Number:
@@ -687,10 +688,10 @@ ExprResult Parser::parse_expr(int precedence) {
 }
 
 std::unique_ptr<Expr> Parser::parse_num() const {
-    auto val = std::span(tok.get_val(), tok.get_len());
-    auto len = tok.get_len();
+    const auto val = std::span(tok.get_val(), tok.get_len());
+    const auto len = tok.get_len();
 
-    for (int i = 0; i < len; i++) {
+    for (size_t i = 0; i < len; i++) {
         if (val[i] == '.') {
             double num = NAN;
             std::from_chars(val.data(), val.data() + val.size_bytes(), num);
@@ -747,8 +748,8 @@ ExprResult Parser::parse_for_expr() {
     if (!block.is_valid())
         return ExprError();
 
-    return ExprResult(std::make_unique<ForExpr>(std::move(ident), expr.take(),
-                                                std::move(block.take())));
+    return ExprResult(
+        std::make_unique<ForExpr>(std::move(ident), expr.take(), block.take()));
 }
 
 ExprResult Parser::parse_if_expr() {
@@ -772,11 +773,11 @@ ExprResult Parser::parse_if_expr() {
 
             else_expr = std::make_unique<ElseExpr>(if_expr.take());
         } else {
-            auto block = parse_block();
-            if (!block.is_valid())
+            auto else_block = parse_block();
+            if (!else_block.is_valid())
                 return ExprError();
 
-            else_expr = std::make_unique<ElseExpr>(block.take());
+            else_expr = std::make_unique<ElseExpr>(else_block.take());
         }
 
         return ExprResult(std::make_unique<IfExpr>(expr.take(), block.take(),
@@ -825,9 +826,9 @@ TypeResult Parser::prime_parse_type() {
 TypeResult Parser::parse_type() {
     std::unique_ptr<Type> type;
     if (tok.is(TokenKind::Identifier)) {
-        auto val_str = std::string(tok.get_val(), tok.get_len());
 
-        if (val_str.at(0) == 'u') {
+        if (const auto val_str = std::string(tok.get_val(), tok.get_len());
+            val_str.at(0) == 'u') {
             if (val_str == "u8") {
                 type = std::make_unique<IntegerType>(1, false);
             } else if (val_str == "u16") {
@@ -885,13 +886,14 @@ TypeResult Parser::parse_type() {
         next_token();
     } else if (tok.is(TokenKind::LParen)) {
         std::vector<std::unique_ptr<Type>> types;
+        // TODO: don't think this is ever reached
 
         while (!kind(TokenKind::RParen)) {
-            auto type = parse_type();
-            if (!type.is_valid())
+            auto elem_type = parse_type();
+            if (!elem_type.is_valid())
                 return TypeError();
 
-            types.push_back(type.take());
+            types.push_back(elem_type.take());
 
             if (!tok.is(TokenKind::Comma)) {
                 if (!assert(TokenKind::RParen))
@@ -913,22 +915,22 @@ void Parser::next_token() {
     tok = lexer.lex_token();
 }
 
-bool Parser::consume(TokenKind kind) {
+bool Parser::consume(const TokenKind kind) {
     next_token();
     return assert(kind);
 }
 
-bool Parser::kind(TokenKind kind) {
+bool Parser::kind(const TokenKind kind) {
     next_token();
     return tok.is(kind);
 }
 
-bool Parser::assert(TokenKind kind) {
+bool Parser::assert(const TokenKind kind) {
     if (!tok.is(kind)) {
         if (kind == TokenKind::Semi) {
-            auto semi_tok = Token(TokenKind::Semi, prev_tok.get_val(),
-                                  prev_tok.get_pos() + 1, prev_tok.get_line(),
-                                  prev_tok.get_col() + 1);
+            const auto semi_tok = Token(
+                TokenKind::Semi, prev_tok.get_val(), prev_tok.get_pos() + 1,
+                prev_tok.get_line(), prev_tok.get_col() + 1);
             diag.emit(semi_tok, ErrorKind::ExpectedSemi,
                       tok_kind_to_string(kind),
                       tok_kind_to_string(semi_tok.get_kind()));
@@ -942,14 +944,14 @@ bool Parser::assert(TokenKind kind) {
     return true;
 }
 
-bool Parser::sync(TokenKind kind, SyncFlags flags) {
+bool Parser::sync(const TokenKind kind, const SyncFlags flags) {
     return sync(std::vector<TokenKind>{kind}, flags);
 }
 
-bool Parser::sync(std::vector<TokenKind> const& kinds, SyncFlags flags) {
+bool Parser::sync(std::vector<TokenKind> const& kinds, const SyncFlags flags) {
     int braces = 0;
     while (!tok.is(TokenKind::Eof)) {
-        for (auto kind : kinds) {
+        for (const auto kind : kinds) {
             if (tok.is(kind) && braces <= 0) {
                 if ((flags & SyncFlags::BreakBefore) != SyncFlags::BreakBefore)
                     next_token();
@@ -1023,7 +1025,7 @@ void Parser::recover_stmt() {
     }
 }
 
-bool Parser::can_be_expr() {
+bool Parser::can_be_expr() const {
     switch (tok.get_kind()) {
     case TokenKind::Number:
     case TokenKind::Identifier:

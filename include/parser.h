@@ -4,7 +4,11 @@
 #include "lexer.h"
 #include "sourceman.h"
 #include "token.h"
+#include "type.h"
+#include <cstdint>
+#include <memory>
 #include <utility>
+#include <vector>
 
 using StmtResult = Result<std::unique_ptr<Stmt>>;
 using ExprResult = Result<std::unique_ptr<Expr>>;
@@ -48,7 +52,7 @@ class Parser {
               SyncFlags flags = static_cast<SyncFlags>(0));
     void recover_decl();
     void recover_stmt();
-    bool can_be_expr();
+    [[nodiscard]] bool can_be_expr() const;
     DeclResult parse_struct_decl();
     Result<std::unique_ptr<StructField>> parse_struct_field();
     DeclResult parse_enum_decl();
@@ -71,6 +75,7 @@ class Parser {
     TypeResult parse_type();
 
 public:
-    Parser(Lexer& lexer, SourceManager* source) : lexer(lexer), diag(source) {};
+    Parser(const Lexer& lexer, SourceManager* source)
+        : lexer(lexer), diag(source) {};
     std::vector<std::unique_ptr<Decl>> parse();
 };
