@@ -1,6 +1,7 @@
 #include "sym_table.h"
 #include "ast.h"
 #include "error.h"
+#include "token.h"
 #include "type.h"
 #include <memory>
 #include <string>
@@ -8,8 +9,7 @@
 
 bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
                               std::shared_ptr<Type> type) {
-    const bool is_unique =
-        variables.end()->insert({name->to_string(), std::move(type)}).second;
+    const bool is_unique = scopes.back()->declare_var(name, std::move(type));
 
     if (!is_unique) {
         diag.emit(name->tok, ErrorKind::RedeclaredVar, name->to_string());
@@ -18,13 +18,24 @@ bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
     return is_unique;
 }
 
-bool SymbolTable::declare_func(const std::unique_ptr<Identifier>& name,
-                               std::shared_ptr<FunctionType> type) {
+bool SymbolTable::declare_global_var(const std::unique_ptr<Identifier>& name,
+                                     std::shared_ptr<Type> type) {
     const bool is_unique =
-        funcs.insert({name->to_string(), std::move(type)}).second;
+        global_vars.insert({name->to_string(), std::move(type)}).second;
 
     if (!is_unique) {
-        diag.emit(name->tok, ErrorKind::RedeclaredFunc, name->to_string());
+        diag.emit(name->tok, ErrorKind::RedeclaredVar, name->to_string());
+    }
+
+    return is_unique;
+}
+
+bool SymbolTable::declare_func(const std::string& name, const Token& tok,
+                               std::shared_ptr<FunctionType> type) {
+    const bool is_unique = funcs.insert({name, std::move(type)}).second;
+
+    if (!is_unique) {
+        diag.emit(tok, ErrorKind::RedeclaredFunc, name);
     }
 
     return is_unique;
@@ -43,11 +54,23 @@ bool SymbolTable::declare_type(const std::unique_ptr<Identifier>& name,
 }
 
 std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) {
-    for (auto i = variables.size() - 1; i <= 0; i--) {
+    for (auto i = scopes.size() - 1; i <= 0; i--) {
 
-        if (auto var = variables[i].find(name); var != variables[i].end()) {
-            return var->second;
+        if (auto type = scopes[i]->get_var(name)) {
+            return type;
         }
+    }
+
+    if (auto var = global_vars.find(name); var != global_vars.end()) {
+        return var->second;
+    }
+
+    return nullptr;
+}
+
+std::shared_ptr<Type> SymbolTable::get_global_var(const std::string& name) {
+    if (auto var = global_vars.find(name); var != global_vars.end()) {
+        return var->second;
     }
 
     return nullptr;
@@ -66,6 +89,14 @@ std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) {
         return type->second;
 
     return nullptr;
+}
+
+void SymbolTable::update_type(const std::string& name,
+                              std::shared_ptr<Type>& new_type) {
+    if (const auto type = user_defined_types.find(name);
+        type != user_defined_types.end()) {
+        type->second = new_type;
+    }
 }
 
 bool SymbolTable::resolve_unk_type(std::shared_ptr<Type>& type) {

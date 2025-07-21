@@ -1,6 +1,7 @@
 #pragma once
 
 #include "error.h"
+#include "scope.h"
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
@@ -123,6 +124,15 @@ struct ASTNode {
 
     virtual void dump(int indent = 0,
                       std::ostream& stream = std::cout) const = 0;
+
+    void dump_type(std::ostream& stream = std::cout) const {
+        stream << " - type: ";
+        if (node_type)
+            node_type->dump(stream);
+        else
+            stream << "null";
+        stream << '\n';
+    }
 };
 
 struct Stmt : ASTNode {
@@ -137,8 +147,9 @@ struct Stmt : ASTNode {
 struct InvalidStmt final : Stmt {
     InvalidStmt() { mark_invalid(); };
 
-    void dump(int /*indent*/, std::ostream& stream) const override {
-        stream << "InvalidStmt" << '\n';
+    void dump(int indent, std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "InvalidStmt";
+        dump_type(stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -160,7 +171,8 @@ struct Identifier final : Expr {
 
     void dump(const int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "Identifier "
-               << std::string(tok.get_val(), tok.get_len()) << '\n';
+               << std::string(tok.get_val(), tok.get_len());
+        dump_type(stream);
     }
 
     [[nodiscard]] std::string to_string() const {
@@ -192,7 +204,8 @@ struct IntExpr final : Expr {
         : tok(tok), val(val) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "IntExpr " << val << '\n';
+        stream << std::string(indent, ' ') << "IntExpr " << val;
+        dump_type(stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -205,7 +218,8 @@ struct FloatExpr final : Expr {
     FloatExpr(const Token& tok, const double val) : tok(tok), val(val) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "FloatExpr " << val << '\n';
+        stream << std::string(indent, ' ') << "FloatExpr " << val;
+        dump_type(stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -222,7 +236,8 @@ struct PrefixExpr final : Expr {
 
     void dump(const int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "PrefixExpr "
-               << std::string(op.get_val(), op.get_len()) << '\n';
+               << std::string(op.get_val(), op.get_len());
+        dump_type(stream);
         expr->dump(indent + 2, stream);
     }
 
@@ -238,7 +253,8 @@ struct PostfixExpr final : Expr {
 
     void dump(const int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "PostfixExpr "
-               << std::string(op.get_val(), op.get_len()) << '\n';
+               << std::string(op.get_val(), op.get_len());
+        dump_type(stream);
         expr->dump(indent + 2, stream);
     }
 
@@ -256,7 +272,8 @@ struct BinaryExpr final : Expr {
 
     void dump(const int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "BinaryExpr "
-               << std::string(op.get_val(), op.get_len()) << '\n';
+               << std::string(op.get_val(), op.get_len());
+        dump_type(stream);
         lhs->dump(indent + 2, stream);
         rhs->dump(indent + 2, stream);
     }
@@ -277,7 +294,8 @@ struct TernaryExpr final : Expr {
 
     void dump(const int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TernaryExpr "
-               << std::string(op.get_val(), op.get_len()) << '\n';
+               << std::string(op.get_val(), op.get_len());
+        dump_type(stream);
         lhs->dump(indent + 2, stream);
         mhs->dump(indent + 2, stream);
         rhs->dump(indent + 2, stream);
@@ -297,7 +315,8 @@ struct CallExpr final : Expr {
         : ident(std::move(func)), args(std::move(args)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "CallExpr" << '\n';
+        stream << std::string(indent, ' ') << "CallExpr";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
         for (const auto& arg : args) {
             arg->dump(indent + 2, stream);
@@ -318,7 +337,8 @@ struct ArrayExpr final : Expr {
         : ident(std::move(ident)), val(std::move(val)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ArrayExpr" << '\n';
+        stream << std::string(indent, ' ') << "ArrayExpr";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
         if (val)
             val->dump(indent + 2, stream);
@@ -334,7 +354,8 @@ struct ArrayInitExpr final : Expr {
         : vals(std::move(vals)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ArrayInitExpr" << '\n';
+        stream << std::string(indent, ' ') << "ArrayInitExpr";
+        dump_type(stream);
         for (const auto& val : vals) {
             val->dump(indent + 2, stream);
         }
@@ -347,10 +368,13 @@ struct StructInitExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<Expr>> vals;
 
-    StructInitExpr(std::unique_ptr<Expr> ident, std::vector<std::unique_ptr<Expr>> vals) : ident(std::move(ident)), vals(std::move(vals)) {};
+    StructInitExpr(std::unique_ptr<Expr> ident,
+                   std::vector<std::unique_ptr<Expr>> vals)
+        : ident(std::move(ident)), vals(std::move(vals)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructInitExpr" << '\n';
+        stream << std::string(indent, ' ') << "StructInitExpr";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
         for (const auto& val : vals) {
             val->dump(indent + 2, stream);
@@ -362,12 +386,16 @@ struct StructInitExpr final : Expr {
 
 struct Block final : Stmt {
     std::vector<std::unique_ptr<Stmt>> stmts;
+    ScopeContext ctxt;
 
     explicit Block(std::vector<std::unique_ptr<Stmt>> stmts)
         : stmts(std::move(stmts)) {};
 
+    ScopeContext* get_scope_ctxt() { return &ctxt; }
+
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Block" << '\n';
+        stream << std::string(indent, ' ') << "Block";
+        dump_type(stream);
         for (const auto& stmt : stmts) {
             stmt->dump(indent + 2, stream);
         }
@@ -384,7 +412,11 @@ struct Param final : Expr {
         : name(std::move(name)), type(std::move(type)) {};
 
     void dump(int indent, std::ostream& stream) const override {
-        // TODO
+        stream << std::string(indent, ' ') << "Param";
+        dump_type(stream);
+        name->dump(indent + 2, stream);
+        type->dump(stream);
+        stream << '\n';
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -404,21 +436,28 @@ struct Decl : ASTNode {
 
 struct FuncDecl final : Decl {
     std::unique_ptr<Identifier> name;
-    std::optional<std::unique_ptr<Identifier>> impl_type;
+    std::optional<std::shared_ptr<Identifier>> impl_type;
     std::vector<std::unique_ptr<Param>> params;
     std::shared_ptr<Type> ret;
     std::unique_ptr<Block> body;
 
     FuncDecl(std::unique_ptr<Identifier> name,
-             std::optional<std::unique_ptr<Identifier>> impl_type,
+             std::optional<std::shared_ptr<Identifier>> impl_type,
              std::vector<std::unique_ptr<Param>> params,
              std::shared_ptr<Type> ret, std::unique_ptr<Block> body)
         : name(std::move(name)), impl_type(std::move(impl_type)),
           params(std::move(params)), ret(std::move(ret)),
           body(std::move(body)) {};
 
+    [[nodiscard]] std::string get_abs_name() const {
+        if (impl_type)
+            return impl_type->get()->to_string() + "::" + name->to_string();
+        return name->to_string();
+    }
+
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "FuncDecl" << '\n';
+        stream << std::string(indent, ' ') << "FuncDecl";
+        dump_type(stream);
         name->dump(indent + 2, stream);
         if (impl_type && impl_type.has_value())
             impl_type.value()->dump(indent + 2, stream);
@@ -428,23 +467,18 @@ struct FuncDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        auto name_str = this->name->to_string();
-        // TODO: unused
-        if (impl_type)
-            name_str =
-                impl_type->get()->to_string().append("::").append(name_str);
-
         auto param_types = std::vector<std::shared_ptr<Type>>();
         for (const auto& param : params) {
             param_types.push_back(param->type);
         }
 
         valid = syms->declare_func(
-            name, std::make_shared<FunctionType>(param_types, ret));
+            get_abs_name(), name->tok,
+            std::make_shared<FunctionType>(param_types, ret));
     }
 
     void resolve_sym(SymbolTable* syms) override {
-        const auto func_type = syms->get_func(name->to_string());
+        const auto func_type = syms->get_func(get_abs_name());
 
         for (const auto& param : params) {
             if (param->type->is_unknown() &&
@@ -472,7 +506,8 @@ struct BreakStmt final : Stmt {
         : tok(tok), expr(std::move(expr)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "BreakStmt" << '\n';
+        stream << std::string(indent, ' ') << "BreakStmt";
+        dump_type(stream);
         if (expr)
             expr->dump(indent + 2, stream);
     }
@@ -486,7 +521,8 @@ struct ContinueStmt final : Stmt {
     explicit ContinueStmt(const Token& tok) : tok(tok) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ContinueStmt" << '\n';
+        stream << std::string(indent, ' ') << "ContinueStmt";
+        dump_type(stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -503,7 +539,8 @@ struct ForExpr final : Expr {
           block(std::move(block)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ForExpr" << '\n';
+        stream << std::string(indent, ' ') << "ForExpr";
+        dump_type(stream);
         expr->dump(indent + 2, stream);
         block->dump(indent + 2, stream);
     }
@@ -514,24 +551,28 @@ struct ForExpr final : Expr {
 struct LetStmt final : Stmt {
     std::unique_ptr<Identifier> ident;
     std::shared_ptr<Type> type;
-    std::unique_ptr<Expr> val;
+    std::shared_ptr<Expr> val;
 
     explicit LetStmt(std::unique_ptr<Identifier> ident)
         : ident(std::move(ident)) {};
 
-    LetStmt(std::unique_ptr<Identifier> ident, std::unique_ptr<Expr> val)
+    LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Expr> val)
         : ident(std::move(ident)), val(std::move(val)) {};
 
     LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
-            std::unique_ptr<Expr> val)
+            std::shared_ptr<Expr> val)
         : ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "LetStmt" << '\n';
+        stream << std::string(indent, ' ') << "LetStmt";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
-        //if (type)
-            //type.value()->print(indent + 2);
+        if (type) {
+            stream << std::string(indent + 2, ' ');
+            type->dump(stream);
+            stream << '\n';
+        }
         if (val)
             val->dump(indent + 2, stream);
     }
@@ -546,7 +587,8 @@ struct ReturnStmt final : Stmt {
     explicit ReturnStmt(std::unique_ptr<Expr> expr) : expr(std::move(expr)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ReturnStmt" << '\n';
+        stream << std::string(indent, ' ') << "ReturnStmt";
+        dump_type(stream);
         if (expr)
             expr->dump(indent + 2, stream);
     }
@@ -564,7 +606,8 @@ struct ElseExpr final : Expr {
         : if_expr(std::move(if_expr)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ElseExpr" << '\n';
+        stream << std::string(indent, ' ') << "ElseExpr";
+        dump_type(stream);
 
         if (if_expr) {
             if_expr->dump(indent + 2, stream);
@@ -589,7 +632,8 @@ struct IfExpr final : Expr {
           else_expr(std::move(else_expr)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "IfExpr" << '\n';
+        stream << std::string(indent, ' ') << "IfExpr";
+        dump_type(stream);
         expr->dump(indent + 2, stream);
         block->dump(indent + 2, stream);
         if (else_expr) {
@@ -608,7 +652,8 @@ struct LoopExpr final : Expr {
         : expr(std::move(expr)), block(std::move(block)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "LoopExpr" << '\n';
+        stream << std::string(indent, ' ') << "LoopExpr";
+        dump_type(stream);
         if (expr) {
             expr->dump(indent + 2, stream);
         }
@@ -626,7 +671,8 @@ struct WhileExpr final : Expr {
         : expr(std::move(expr)), block(std::move(block)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "WhileExpr" << '\n';
+        stream << std::string(indent, ' ') << "WhileExpr";
+        dump_type(stream);
         expr->dump(indent + 2, stream);
         block->dump(indent + 2, stream);
     }
@@ -641,8 +687,9 @@ struct StringExpr final : Expr {
     StringExpr(const char* start, const size_t len) : start(start), len(len) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "String "
-               << std::string(start, len) << '\n';
+        stream << std::string(indent, ' ') << "String '"
+               << std::string(start, len) << '\'';
+        dump_type(stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -656,9 +703,12 @@ struct StructField final : ASTNode {
         : ident(std::move(ident)), type(std::move(type)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructField" << '\n';
+        stream << std::string(indent, ' ') << "StructField";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
-        //type->print(indent + 2);
+        stream << std::string(indent + 2, ' ');
+        type->dump(stream);
+        stream << '\n';
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -673,7 +723,8 @@ struct StructDecl final : Decl {
         : ident(std::move(ident)), fields(std::move(fields)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructDecl" << '\n';
+        stream << std::string(indent, ' ') << "StructDecl";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
         for (const auto& field : fields)
             field->dump(indent + 2, stream);
@@ -731,10 +782,14 @@ struct EnumField final : ASTNode {
         : ident(std::move(ident)), types(std::move(types)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "EnumField" << '\n';
+        stream << std::string(indent, ' ') << "EnumField";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
-        //for (const auto& t : types)
-            //t->print(indent + 2);
+        for (const auto& t : types) {
+            stream << std::string(indent + 2, ' ');
+            t->dump(stream);
+            stream << '\n';
+        }
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -749,7 +804,8 @@ struct EnumDecl final : Decl {
         : ident(std::move(ident)), fields(std::move(fields)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "EnumDecl" << '\n';
+        stream << std::string(indent, ' ') << "EnumDecl";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
         for (const auto& field : fields)
             field->dump(indent + 2, stream);
@@ -802,9 +858,12 @@ struct ConstDecl final : Decl {
           val(std::move(val)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ConstDecl" << '\n';
+        stream << std::string(indent, ' ') << "ConstDecl";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
-        // print type
+        stream << std::string(indent + 2, ' ');
+        type->dump(stream);
+        stream << '\n';
         if (val)
             val->dump(indent + 2, stream);
     }
@@ -812,8 +871,8 @@ struct ConstDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_type(ident,
-                                   std::make_shared<VariableType>(type, true));
+        valid = syms->declare_global_var(
+            ident, std::make_shared<VariableType>(type, true));
     }
 
     void resolve_sym(SymbolTable* syms) override {
@@ -827,7 +886,7 @@ struct ConstDecl final : Decl {
         }
 
         auto* const_type = dynamic_cast<VariableType*>(
-            syms->get_type(ident->to_string()).get());
+            syms->get_global_var(ident->to_string()).get());
         const_type->replace_type(type);
     }
 };
@@ -843,9 +902,12 @@ struct StaticDecl final : Decl {
           val(std::move(val)) {};
 
     void dump(const int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StaticDecl" << '\n';
+        stream << std::string(indent, ' ') << "StaticDecl";
+        dump_type(stream);
         ident->dump(indent + 2, stream);
-        // print type
+        stream << std::string(indent + 2, ' ');
+        type->dump(stream);
+        stream << '\n';
         if (val)
             val->dump(indent + 2, stream);
     }
@@ -853,7 +915,7 @@ struct StaticDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_type(
+        valid = syms->declare_global_var(
             ident, std::make_shared<VariableType>(type, false, true));
     }
 
@@ -868,7 +930,7 @@ struct StaticDecl final : Decl {
         }
 
         auto* static_type = dynamic_cast<VariableType*>(
-            syms->get_type(ident->to_string()).get());
+            syms->get_global_var(ident->to_string()).get());
         static_type->replace_type(type);
     }
 };

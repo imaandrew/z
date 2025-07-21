@@ -299,15 +299,19 @@ DeclResult Parser::parse_func_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    auto func_ident = std::make_unique<Identifier>(tok);
+    const Token t = tok;
+    std::unique_ptr<Identifier> func_ident;
 
     std::optional<std::unique_ptr<Identifier>> impl_type;
     if (kind(TokenKind::ColonColon)) {
         if (!consume(TokenKind::Identifier))
             return DeclError();
 
-        impl_type.emplace(std::make_unique<Identifier>(tok));
+        impl_type = std::make_unique<Identifier>(t);
+        func_ident = std::make_unique<Identifier>(tok);
         next_token();
+    } else {
+        func_ident = std::make_unique<Identifier>(t);
     }
 
     auto params = parse_func_params();
@@ -830,29 +834,29 @@ TypeResult Parser::parse_type() {
         if (const auto val_str = std::string(tok.get_val(), tok.get_len());
             val_str.at(0) == 'u') {
             if (val_str == "u8") {
-                type = std::make_unique<IntegerType>(1, false);
+                type = std::make_unique<IntegerType>(8, false);
             } else if (val_str == "u16") {
-                type = std::make_unique<IntegerType>(2, false);
+                type = std::make_unique<IntegerType>(16, false);
             } else if (val_str == "u32") {
-                type = std::make_unique<IntegerType>(3, false);
+                type = std::make_unique<IntegerType>(32, false);
             } else if (val_str == "u64") {
-                type = std::make_unique<IntegerType>(4, false);
+                type = std::make_unique<IntegerType>(64, false);
             }
         } else if (val_str.at(0) == 'i') {
             if (val_str == "i8") {
-                type = std::make_unique<IntegerType>(1, true);
+                type = std::make_unique<IntegerType>(8, true);
             } else if (val_str == "i16") {
-                type = std::make_unique<IntegerType>(2, true);
+                type = std::make_unique<IntegerType>(16, true);
             } else if (val_str == "i32") {
-                type = std::make_unique<IntegerType>(3, true);
+                type = std::make_unique<IntegerType>(32, true);
             } else if (val_str == "i64") {
-                type = std::make_unique<IntegerType>(4, true);
+                type = std::make_unique<IntegerType>(64, true);
             }
         } else if (val_str.at(0) == 'f') {
             if (val_str == "f32") {
-                type = std::make_unique<FloatType>(3);
+                type = std::make_unique<FloatType>(32);
             } else if (val_str == "f64") {
-                type = std::make_unique<FloatType>(4);
+                type = std::make_unique<FloatType>(64);
             }
         } else if (val_str == "bool") {
             type = std::make_unique<BooleanType>();

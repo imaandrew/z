@@ -1,10 +1,16 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+using TypeID = std::uint32_t;
 
 struct Expr;
 struct Identifier;
@@ -19,26 +25,36 @@ public:
     Type(Type&&) = delete;
     Type& operator=(Type&&) = delete;
 
-    virtual bool is_arithmetic_compatible(Type* /*other*/) { return false; }
+    [[nodiscard]] virtual bool is_arithmetic_compatible(Type* /*other*/) const {
+        return false;
+    }
 
-    virtual bool is_assignable() { return false; }
+    [[nodiscard]] virtual bool is_assignable() const { return false; }
 
-    virtual bool is_assignment_compatible(Type* other) {
+    [[nodiscard]] virtual bool
+    is_assignment_compatible(const Type* other) const {
         return typeid(*this) == typeid(*other);
     }
 
-    virtual bool is_logical() { return false; }
+    [[nodiscard]] virtual bool is_logical() const { return false; }
 
-    virtual bool is_comparable(Type* other) {
+    [[nodiscard]] virtual bool is_comparable(Type* other) const {
         return typeid(*this) == typeid(*other);
     }
 
-    virtual bool is_integral() { return false; }
-    virtual bool is_numeric() { return false; }
+    [[nodiscard]] virtual bool is_integral() const { return false; }
+    [[nodiscard]] virtual bool is_float() const { return false; }
+    [[nodiscard]] virtual bool is_numeric() const { return false; }
 
-    virtual bool is_unknown() { return false; }
+    [[nodiscard]] virtual bool is_unknown() const { return false; }
 
-    virtual bool is_variable() { return false; }
+    [[nodiscard]] virtual bool is_variable() const { return false; }
+
+    [[nodiscard]] virtual bool is_explicit() const { return true; }
+
+    [[nodiscard]] virtual bool is_void() const { return false; }
+
+    virtual void dump(std::ostream& stream = std::cout) const = 0;
 };
 
 class IntegerType final : public Type {
@@ -49,7 +65,7 @@ public:
     IntegerType(const int bit_width, const bool is_signed)
         : bit_width(bit_width), is_signed(is_signed) {};
 
-    bool is_arithmetic_compatible(Type* other) override {
+    bool is_arithmetic_compatible(Type* other) const override {
         if (typeid(*this) == typeid(*other)) {
             const auto* other_int = dynamic_cast<IntegerType*>(other);
             return this->bit_width == other_int->bit_width &&
@@ -59,18 +75,23 @@ public:
         return false;
     }
 
-    bool is_integral() override { return true; }
+    [[nodiscard]] bool is_integral() const override { return true; }
 
-    bool is_numeric() override { return true; }
+    [[nodiscard]] bool is_numeric() const override { return true; }
 
-    bool is_assignment_compatible(Type* other) override {
+    bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_int = dynamic_cast<IntegerType*>(other);
+            const auto* other_int = dynamic_cast<const IntegerType*>(other);
             return this->bit_width == other_int->bit_width &&
                    this->is_signed == other_int->is_signed;
         }
 
         return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "IntegerType { bit_width: " << bit_width
+               << ", is_signed: " << is_signed << " }";
     }
 };
 
@@ -80,7 +101,7 @@ class FloatType final : public Type {
 public:
     explicit FloatType(const int bit_width) : bit_width(bit_width) {};
 
-    bool is_arithmetic_compatible(Type* other) override {
+    bool is_arithmetic_compatible(Type* other) const override {
         if (Type::is_arithmetic_compatible(other)) {
             const auto* other_float = dynamic_cast<FloatType*>(other);
             return this->bit_width == other_float->bit_width;
@@ -89,26 +110,44 @@ public:
         return false;
     }
 
-    bool is_numeric() override { return true; }
+    [[nodiscard]] bool is_float() const override { return true; }
 
-    bool is_assignment_compatible(Type* other) override {
+    [[nodiscard]] bool is_numeric() const override { return true; }
+
+    bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_float = dynamic_cast<FloatType*>(other);
+            const auto* other_float = dynamic_cast<const FloatType*>(other);
             return this->bit_width == other_float->bit_width;
         }
 
         return false;
     }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "FloatType { bit_width: " << bit_width << " }";
+    }
 };
 
 class BooleanType final : public Type {
 public:
-    bool is_logical() override { return true; }
+    [[nodiscard]] bool is_logical() const override { return true; }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "BooleanType";
+    }
 };
 
-class StringType final : public Type {};
+class StringType final : public Type {
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "StringType";
+    }
+};
 
-class CharType final : public Type {};
+class CharType final : public Type {
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "CharType";
+    }
+};
 
 class PointerType final : public Type {
     std::unique_ptr<Type> type;
@@ -116,25 +155,31 @@ class PointerType final : public Type {
 public:
     explicit PointerType(std::unique_ptr<Type> type) : type(std::move(type)) {};
 
-    bool is_logical() override { return true; }
+    [[nodiscard]] bool is_logical() const override { return true; }
 
-    bool is_assignment_compatible(Type* other) override {
+    bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* ptr = dynamic_cast<PointerType*>(other);
+            const auto* ptr = dynamic_cast<const PointerType*>(other);
             return type->is_assignment_compatible(ptr->type.get());
         }
 
         return false;
     }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "PointerType { type: ";
+        type->dump(stream);
+        stream << " }";
+    }
 };
 
 class ArrayType final : public Type {
-    std::unique_ptr<Type> type;
-    std::unique_ptr<Expr> size;
+    std::shared_ptr<Type> type;
+    std::shared_ptr<Expr> size;
 
 public:
-    explicit ArrayType(std::unique_ptr<Type> type);
-    ArrayType(std::unique_ptr<Type> type, std::unique_ptr<Expr> size);
+    explicit ArrayType(std::shared_ptr<Type> type);
+    ArrayType(std::shared_ptr<Type> type, std::shared_ptr<Expr> size);
     ~ArrayType() override;
 
     ArrayType(const ArrayType&) = delete;
@@ -142,9 +187,11 @@ public:
     ArrayType(ArrayType&&) = delete;
     ArrayType& operator=(ArrayType&&) = delete;
 
-    bool is_assignment_compatible(Type* other) override {
+    [[nodiscard]] std::shared_ptr<Type> get_type() const { return type; }
+
+    bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            if (const auto* other_array = dynamic_cast<ArrayType*>(other);
+            if (const auto* other_array = dynamic_cast<const ArrayType*>(other);
                 !type->is_assignment_compatible(other_array->type.get())) {
                 return false;
             }
@@ -154,6 +201,14 @@ public:
         }
 
         return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "ArrayType { type: ";
+        type->dump(stream);
+        stream << ", size: ";
+        // TODO
+        stream << " }";
     }
 };
 
@@ -172,9 +227,15 @@ public:
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] const Identifier* get_ident() const { return ident.get(); }
 
-    bool is_assignment_compatible(Type* /*other*/) override { return false; }
+    bool is_assignment_compatible(const Type* /*other*/) const override {
+        return false;
+    }
 
-    bool is_unknown() override { return true; }
+    [[nodiscard]] bool is_unknown() const override { return true; }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "UnknownType { ident: }";
+    }
 };
 
 class FunctionType final : public Type {
@@ -186,8 +247,35 @@ public:
                           const std::shared_ptr<Type>& return_val)
         : params(params), return_val(return_val) {};
 
-    bool is_assignment_compatible(Type* /*other*/) override { return false; }
+    bool is_assignment_compatible(const Type* /*other*/) const override {
+        return false;
+    }
     void set_return_val(const std::shared_ptr<Type>& ret) { return_val = ret; }
+
+    [[nodiscard]] std::shared_ptr<Type> get_return_val() const {
+        return return_val;
+    }
+
+    [[nodiscard]] std::vector<std::shared_ptr<Type>>& get_params() {
+        return params;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "FunctionType { params: [";
+        if (!params.empty()) {
+            for (size_t i = 0; i < params.size() - 1; i++) {
+                params[i]->dump(stream);
+                stream << ", ";
+            }
+            params.back()->dump(stream);
+        }
+
+        stream << "], return_val: ";
+        if (return_val) {
+            return_val->dump(stream);
+        }
+        stream << " }";
+    }
 };
 
 class StructType final : public Type {
@@ -206,8 +294,16 @@ public:
                             const std::shared_ptr<Type>& type) {
         fields.insert_or_assign(field, type);
     }
+    std::shared_ptr<Type> get_field_type(const std::string& field) const {
+        return fields.at(field);
+    }
 
-    bool is_assignment_compatible(Type* other) override;
+    // TODO
+    bool is_assignment_compatible(const Type* other) const override;
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "StructType { name: " << name << " }";
+    }
 };
 
 class EnumType final : public Type {
@@ -222,7 +318,34 @@ public:
         return fields.insert({field, types}).second;
     }
 
-    bool is_assignment_compatible(Type* other) override;
+    // TODO
+    bool is_assignment_compatible(const Type* other) const override;
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "EnumType { name: " << name << " }";
+    }
+};
+
+class EnumVariantType final : public Type {
+    std::string parent_enum;
+
+public:
+    explicit EnumVariantType(std::string parent_enum) : parent_enum(std::move(parent_enum)) {};
+
+    [[nodiscard]] const std::string& get_parent_enum() const { return parent_enum; }
+
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_enum = dynamic_cast<const EnumVariantType*>(other);
+            return parent_enum == other_enum->get_parent_enum();
+        }
+
+        return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "EnumVariantType { parent: " << parent_enum << " }";
+    }
 };
 
 class VariableType final : public Type {
@@ -241,11 +364,15 @@ public:
         internal_type = type;
     }
 
-    bool is_assignable() override { return true; }
+    [[nodiscard]] std::shared_ptr<Type> get_type() const {
+        return internal_type;
+    }
 
-    bool is_assignment_compatible(Type* other) override {
+    [[nodiscard]] bool is_assignable() const override { return true; }
+
+    bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_var = dynamic_cast<VariableType*>(other);
+            const auto* other_var = dynamic_cast<const VariableType*>(other);
             return internal_type->is_assignment_compatible(
                 other_var->internal_type.get());
         }
@@ -253,18 +380,68 @@ public:
         return internal_type->is_assignment_compatible(other);
     }
 
-    bool is_logical() override { return internal_type->is_logical(); }
+    [[nodiscard]] bool is_logical() const override {
+        return internal_type->is_logical();
+    }
 
-    bool is_integral() override { return internal_type->is_integral(); }
+    [[nodiscard]] bool is_integral() const override {
+        return internal_type->is_integral();
+    }
 
-    bool is_numeric() override { return internal_type->is_numeric(); }
+    [[nodiscard]] bool is_float() const override {
+        return internal_type->is_float();
+    }
 
-    bool is_variable() override { return true; }
+    [[nodiscard]] bool is_numeric() const override {
+        return internal_type->is_numeric();
+    }
+
+    [[nodiscard]] bool is_variable() const override { return true; }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "VariableType { internal_type: ";
+        internal_type->dump(stream);
+        stream << ", is_const: " << is_const << ", is_static: " << is_static
+               << " }";
+    }
 };
 
-class VoidType final : public Type {};
+class VoidType final : public Type {
+    [[nodiscard]] bool is_void() const override { return true; }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "VoidType";
+    }
+};
 
 class InvalidType final : public Type {
 public:
-    bool is_assignment_compatible(Type* /*other*/) override { return false; }
+    bool is_assignment_compatible(const Type* /*other*/) const override {
+        return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "InvalidType";
+    }
+};
+
+enum class InferType : std::uint8_t { IntLiteral, FloatLiteral, Var, Block };
+
+class InferredType final : public Type {
+    TypeID id;
+    InferType infer_type;
+
+public:
+    explicit InferredType(TypeID id, InferType infer_type = InferType::Var)
+        : id(id), infer_type(infer_type) {};
+
+    [[nodiscard]] TypeID get_id() const { return id; }
+
+    [[nodiscard]] bool is_explicit() const override { return false; }
+
+    [[nodiscard]] InferType get_infer_type() const { return infer_type; }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "InferrableType";
+    }
 };

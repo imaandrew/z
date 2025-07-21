@@ -4,8 +4,8 @@
 #include <string>
 #include <utility>
 
-ArrayType::ArrayType(std::unique_ptr<Type> type) : type(std::move(type)) {};
-ArrayType::ArrayType(std::unique_ptr<Type> type, std::unique_ptr<Expr> size)
+ArrayType::ArrayType(std::shared_ptr<Type> type) : type(std::move(type)) {};
+ArrayType::ArrayType(std::shared_ptr<Type> type, std::shared_ptr<Expr> size)
     : type(std::move(type)), size(std::move(size)) {};
 ArrayType::~ArrayType() = default;
 UnknownType::UnknownType(std::unique_ptr<Identifier> ident)
@@ -19,18 +19,18 @@ StructType::StructType(const std::unique_ptr<Identifier>& ident)
 
 std::string UnknownType::to_string() const { return ident->to_string(); }
 
-bool EnumType::is_assignment_compatible(Type* other) {
+bool EnumType::is_assignment_compatible(const Type* other) const {
     if (Type::is_assignment_compatible(other)) {
-        const auto* other_enum = dynamic_cast<EnumType*>(other);
+        const auto* other_enum = dynamic_cast<const EnumType*>(other);
         return name == other_enum->name;
     }
 
     return false;
 }
 
-bool StructType::is_assignment_compatible(Type* other) {
+bool StructType::is_assignment_compatible(const Type* other) const {
     if (Type::is_assignment_compatible(other)) {
-        const auto* other_struct = dynamic_cast<StructType*>(other);
+        const auto* other_struct = dynamic_cast<const StructType*>(other);
         return name == other_struct->name;
     }
 
