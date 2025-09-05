@@ -1,5 +1,6 @@
 #include "type_res.h"
 #include "ast.h"
+#include "diagnostics.h"
 #include "token.h"
 #include "type.h"
 #include <cstddef>
@@ -30,7 +31,9 @@ void TypeResolver::visit(Identifier& ident) {
     if (const auto type = syms->get_var(ident.to_string())) {
         ident.node_type = type;
     } else {
-        ident.node_type = std::make_unique<InferredType>(infctxt->new_type());
+        ident.valid = false;
+        diag.emit(ident.tok.get_span(), DiagnosticKind::UndeclaredVar,
+                  ident.to_string());
     }
 }
 
@@ -46,6 +49,10 @@ void TypeResolver::visit(FloatExpr& expr) {
 
 void TypeResolver::visit(PrefixExpr& expr) {
     expr.expr->accept(*this);
+    if (!expr.expr->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
 
     if (expr.expr->node_type->is_explicit()) {
         expr.node_type = expr.expr->node_type;
@@ -57,6 +64,10 @@ void TypeResolver::visit(PrefixExpr& expr) {
 
 void TypeResolver::visit(PostfixExpr& expr) {
     expr.expr->accept(*this);
+    if (!expr.expr->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
 
     if (expr.expr->node_type->is_explicit()) {
         expr.node_type = expr.expr->node_type;
@@ -74,6 +85,10 @@ void TypeResolver::visit(BinaryExpr& expr) {
 
     expr.lhs->accept(*this);
     expr.rhs->accept(*this);
+    if (!expr.lhs->is_valid() || !expr.rhs->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
 
     auto* l_type = expr.lhs->node_type.get();
     auto* r_type = expr.rhs->node_type.get();
@@ -147,6 +162,12 @@ void TypeResolver::visit(TernaryExpr& expr) {
     expr.mhs->accept(*this);
     expr.rhs->accept(*this);
 
+    if (!expr.lhs->is_valid() || !expr.mhs->is_valid() ||
+        !expr.rhs->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
+
     if (!expr.mhs->node_type->is_explicit() ||
         !expr.rhs->node_type->is_explicit()) {
         expr.node_type = std::make_shared<InferredType>(infctxt->new_type());
@@ -161,6 +182,10 @@ void TypeResolver::visit(TernaryExpr& expr) {
 void TypeResolver::visit(CallExpr& expr) {
     for (auto& arg : expr.args) {
         arg->accept(*this);
+        if (!arg->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
     }
 
     if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
@@ -183,6 +208,10 @@ void TypeResolver::visit_method_call(BinaryExpr& expr) {
     auto* func_call = dynamic_cast<CallExpr*>(expr.rhs.get());
     for (auto& arg : func_call->args) {
         arg->accept(*this);
+        if (!arg->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
     }
 
     const std::string name =
@@ -203,6 +232,10 @@ void TypeResolver::visit_method_call(BinaryExpr& expr) {
 
 void TypeResolver::visit(ArrayExpr& expr) {
     expr.val->accept(*this);
+    if (!expr.val->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
 
     if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
         auto arr = syms->get_var(ident->to_string());
@@ -218,6 +251,10 @@ void TypeResolver::visit(ArrayInitExpr& expr) {
     auto internal_type = std::make_shared<InferredType>(infctxt->new_type());
     for (auto& val : expr.vals) {
         val->accept(*this);
+        if (!val->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
         infctxt->eq(internal_type, val->node_type);
     }
     expr.node_type = std::make_shared<ArrayType>(std::move(internal_type));
@@ -226,6 +263,10 @@ void TypeResolver::visit(ArrayInitExpr& expr) {
 void TypeResolver::visit(StructInitExpr& expr) {
     for (auto& val : expr.vals) {
         val->accept(*this);
+        if (!val->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
     }
 
     if (auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
@@ -245,9 +286,16 @@ void TypeResolver::visit(Block& block) {
 
     for (auto& stmt : block.stmts) {
         stmt->accept(*this);
+
+        if (!stmt->is_valid()) {
+            block.mark_invalid();
+            return;
+        }
     }
 
-    if (!block.stmts.empty() && (dynamic_cast<VoidType*>(block.stmts.back()->node_type.get()) == nullptr)) {
+    if (!block.stmts.empty() &&
+        (dynamic_cast<VoidType*>(block.stmts.back()->node_type.get()) ==
+         nullptr)) {
         infctxt->eq(scope_type, block.stmts.back()->node_type);
     }
 
@@ -269,10 +317,19 @@ void TypeResolver::visit(FuncDecl& func) {
 
     for (auto& param : func.params) {
         param->accept(*this);
+        if (!param->is_valid()) {
+            func.mark_invalid();
+            return;
+        }
         block->get_scope_ctxt()->declare_var(param->name, param->type);
     }
 
     func.body->accept(*this);
+
+    if (!func.body->is_valid()) {
+        func.mark_invalid();
+        return;
+    }
 
     if (func.ret)
         infctxt->eq(block->node_type, func.ret);
@@ -287,8 +344,13 @@ void TypeResolver::visit(FuncDecl& func) {
 }
 
 void TypeResolver::visit(BreakStmt& stmt) {
-    if (stmt.expr)
+    if (stmt.expr) {
         stmt.expr->accept(*this);
+        if (!stmt.expr->is_valid()) {
+            stmt.mark_invalid();
+            return;
+        }
+    }
 
     stmt.node_type = std::make_shared<VoidType>();
 }
@@ -299,7 +361,16 @@ void TypeResolver::visit(ContinueStmt& stmt) {
 
 void TypeResolver::visit(ForExpr& expr) {
     expr.expr->accept(*this);
+    if (!expr.expr->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
+
     expr.block->accept(*this);
+    if (!expr.block->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
 
     if (expr.expr->node_type->is_explicit()) {
         expr.ident->node_type = expr.expr->node_type;
@@ -316,6 +387,11 @@ void TypeResolver::visit(ForExpr& expr) {
 void TypeResolver::visit(LetStmt& stmt) {
     if (stmt.val) {
         stmt.val->accept(*this);
+
+        if (!stmt.val->is_valid()) {
+            stmt.mark_invalid();
+            return;
+        }
     }
 
     if (stmt.type) {
@@ -350,6 +426,10 @@ void TypeResolver::visit(ReturnStmt& stmt) {
 
     if (stmt.expr) {
         stmt.expr->accept(*this);
+        if (!stmt.expr->is_valid()) {
+            stmt.mark_invalid();
+            return;
+        }
 
         infctxt->eq(current_scope_type, stmt.expr->node_type);
     } else {
@@ -363,11 +443,23 @@ void TypeResolver::visit(IfExpr& expr) {
     expr.node_type = std::make_shared<InferredType>(infctxt->new_type());
 
     expr.expr->accept(*this);
+    if (!expr.expr->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
     expr.block->accept(*this);
+    if (!expr.block->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
     infctxt->eq(expr.node_type, expr.block->node_type);
 
     if (expr.else_expr) {
         expr.else_expr->accept(*this);
+        if (!expr.else_expr->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
         infctxt->eq(expr.node_type, expr.else_expr->node_type);
     }
 }
@@ -376,25 +468,50 @@ void TypeResolver::visit(ElseExpr& expr) {
     expr.node_type = std::make_shared<InferredType>(infctxt->new_type());
     if (expr.if_expr) {
         expr.if_expr->accept(*this);
+        if (!expr.if_expr->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
         infctxt->eq(expr.node_type, expr.if_expr->node_type);
     } else if (expr.block) {
         expr.block->accept(*this);
+        if (!expr.block->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
         infctxt->eq(expr.node_type, expr.block->node_type);
     }
 }
 
 void TypeResolver::visit(LoopExpr& expr) {
-    if (expr.expr)
+    if (expr.expr) {
         expr.expr->accept(*this);
+        if (!expr.expr->is_valid()) {
+            expr.mark_invalid();
+            return;
+        }
+    }
 
     expr.block->accept(*this);
+    if (!expr.block->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
     expr.node_type = std::make_shared<InferredType>(infctxt->new_type());
     infctxt->eq(expr.node_type, expr.block->node_type);
 }
 
 void TypeResolver::visit(WhileExpr& expr) {
     expr.expr->accept(*this);
+    if (!expr.expr->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
     expr.block->accept(*this);
+    if (!expr.block->is_valid()) {
+        expr.mark_invalid();
+        return;
+    }
 
     expr.node_type = std::make_shared<InferredType>(infctxt->new_type());
     infctxt->eq(expr.node_type, expr.block->node_type);
@@ -425,16 +542,26 @@ void TypeResolver::visit(EnumDecl& decl) {
     decl.ident->node_type = syms->get_type(decl.ident->to_string());
 
     for (auto& field : decl.fields) {
-        field->node_type = std::make_shared<EnumVariantType>(decl.ident->to_string());
+        field->node_type =
+            std::make_shared<EnumVariantType>(decl.ident->to_string());
     }
 }
 
 void TypeResolver::visit(ConstDecl& decl) {
     decl.ident->accept(*this);
+    if (!decl.ident->is_valid()) {
+        decl.mark_invalid();
+        return;
+    }
     decl.val->accept(*this);
+    if (!decl.val->is_valid()) {
+        decl.mark_invalid();
+        return;
+    }
 
-    auto ident_type = dynamic_cast<VariableType*>(decl.ident->node_type.get())->get_type();
-    
+    auto ident_type =
+        dynamic_cast<VariableType*>(decl.ident->node_type.get())->get_type();
+
     decl.node_type = std::make_shared<VoidType>();
     infctxt->eq(decl.val->node_type, decl.type);
 
@@ -444,10 +571,19 @@ void TypeResolver::visit(ConstDecl& decl) {
 
 void TypeResolver::visit(StaticDecl& decl) {
     decl.ident->accept(*this);
+    if (!decl.ident->is_valid()) {
+        decl.mark_invalid();
+        return;
+    }
     decl.val->accept(*this);
+    if (!decl.val->is_valid()) {
+        decl.mark_invalid();
+        return;
+    }
 
-    auto ident_type = dynamic_cast<VariableType*>(decl.ident->node_type.get())->get_type();
-    
+    auto ident_type =
+        dynamic_cast<VariableType*>(decl.ident->node_type.get())->get_type();
+
     decl.node_type = std::make_shared<VoidType>();
     infctxt->eq(decl.type, ident_type);
     infctxt->eq(decl.val->node_type, decl.type);

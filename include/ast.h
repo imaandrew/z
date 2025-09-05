@@ -152,7 +152,11 @@ struct InvalidStmt final : Stmt {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct Expr : Stmt {
@@ -180,7 +184,11 @@ struct Identifier final : Expr {
 
     [[nodiscard]] std::string to_string() const { return std::string(ident); }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct IntExpr final : Expr {
@@ -196,7 +204,11 @@ struct IntExpr final : Expr {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct FloatExpr final : Expr {
@@ -211,7 +223,11 @@ struct FloatExpr final : Expr {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 // NOLINTBEGIN(readability-identifier-length)
@@ -231,7 +247,11 @@ struct PrefixExpr final : Expr {
         expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct PostfixExpr final : Expr {
@@ -249,7 +269,11 @@ struct PostfixExpr final : Expr {
         expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct BinaryExpr final : Expr {
@@ -270,7 +294,11 @@ struct BinaryExpr final : Expr {
         rhs->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct TernaryExpr final : Expr {
@@ -294,7 +322,11 @@ struct TernaryExpr final : Expr {
         rhs->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 // NOLINTEND(readability-identifier-length)
@@ -317,7 +349,11 @@ struct CallExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct ArrayExpr final : Expr {
@@ -339,7 +375,11 @@ struct ArrayExpr final : Expr {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct ArrayInitExpr final : Expr {
@@ -357,7 +397,11 @@ struct ArrayInitExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct StructInitExpr final : Expr {
@@ -378,7 +422,11 @@ struct StructInitExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct Block final : Stmt {
@@ -399,7 +447,11 @@ struct Block final : Stmt {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct Param final : Expr {
@@ -418,7 +470,11 @@ struct Param final : Expr {
         stream << '\n';
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct Decl : ASTNode {
@@ -464,7 +520,11 @@ struct FuncDecl final : Decl {
         body->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 
     void declare_type(SymbolTable* syms) override {
         auto param_types = std::vector<std::shared_ptr<Type>>();
@@ -513,7 +573,11 @@ struct BreakStmt final : Stmt {
             expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct ContinueStmt final : Stmt {
@@ -527,7 +591,11 @@ struct ContinueStmt final : Stmt {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct ForExpr final : Expr {
@@ -548,7 +616,11 @@ struct ForExpr final : Expr {
         block->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct LetStmt final : Stmt {
@@ -581,7 +653,11 @@ struct LetStmt final : Stmt {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct ReturnStmt final : Stmt {
@@ -598,7 +674,11 @@ struct ReturnStmt final : Stmt {
             expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct ElseExpr final : Expr {
@@ -622,7 +702,11 @@ struct ElseExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct IfExpr final : Expr {
@@ -648,7 +732,11 @@ struct IfExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct LoopExpr final : Expr {
@@ -668,7 +756,11 @@ struct LoopExpr final : Expr {
         block->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct WhileExpr final : Expr {
@@ -686,7 +778,11 @@ struct WhileExpr final : Expr {
         block->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct StringExpr final : Expr {
@@ -701,7 +797,11 @@ struct StringExpr final : Expr {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct StructField final : ASTNode {
@@ -721,7 +821,11 @@ struct StructField final : ASTNode {
         stream << '\n';
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct StructDecl final : Decl {
@@ -741,7 +845,11 @@ struct StructDecl final : Decl {
             field->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->to_string();
@@ -805,7 +913,11 @@ struct EnumField final : ASTNode {
         }
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 };
 
 struct EnumDecl final : Decl {
@@ -825,7 +937,11 @@ struct EnumDecl final : Decl {
             field->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->to_string();
@@ -884,7 +1000,11 @@ struct ConstDecl final : Decl {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 
     void declare_type(SymbolTable* syms) override {
         valid = syms->declare_global_var(
@@ -929,7 +1049,11 @@ struct StaticDecl final : Decl {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+    void accept(ASTVisitor& visitor) override {
+        if (is_valid()) {
+            visitor.visit(*this);
+        }
+    }
 
     void declare_type(SymbolTable* syms) override {
         valid = syms->declare_global_var(
