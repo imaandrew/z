@@ -758,8 +758,9 @@ struct StructDecl final : Decl {
             const bool is_unique = struct_type->define_field(
                 field->ident->to_string(), field->type);
             if (!is_unique) {
-                syms->diag.emit(field->ident->tok, ErrorKind::DuplicateField,
-                                field->ident->to_string());
+                syms->diag.emit(field->ident->tok.get_span(),
+                                DiagnosticKind::DuplicateField,
+                                ident->to_string(), field->ident->to_string());
                 valid = false;
             }
         }
@@ -841,8 +842,9 @@ struct EnumDecl final : Decl {
         for (const auto& field : fields) {
             if (!enum_type->define_field(field->ident->to_string(),
                                          field->types)) {
-                syms->diag.emit(field->ident->tok, ErrorKind::DuplicateField,
-                                field->ident->to_string());
+                syms->diag.emit(field->ident->tok.get_span(),
+                                DiagnosticKind::DuplicateField,
+                                ident->to_string(), field->ident->to_string());
                 valid = false;
             }
         }

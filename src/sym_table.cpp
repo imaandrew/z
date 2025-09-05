@@ -12,7 +12,8 @@ bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
     const bool is_unique = scopes.back()->declare_var(name, std::move(type));
 
     if (!is_unique) {
-        diag.emit(name->tok, ErrorKind::RedeclaredVar, name->to_string());
+        diag.emit(name->tok.get_span(), DiagnosticKind::RedeclaredVar,
+                  name->to_string());
     }
 
     return is_unique;
@@ -24,7 +25,8 @@ bool SymbolTable::declare_global_var(const std::unique_ptr<Identifier>& name,
         global_vars.insert({name->to_string(), std::move(type)}).second;
 
     if (!is_unique) {
-        diag.emit(name->tok, ErrorKind::RedeclaredVar, name->to_string());
+        diag.emit(name->tok.get_span(), DiagnosticKind::RedeclaredVar,
+                  name->to_string());
     }
 
     return is_unique;
@@ -35,7 +37,7 @@ bool SymbolTable::declare_func(const std::string& name, const Token& tok,
     const bool is_unique = funcs.insert({name, std::move(type)}).second;
 
     if (!is_unique) {
-        diag.emit(tok, ErrorKind::RedeclaredFunc, name);
+        diag.emit(tok.get_span(), DiagnosticKind::RedeclaredFunc, name);
     }
 
     return is_unique;
@@ -47,7 +49,8 @@ bool SymbolTable::declare_type(const std::unique_ptr<Identifier>& name,
         user_defined_types.insert({name->to_string(), std::move(type)}).second;
 
     if (!is_unique) {
-        diag.emit(name->tok, ErrorKind::RedeclaredType, name->to_string());
+        diag.emit(name->tok.get_span(), DiagnosticKind::RedeclaredType,
+                  name->to_string());
     }
 
     return is_unique;
@@ -107,7 +110,8 @@ bool SymbolTable::resolve_unk_type(std::shared_ptr<Type>& type) {
             return true;
         }
 
-        diag.emit(unk_type->get_ident()->tok, ErrorKind::UndeclaredType,
+        diag.emit(unk_type->get_ident()->tok.get_span(),
+                  DiagnosticKind::UndeclaredType,
                   unk_type->get_ident()->to_string());
         return false;
     }

@@ -100,7 +100,7 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
                 decl = parse_func_decl();
                 break;
             default:
-                diag.emit(tok, ErrorKind::ExpectedDecl,
+                diag.emit(tok.get_span(), DiagnosticKind::ExpectedDecl,
                           tok_kind_to_string(tok.get_kind()));
                 recover_decl();
                 break;
@@ -942,13 +942,11 @@ bool Parser::kind(const TokenKind kind) {
 bool Parser::assert(const TokenKind kind) {
     if (!tok.is(kind)) {
         if (kind == TokenKind::Semi) {
-            const auto semi_tok =
-                Token(TokenKind::Semi, Span(prev_tok.get_span().index + 1, 1));
-            diag.emit(semi_tok, ErrorKind::ExpectedSemi,
-                      tok_kind_to_string(kind),
-                      tok_kind_to_string(semi_tok.get_kind()));
+            diag.emit(Span(prev_tok.get_span().index + 1, 1),
+                      DiagnosticKind::ExpectedSemi);
         } else {
-            diag.emit(tok, ErrorKind::ExpectedToken, tok_kind_to_string(kind),
+            diag.emit(tok.get_span(), DiagnosticKind::ExpectedToken,
+                      tok_kind_to_string(kind),
                       tok_kind_to_string(tok.get_kind()));
         }
         return false;

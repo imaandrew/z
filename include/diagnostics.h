@@ -58,7 +58,7 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::RedeclaredType, "redeclaration of type `{0}`"},
             {DiagnosticKind::RedeclaredFunc, "redeclaration of function `{0}`"},
             {DiagnosticKind::RedeclaredVar, "redeclaration of variable `{0}`"},
-            {DiagnosticKind::DuplicateField, "duplicate field `{0}`"},
+            {DiagnosticKind::DuplicateField, "`{0}` has duplicate field `{1}`"},
             {DiagnosticKind::UndeclaredType, "use of undeclared type `{0}`"},
             {DiagnosticKind::UndeclaredVar, "use of undeclared var `{0}`"},
             {DiagnosticKind::ExpectedInteger,
