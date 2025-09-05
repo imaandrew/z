@@ -314,7 +314,7 @@ public:
         if (func.impl_type)
             func.impl_type->get()->accept(*this);
 
-        syms->enter_scope();
+        syms->enter_scope(func.body->get_scope_ctxt());
 
         for (auto& param : func.params) {
             param->accept(*this);
