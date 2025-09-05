@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ast.h"
-#include "error.h"
+#include "diagnostics.h"
 #include "src_mgr.h"
 #include "sym_table.h"
 #include "token.h"
@@ -13,7 +13,7 @@
 
 class SemChecker : public ASTVisitor {
     SymbolTable* syms;
-    DiagnosticEmitter diag;
+    DiagnosticsEngine diag;
 
 public:
     SemChecker(SymbolTable* syms, SourceManager* src)

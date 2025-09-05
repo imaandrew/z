@@ -1,6 +1,6 @@
 #pragma once
 #include "ast.h"
-#include "error.h"
+#include "diagnostics.h"
 #include "lexer.h"
 #include "src_mgr.h"
 #include "token.h"
@@ -38,7 +38,7 @@ inline SyncFlags operator&(const SyncFlags& lhs, const SyncFlags& rhs) {
 
 class Parser {
     Lexer lexer;
-    DiagnosticEmitter diag;
+    DiagnosticsEngine diag;
     SourceManager* source;
     Token tok{};
     Token prev_tok{};

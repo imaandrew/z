@@ -26,9 +26,21 @@ struct Span {
     }
 };
 
+class LinePos {
+    std::size_t line;
+    std::size_t col;
+
+public:
+    LinePos(std::size_t line, std::size_t col) : line(line), col(col) {};
+
+    [[nodiscard]] std::size_t get_line() const { return line; }
+    [[nodiscard]] std::size_t get_col() const { return col; }
+};
+
 class SourceManager {
     std::vector<char> input;
     std::optional<std::filesystem::path> path;
+    std::vector<size_t> line_indices;
 
     SourceManager(std::filesystem::path& path, std::vector<char> input)
         : input(std::move(input)), path(path) {};
@@ -61,29 +73,21 @@ public:
         return SourceManager(path, input);
     }
 
-    [[nodiscard]] std::optional<char> get_char(const std::size_t index) const {
+    [[nodiscard]] std::optional<char> get_char(const std::size_t index) {
         if (in_bounds(index)) {
             return std::nullopt;
         }
+
+        if (input[index] == '\n')
+            line_indices.push_back(index);
 
         return input[index];
     }
 
     [[nodiscard]] std::optional<std::string>
-    get_line(const std::size_t index) const {
-        if (in_bounds(index)) {
-            return std::nullopt;
-        }
-
-        size_t start = index;
-        size_t end = index;
-
-        while (start > 0 && input[start - 1] != '\n')
-            start--;
-
-        while (!in_bounds(end) && input[end] != '\n')
-            end++;
-
+    get_line(const std::size_t line) const {
+        const std::size_t start = line_indices[line - 1] + 1;
+        const std::size_t end = line_indices[line] - 1;
         return std::string(&input[start], end - start);
     }
 
@@ -108,5 +112,14 @@ public:
 
     [[nodiscard]] std::string_view get_string(const Span& span) const {
         return std::string_view(get_char_ptr(span.index), span.len);
+    }
+
+    [[nodiscard]] LinePos get_pos(const Span& span) const {
+        const std::size_t index = span.index;
+        for (std::size_t i = 0; i < line_indices.size(); i++) {
+            if (line_indices[i] > index)
+                return LinePos(i + 1, index - line_indices[i]);
+        }
+        std::unreachable();
     }
 };

@@ -4,7 +4,7 @@
 #include "src_mgr.h"
 #include "token.h"
 #include "type.h"
-#include <error.h>
+#include <diagnostics.h>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -18,7 +18,7 @@ class SymbolTable {
     std::unordered_map<std::string, std::shared_ptr<Type>> user_defined_types;
 
 public:
-    DiagnosticEmitter diag;
+    DiagnosticsEngine diag;
 
     explicit SymbolTable(SourceManager* source) : diag(source) {};
 

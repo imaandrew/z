@@ -1,6 +1,6 @@
 #include "sym_table.h"
 #include "ast.h"
-#include "error.h"
+#include "diagnostics.h"
 #include "token.h"
 #include "type.h"
 #include <memory>

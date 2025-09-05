@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ast.h"
-#include "error.h"
+#include "diagnostics.h"
 #include "inf_ctxt.h"
 #include "src_mgr.h"
 #include "sym_table.h"
@@ -13,7 +13,7 @@
 
 class TypeResolver : public ASTVisitor {
     SymbolTable* syms;
-    DiagnosticEmitter diag;
+    DiagnosticsEngine diag;
     std::optional<InferenceContext> infctxt;
 
 public:

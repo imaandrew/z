@@ -1,6 +1,6 @@
 #pragma once
 
-#include "error.h"
+#include "diagnostics.h"
 #include "scope.h"
 #include "sym_table.h"
 #include "token.h"
