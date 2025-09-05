@@ -35,6 +35,6 @@ int main(int argc, char** argv) {
     }
 
     for (const auto& decl : decls) {
-        decl->dump(0);
+        decl->dump(&source_mgr);
     }
 }

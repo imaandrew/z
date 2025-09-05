@@ -163,8 +163,8 @@ public:
     }
 
     template <typename... Args>
-    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
     MultiLocationDiagnosticData*
+    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
     emit_with_notes(const Span& span, DiagnosticKind kind, Args&&... args) {
         auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
             get_diagnostic_string(kind), std::make_format_args(args...)));

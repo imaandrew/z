@@ -294,6 +294,7 @@ public:
                             const std::shared_ptr<Type>& type) {
         fields.insert_or_assign(field, type);
     }
+    
     std::shared_ptr<Type> get_field_type(const std::string& field) const {
         return fields.at(field);
     }

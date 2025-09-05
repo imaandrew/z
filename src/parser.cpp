@@ -103,7 +103,7 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
                 diag.emit(tok.get_span(), DiagnosticKind::ExpectedDecl,
                           tok_kind_to_string(tok.get_kind()));
                 recover_decl();
-                break;
+                continue;
             }
 
             if (decl.is_valid()) {
@@ -185,9 +185,10 @@ DeclResult Parser::parse_enum_decl() {
     if (!consume(TokenKind::LBrace)) {
         return DeclError();
     }
+    next_token();
 
     std::vector<std::unique_ptr<EnumField>> fields;
-    while (!kind(TokenKind::RBrace)) {
+    while (!tok.is(TokenKind::RBrace)) {
         auto enum_field = parse_enum_field();
         if (!enum_field.is_valid()) {
             return DeclError();
@@ -197,6 +198,7 @@ DeclResult Parser::parse_enum_decl() {
 
         if (!tok.is(TokenKind::RBrace)) {
             assert(TokenKind::Comma);
+            next_token();
         }
     }
 
@@ -385,6 +387,7 @@ Result<std::unique_ptr<Param>> Parser::parse_param_decl() {
 }
 
 Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
+    bool is_valid = true;
     assert(TokenKind::LBrace);
     next_token();
 
@@ -400,6 +403,8 @@ Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
             stmts.push_back(res.take());
         } else {
             recover_stmt();
+            if (tok.is(TokenKind::Eof))
+                return Result<std::unique_ptr<Block>>(false);
             continue;
         }
 
@@ -409,6 +414,8 @@ Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
         if (required_semi) {
             if (assert(TokenKind::Semi))
                 next_token();
+            else
+                is_valid = false;
         } else {
             required_semi = true;
             next_token();
@@ -417,6 +424,8 @@ Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
 
     next_token();
 
+    if (!is_valid)
+        return Result<std::unique_ptr<Block>>(false);
     return Result(std::make_unique<Block>(std::move(stmts)));
 }
 
@@ -942,7 +951,7 @@ bool Parser::kind(const TokenKind kind) {
 bool Parser::assert(const TokenKind kind) {
     if (!tok.is(kind)) {
         if (kind == TokenKind::Semi) {
-            diag.emit(Span(prev_tok.get_span().index + 1, 1),
+            diag.emit(Span(prev_tok.get_span().index + prev_tok.get_span().len, 1),
                       DiagnosticKind::ExpectedSemi);
         } else {
             diag.emit(tok.get_span(), DiagnosticKind::ExpectedToken,
