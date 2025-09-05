@@ -2,7 +2,7 @@
 #include "ast.h"
 #include "error.h"
 #include "lexer.h"
-#include "sourceman.h"
+#include "src_mgr.h"
 #include "token.h"
 #include "type.h"
 #include <cstdint>
@@ -39,6 +39,7 @@ inline SyncFlags operator&(const SyncFlags& lhs, const SyncFlags& rhs) {
 class Parser {
     Lexer lexer;
     DiagnosticEmitter diag;
+    SourceManager* source;
     Token tok{};
     Token prev_tok{};
     bool required_semi = true;
@@ -76,6 +77,6 @@ class Parser {
 
 public:
     Parser(const Lexer& lexer, SourceManager* source)
-        : lexer(lexer), diag(source) {};
+        : lexer(lexer), diag(source), source(source) {};
     std::vector<std::unique_ptr<Decl>> parse();
 };

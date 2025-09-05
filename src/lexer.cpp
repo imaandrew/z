@@ -60,8 +60,7 @@ void Lexer::skip_whitespace() {
 }
 
 Token Lexer::make_token(const TokenKind kind) const {
-    return Token(kind, source->get_char_ptr(start), start, line, col,
-                 cur - start);
+    return Token(kind, Span(start, cur - start));
 }
 
 Token Lexer::lex_token() {
@@ -249,8 +248,8 @@ Token Lexer::lex_token() {
                         next();
                 }
             }
-            auto tok = Token(TokenKind::String, source->get_char_ptr(start + 1),
-                             start, line, col, cur - start - 1);
+            auto tok =
+                Token(TokenKind::String, Span(start + 1, cur - start - 1));
             next();
             return tok;
         }

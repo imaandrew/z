@@ -8,6 +8,24 @@
 #include <utility>
 #include <vector>
 
+struct Span {
+    std::uint32_t index;
+    std::uint16_t len;
+
+    Span() = default;
+    Span(std::uint32_t index, std::uint16_t len) : index(index), len(len) {};
+
+    friend Span operator+(Span lhs, const Span& rhs) {
+        auto index = lhs.index < rhs.index ? lhs.index : rhs.index;
+
+        auto lhs_end = lhs.index + lhs.len;
+        auto rhs_end = rhs.index + rhs.len;
+        auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
+
+        return Span(index, end - index);
+    }
+};
+
 class SourceManager {
     std::vector<char> input;
     std::optional<std::filesystem::path> path;
@@ -86,5 +104,9 @@ public:
         }
 
         return std::string("asdf");
+    }
+
+    [[nodiscard]] std::string_view get_string(const Span& span) const {
+        return std::string_view(get_char_ptr(span.index), span.len);
     }
 };

@@ -3,7 +3,7 @@
 #include "ast.h"
 #include "error.h"
 #include "inf_ctxt.h"
-#include "sourceman.h"
+#include "src_mgr.h"
 #include "sym_table.h"
 #include "type.h"
 #include <memory>

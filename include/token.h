@@ -1,8 +1,7 @@
 #pragma once
 
-#include <cstddef>
+#include "src_mgr.h"
 #include <cstdint>
-#include <format>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -172,33 +171,16 @@ inline const std::string& tok_kind_to_string(const TokenKind kind) {
 
 class Token {
     TokenKind kind;
-    const char* val;
-    size_t len;
-    size_t pos;
-    size_t line;
-    size_t col;
+    Span span;
 
 public:
     Token() = default;
-    Token(const TokenKind kind, const char* val, const size_t pos,
-          const size_t line, const size_t col, const size_t len = 1)
-        : kind(kind), val(val), len(len), pos(pos), line(line), col(col) {}
+    Token(const TokenKind kind, Span span) : kind(kind), span(span) {}
 
     [[nodiscard]] TokenKind get_kind() const { return kind; }
-    [[nodiscard]] const char* get_val() const { return val; }
-    [[nodiscard]] size_t get_line() const { return line; }
-    [[nodiscard]] size_t get_col() const { return col; }
-    [[nodiscard]] size_t get_len() const { return len; }
-    [[nodiscard]] size_t get_pos() const { return pos; }
+    [[nodiscard]] const Span& get_span() const { return span; }
 
     [[nodiscard]] bool is(const TokenKind kind) const {
         return kind == this->kind;
-    }
-
-    [[nodiscard]] std::string to_string() const {
-        auto str = tok_kind_to_string(kind);
-        auto val_str = std::string(val, len);
-        return std::format("[{}:{} {}, '{}', {}]", line, col, str, val_str,
-                           len);
     }
 };

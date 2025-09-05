@@ -2,7 +2,7 @@
 
 #include "ast.h"
 #include "error.h"
-#include "sourceman.h"
+#include "src_mgr.h"
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
