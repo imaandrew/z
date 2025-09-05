@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -82,7 +83,7 @@ public:
             return std::nullopt;
         }
 
-        if (input[index] == '\n')
+        if (input[index] == '\n' && (line_indices.empty() || line_indices.back() != index))
             line_indices.push_back(index);
 
         return input[index];
@@ -119,11 +120,9 @@ public:
     }
 
     [[nodiscard]] LinePos get_pos(const Span& span) const {
-        const std::size_t index = span.index;
-        for (std::size_t i = 0; i < line_indices.size(); i++) {
-            if (line_indices[i] > index)
-                return LinePos(i + 1, index - line_indices[i]);
-        }
-        std::unreachable();
+        auto line = std::ranges::lower_bound(line_indices, span.index) - line_indices.begin();
+        auto line_start = (line == 0) ? 0 : line_indices[line - 1] + 1;
+        
+        return LinePos(line + 1, span.index - line_start + 1);
     }
 };
