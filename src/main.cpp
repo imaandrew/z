@@ -11,17 +11,22 @@ int main(int argc, char** argv) {
         return 1;
 
     auto args = std::span(argv, argc);
-    auto source_man = SourceManager::Create(args[1]);
-    auto lexer = Lexer(&source_man);
-    auto parser = Parser(lexer, &source_man);
+    auto sm = SourceManager::Create(args[1]);
+    if (!sm) {
+        return 1;
+    }
+
+    auto source_mgr = sm.value();
+    auto lexer = Lexer(&source_mgr);
+    auto parser = Parser(lexer, &source_mgr);
     auto decls = parser.parse();
     for (const auto& decl : decls) {
         // decl->dump(0);
     }
 
-    auto syms = SymbolTable(&source_man);
-    auto type_res = TypeResolver(&syms, &source_man);
-    auto sem = SemChecker(&syms, &source_man);
+    auto syms = SymbolTable(&source_mgr);
+    auto type_res = TypeResolver(&syms, &source_mgr);
+    auto sem = SemChecker(&syms, &source_mgr);
 
     type_res.fill_top_level_syms(decls);
 

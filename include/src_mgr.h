@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <optional>
 #include <string>
 #include <utility>
@@ -48,26 +49,29 @@ class SourceManager {
         : input(std::move(input)), path(std::nullopt) {};
 
 public:
-    static SourceManager Create(std::vector<char> input) {
+    static std::optional<SourceManager> Create(std::vector<char> input) {
         return SourceManager(std::move(input));
     }
 
-    static SourceManager Create(const char* path_) {
+    static std::optional<SourceManager> Create(const char* path_) {
         auto path = std::filesystem::path(path_);
         if (!std::filesystem::exists(path)) {
-            // err
+            std::cerr << std::format("error: no such file or directory: '{}'\n", path_);
+            return std::nullopt;
         }
 
         auto file = std::ifstream(path, std::ios::ate);
         if (!file.is_open()) {
-            // err
+            std::cerr << std::format("error: could not open file: '{}'\n", path_);
+            return std::nullopt;
         }
 
         auto size = file.tellg();
         file.seekg(0);
         auto input = std::vector<char>(size);
         if (!file.read(input.data(), size)) {
-            // err
+            std::cerr << std::format("error: could not read file: '{}'\n", path_);
+            return std::nullopt;
         }
 
         return SourceManager(path, input);
