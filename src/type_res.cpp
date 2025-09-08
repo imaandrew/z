@@ -190,9 +190,10 @@ void TypeResolver::visit(CallExpr& expr) {
 
     if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
         auto func = syms->get_func(ident->to_string());
-        expr.node_type = func->get_return_val();
+        const auto* func_ptr = dynamic_cast<FunctionType*>(func.get());
+        expr.node_type = func_ptr->get_return_val();
 
-        auto& params = func->get_params();
+        const auto& params = func_ptr->get_params();
         if (expr.args.size() == params.size()) {
             for (size_t i = 0; i < expr.args.size(); i++) {
                 infctxt->eq(expr.args[i]->node_type, params[i]);
@@ -218,11 +219,12 @@ void TypeResolver::visit_method_call(BinaryExpr& expr) {
         impl_type->to_string() +
         "::" + dynamic_cast<Identifier*>(func_call->ident.get())->to_string();
     auto func = syms->get_func(name);
-    func_call->node_type = func->get_return_val();
+    const auto* func_ptr = dynamic_cast<FunctionType*>(func.get());
+    func_call->node_type = func_ptr->get_return_val();
     func_call->ident->node_type = func;
     expr.node_type = func_call->node_type;
 
-    auto& params = func->get_params();
+    const auto& params = func_ptr->get_params();
     if (func_call->args.size() == params.size()) {
         for (size_t i = 0; i < func_call->args.size(); i++) {
             infctxt->eq(func_call->args[i]->node_type, params[i]);

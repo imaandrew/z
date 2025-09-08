@@ -256,7 +256,7 @@ public:
         return return_val;
     }
 
-    [[nodiscard]] std::vector<std::shared_ptr<Type>>& get_params() {
+    [[nodiscard]] const std::vector<std::shared_ptr<Type>>& get_params() const {
         return params;
     }
 

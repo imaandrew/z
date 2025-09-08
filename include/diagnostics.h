@@ -81,6 +81,7 @@ class DiagnosticData {
 public:
     virtual ~DiagnosticData() = default;
     [[nodiscard]] virtual std::string format_message() const = 0;
+    virtual void add_note(Span /*span*/, std::string /*note*/) {}
     [[nodiscard]] virtual std::vector<std::pair<Span, std::string>>
     get_notes() const {
         return {};
@@ -105,7 +106,7 @@ public:
     explicit MultiLocationDiagnosticData(std::string msg)
         : message(std::move(msg)) {}
 
-    void add_note(Span span, std::string note) {
+    void add_note(Span span, std::string note) override {
         notes.emplace_back(span, std::move(note));
     }
 
@@ -126,11 +127,14 @@ struct Diagnostic {
     Diagnostic(DiagnosticKind kind, Span loc,
                std::unique_ptr<DiagnosticData> data)
         : kind(kind), primary_location(loc), data(std::move(data)) {};
+
+    void add_note(Span span, std::string note) const {
+        data->add_note(span, std::move(note));
+    }
 };
 
 class DiagnosticsEngine {
     SourceManager* source;
-    bool has_error = false;
 
     void print_location(const LinePos& pos, std::ostream& out) {
         out << source->get_path() << ":" << pos.get_line() << ":"
@@ -163,13 +167,13 @@ public:
     }
 
     template <typename... Args>
-    MultiLocationDiagnosticData*
+    Diagnostic
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
     emit_with_notes(const Span& span, DiagnosticKind kind, Args&&... args) {
         auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
             get_diagnostic_string(kind), std::make_format_args(args...)));
-        auto* data_ptr = data.get();
-        print_diagnostic(Diagnostic(kind, span, std::move(data)));
-        return data_ptr;
+        return Diagnostic(kind, span, std::move(data));
     }
+
+    void emit(const Diagnostic& diag) { print_diagnostic(diag); }
 };

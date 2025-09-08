@@ -1,7 +1,6 @@
 #pragma once
 
 #include "diagnostics.h"
-#include "scope.h"
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
@@ -549,7 +548,8 @@ struct FuncDecl final : Decl {
 
         if (ret->is_unknown()) {
             if (syms->resolve_unk_type(ret)) {
-                func_type->set_return_val(ret);
+                auto* func_ptr = dynamic_cast<FunctionType*>(func_type.get());
+                func_ptr->set_return_val(ret);
             } else {
                 valid = false;
             }
@@ -1007,8 +1007,8 @@ struct ConstDecl final : Decl {
     }
 
     void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_global_var(
-            ident, std::make_shared<VariableType>(type, true));
+        valid = syms->declare_var(ident,
+                                  std::make_shared<VariableType>(type, true));
     }
 
     void resolve_sym(SymbolTable* syms) override {
@@ -1022,7 +1022,7 @@ struct ConstDecl final : Decl {
         }
 
         auto* const_type = dynamic_cast<VariableType*>(
-            syms->get_global_var(ident->to_string()).get());
+            syms->get_var(ident->to_string()).get());
         const_type->replace_type(type);
     }
 };
@@ -1056,7 +1056,7 @@ struct StaticDecl final : Decl {
     }
 
     void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_global_var(
+        valid = syms->declare_var(
             ident, std::make_shared<VariableType>(type, false, true));
     }
 
@@ -1071,7 +1071,7 @@ struct StaticDecl final : Decl {
         }
 
         auto* static_type = dynamic_cast<VariableType*>(
-            syms->get_global_var(ident->to_string()).get());
+            syms->get_var(ident->to_string()).get());
         static_type->replace_type(type);
     }
 };

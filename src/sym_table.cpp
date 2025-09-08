@@ -12,21 +12,17 @@ bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
     const bool is_unique = scopes.back()->declare_var(name, std::move(type));
 
     if (!is_unique) {
-        diag.emit(name->tok.get_span(), DiagnosticKind::RedeclaredVar,
-                  name->to_string());
-    }
+        auto data = diag.emit_with_notes(name->tok.get_span(),
+                                         DiagnosticKind::RedeclaredVar,
+                                         name->to_string());
 
-    return is_unique;
-}
-
-bool SymbolTable::declare_global_var(const std::unique_ptr<Identifier>& name,
-                                     std::shared_ptr<Type> type) {
-    const bool is_unique =
-        global_vars.insert({name->to_string(), std::move(type)}).second;
-
-    if (!is_unique) {
-        diag.emit(name->tok.get_span(), DiagnosticKind::RedeclaredVar,
-                  name->to_string());
+        for (const auto* scope : scopes) {
+            if (auto type = scope->get_var(name->to_string())) {
+                data.add_note(type->span, "first defined here");
+                break;
+            }
+        }
+        diag.emit(data);
     }
 
     return is_unique;
@@ -34,10 +30,20 @@ bool SymbolTable::declare_global_var(const std::unique_ptr<Identifier>& name,
 
 bool SymbolTable::declare_func(const std::string& name, const Token& tok,
                                std::shared_ptr<FunctionType> type) {
-    const bool is_unique = funcs.insert({name, std::move(type)}).second;
+    const bool is_unique =
+        scopes.back()->declare_func(name, tok, std::move(type));
 
     if (!is_unique) {
-        diag.emit(tok.get_span(), DiagnosticKind::RedeclaredFunc, name);
+        auto data = diag.emit_with_notes(tok.get_span(),
+                                         DiagnosticKind::RedeclaredFunc, name);
+
+        for (const auto* scope : scopes) {
+            if (auto type = scope->get_func(name)) {
+                data.add_note(type->span, "first defined here");
+                break;
+            }
+        }
+        diag.emit(data);
     }
 
     return is_unique;
@@ -45,60 +51,65 @@ bool SymbolTable::declare_func(const std::string& name, const Token& tok,
 
 bool SymbolTable::declare_type(const std::unique_ptr<Identifier>& name,
                                std::shared_ptr<Type> type) {
-    const bool is_unique =
-        user_defined_types.insert({name->to_string(), std::move(type)}).second;
+    const bool is_unique = scopes.back()->declare_type(name, std::move(type));
 
     if (!is_unique) {
-        diag.emit(name->tok.get_span(), DiagnosticKind::RedeclaredType,
-                  name->to_string());
+        auto data = diag.emit_with_notes(name->tok.get_span(),
+                                         DiagnosticKind::RedeclaredType,
+                                         name->to_string());
+
+        for (const auto* scope : scopes) {
+            if (auto type = scope->get_type(name->to_string())) {
+                data.add_note(type->span, "first defined here");
+                break;
+            }
+        }
+        diag.emit(data);
     }
 
     return is_unique;
 }
 
-std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) {
+std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) const {
     for (auto i = scopes.size() - 1; i <= 0; i--) {
 
         if (auto type = scopes[i]->get_var(name)) {
-            return type;
+            return type->type;
         }
     }
 
-    if (auto var = global_vars.find(name); var != global_vars.end()) {
-        return var->second;
+    return nullptr;
+}
+
+std::shared_ptr<Type> SymbolTable::get_func(const std::string& name) const {
+    for (auto i = scopes.size() - 1; i <= 0; i--) {
+
+        if (auto type = scopes[i]->get_func(name)) {
+            return type->type;
+        }
     }
 
     return nullptr;
 }
 
-std::shared_ptr<Type> SymbolTable::get_global_var(const std::string& name) {
-    if (auto var = global_vars.find(name); var != global_vars.end()) {
-        return var->second;
+std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) const {
+    for (auto i = scopes.size() - 1; i <= 0; i--) {
+
+        if (auto type = scopes[i]->get_type(name)) {
+            return type->type;
+        }
     }
-
-    return nullptr;
-}
-
-std::shared_ptr<FunctionType> SymbolTable::get_func(const std::string& name) {
-    if (const auto func = funcs.find(name); func != funcs.end())
-        return func->second;
-
-    return nullptr;
-}
-
-std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) {
-    if (const auto type = user_defined_types.find(name);
-        type != user_defined_types.end())
-        return type->second;
 
     return nullptr;
 }
 
 void SymbolTable::update_type(const std::string& name,
                               std::shared_ptr<Type>& new_type) {
-    if (const auto type = user_defined_types.find(name);
-        type != user_defined_types.end()) {
-        type->second = new_type;
+    for (auto i = scopes.size() - 1; i <= 0; i--) {
+
+        if (auto type = scopes[i]->get_type(name)) {
+            type->type = new_type;
+        }
     }
 }
 
