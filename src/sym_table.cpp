@@ -71,7 +71,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<Identifier>& name,
 }
 
 std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) const {
-    for (auto i = scopes.size() - 1; i <= 0; i--) {
+    for (auto i = scopes.size() - 1; i >= 0; i--) {
 
         if (auto type = scopes[i]->get_var(name)) {
             return type->type;
@@ -82,7 +82,7 @@ std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) const {
 }
 
 std::shared_ptr<Type> SymbolTable::get_func(const std::string& name) const {
-    for (auto i = scopes.size() - 1; i <= 0; i--) {
+    for (auto i = scopes.size() - 1; i >= 0; i--) {
 
         if (auto type = scopes[i]->get_func(name)) {
             return type->type;
@@ -93,7 +93,7 @@ std::shared_ptr<Type> SymbolTable::get_func(const std::string& name) const {
 }
 
 std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) const {
-    for (auto i = scopes.size() - 1; i <= 0; i--) {
+    for (auto i = scopes.size() - 1; i >= 0; i--) {
 
         if (auto type = scopes[i]->get_type(name)) {
             return type->type;
@@ -105,7 +105,7 @@ std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) const {
 
 void SymbolTable::update_type(const std::string& name,
                               std::shared_ptr<Type>& new_type) {
-    for (auto i = scopes.size() - 1; i <= 0; i--) {
+    for (auto i = scopes.size() - 1; i >= 0; i--) {
 
         if (auto type = scopes[i]->get_type(name)) {
             type->type = new_type;
