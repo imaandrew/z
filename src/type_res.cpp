@@ -611,9 +611,9 @@ void TypeResolver::resolve(std::shared_ptr<Type>& type) {
     if (!type->is_explicit()) {
         auto* infer = dynamic_cast<InferredType*>(type.get());
         if (infer->get_infer_type() == InferType::IntLiteral) {
-            type = std::make_shared<IntegerType>(0, true);
+            type = std::make_shared<IntegerType>(32, true);
         } else if (infer->get_infer_type() == InferType::FloatLiteral) {
-            type = std::make_shared<FloatType>(0);
+            type = std::make_shared<FloatType>(64);
         } else if (infer->get_infer_type() == InferType::Block) {
             type = std::make_shared<VoidType>();
         } else {
