@@ -284,13 +284,14 @@ struct BinaryExpr final : Expr {
 
 struct TernaryExpr final : Expr {
     Token op;
+    Token op2;
     std::unique_ptr<Expr> lhs;
     std::unique_ptr<Expr> mhs;
     std::unique_ptr<Expr> rhs;
 
-    TernaryExpr(const Token& op, std::unique_ptr<Expr> lhs,
+    TernaryExpr(const Token& op, const Token& op2, std::unique_ptr<Expr> lhs,
                 std::unique_ptr<Expr> mhs, std::unique_ptr<Expr> rhs)
-        : op(op), lhs(std::move(lhs)), mhs(std::move(mhs)),
+        : op(op), op2(op2), lhs(std::move(lhs)), mhs(std::move(mhs)),
           rhs(std::move(rhs)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -609,17 +610,19 @@ struct LetStmt final : Stmt {
     std::unique_ptr<Identifier> ident;
     std::shared_ptr<Type> type;
     std::shared_ptr<Expr> val;
+    std::optional<Span> eq;
 
     explicit LetStmt(std::unique_ptr<Identifier> ident)
         : ident(std::move(ident)) {};
 
-    LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Expr> val)
-        : ident(std::move(ident)), val(std::move(val)) {};
+    LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Expr> val,
+            Span eq)
+        : ident(std::move(ident)), val(std::move(val)), eq(eq) {};
 
     LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
-            std::shared_ptr<Expr> val)
-        : ident(std::move(ident)), type(std::move(type)),
-          val(std::move(val)) {};
+            std::shared_ptr<Expr> val, Span eq)
+        : ident(std::move(ident)), type(std::move(type)), val(std::move(val)),
+          eq(eq) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {

@@ -65,6 +65,7 @@ BinOpPrecedence get_op_precedence(const TokenKind kind) {
             return BinOpPrecedence::ScopeRes;
         case TokenKind::LParen:
         case TokenKind::LBracket:
+        case TokenKind::LBrace:
         case TokenKind::PlusPlus:
         case TokenKind::MinusMinus:
         case TokenKind::Dot:
@@ -458,6 +459,7 @@ StmtResult Parser::parse_stmt() {
             if (!type.is_valid())
                 return StmtError();
 
+            auto eq = tok.get_span();
             if (!assert(TokenKind::Eq))
                 return StmtError();
 
@@ -466,13 +468,14 @@ StmtResult Parser::parse_stmt() {
                 return StmtError();
 
             stmt = std::make_unique<LetStmt>(std::move(ident), type.take(),
-                                             expr.take());
+                                             expr.take(), eq);
         } else if (tok.is(TokenKind::Eq)) {
             auto expr = prime_parse_expr();
             if (!expr.is_valid())
                 return StmtError();
 
-            stmt = std::make_unique<LetStmt>(std::move(ident), expr.take());
+            stmt = std::make_unique<LetStmt>(std::move(ident), expr.take(),
+                                             tok.get_span());
         } else {
             stmt = std::make_unique<LetStmt>(std::move(ident));
         }
@@ -600,13 +603,14 @@ ExprResult Parser::parse_expr(const int precedence) {
 
                 if (!consume(TokenKind::Colon))
                     return ExprError();
+                auto colon_tok = tok;
 
                 auto else_expr = parse_expr(static_cast<int>(BinOpPrecedence::Prefix) - 1);
                 if (!else_expr.is_valid())
                     return ExprError();
 
                 lhs = std::make_unique<TernaryExpr>(
-                    operator_tok, std::move(lhs), then_expr.take(),
+                    operator_tok, colon_tok, std::move(lhs), then_expr.take(),
                     else_expr.take());
                 break;
             }

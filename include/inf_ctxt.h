@@ -42,49 +42,57 @@ class UnificationTable final {
     }
 
 public:
-    TypeID new_type() {
+    std::shared_ptr<Type> new_type(InferType inf_type) {
         const TypeID id = values.size();
-        values.emplace_back(Value{.parent = id, .type = nullptr, .rank = 0});
-        return id;
+        std::shared_ptr<Type> type =
+            std::make_shared<InferredType>(id, inf_type);
+        values.emplace_back(Value{.parent = id, .type = type, .rank = 0});
+        return type;
     }
 
-    void unify(TypeID x, TypeID y) {
+    bool unify(TypeID x, TypeID y) {
         const TypeID root_x = get_root_key(x);
         const TypeID root_y = get_root_key(y);
 
         if (root_x == root_y)
-            return;
+            return true;
 
         std::shared_ptr<Type> val;
-        if (values.at(root_x).type && values.at(root_y).type) {
-            if (!values.at(root_x).type->is_assignment_compatible(
-                    values.at(root_y).type.get())) {
-                // error
-                return;
-            }
-
-            val = values.at(root_x).type;
-        } else if (values.at(root_x).type) {
-            val = values.at(root_x).type;
-        } else if (values.at(root_y).type) {
-            val = values.at(root_y).type;
-        } else {
-            val = nullptr;
+        const auto type_x = values.at(root_x).type;
+        const auto type_y = values.at(root_y).type;
+        if (!type_x->is_assignment_compatible(type_y.get())) {
+            return false;
         }
 
+        if (type_x->is_variable())
+            val = type_x;
+        else if (type_y->is_variable())
+            val = type_y;
+        else if (!type_x->is_explicit() &&
+                 dynamic_cast<InferredType*>(type_x.get())->get_infer_type() !=
+                     InferType::Var)
+            val = type_x;
+        else if (!type_y->is_explicit() &&
+                 dynamic_cast<InferredType*>(type_y.get())->get_infer_type() !=
+                     InferType::Var)
+            val = type_y;
+        else
+            val = type_x;
+
         unify_roots(root_x, root_y, val);
+        return true;
     }
 
-    void unify(TypeID x, std::shared_ptr<Type> y) {
+    bool unify(TypeID x, std::shared_ptr<Type> y) {
         const TypeID root_x = get_root_key(x);
 
         if (values.at(root_x).type &&
             !values.at(root_x).type->is_assignment_compatible(y.get())) {
-            // error
-            return;
+            return false;
         }
 
         values.at(root_x).type = std::move(y);
+        return true;
     }
 
     std::shared_ptr<Type> get_val(TypeID x) {
@@ -96,11 +104,13 @@ class InferenceContext final {
     UnificationTable unification_table;
 
 public:
-    TypeID new_type() { return unification_table.new_type(); }
+    std::shared_ptr<Type> new_type(InferType inf_type) {
+        return unification_table.new_type(inf_type);
+    }
 
-    void eq(std::shared_ptr<Type> lhs, std::shared_ptr<Type> rhs) {
+    bool eq(std::shared_ptr<Type> lhs, std::shared_ptr<Type> rhs) {
         if (lhs->is_explicit() && rhs->is_explicit()) {
-            return;
+            return true;
         }
 
         lhs = try_resolve(lhs);
@@ -109,17 +119,21 @@ public:
         if (!lhs->is_explicit() && !rhs->is_explicit()) {
             auto* lhs_inf = dynamic_cast<InferredType*>(lhs.get());
             auto* rhs_inf = dynamic_cast<InferredType*>(rhs.get());
-            unification_table.unify(lhs_inf->get_id(), rhs_inf->get_id());
-        } else if (!lhs->is_explicit()) {
-            auto* lhs_inf = dynamic_cast<InferredType*>(lhs.get());
-            unification_table.unify(lhs_inf->get_id(), rhs);
-        } else if (!rhs->is_explicit()) {
-            auto* rhs_inf = dynamic_cast<InferredType*>(rhs.get());
-            unification_table.unify(rhs_inf->get_id(), lhs);
+            return unification_table.unify(lhs_inf->get_id(),
+                                           rhs_inf->get_id());
         }
+
+        if (!lhs->is_explicit()) {
+            auto* lhs_inf = dynamic_cast<InferredType*>(lhs.get());
+            return unification_table.unify(lhs_inf->get_id(), rhs);
+        }
+
+        auto* rhs_inf = dynamic_cast<InferredType*>(rhs.get());
+        return unification_table.unify(rhs_inf->get_id(), lhs);
     }
 
-    [[nodiscard]] std::shared_ptr<Type> try_resolve(std::shared_ptr<Type> type) {
+    [[nodiscard]] std::shared_ptr<Type>
+    try_resolve(std::shared_ptr<Type> type) {
         if (!type->is_explicit()) {
             auto* infer = dynamic_cast<InferredType*>(type.get());
             if (auto known_type = unification_table.get_val(infer->get_id())) {

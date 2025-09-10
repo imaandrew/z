@@ -47,6 +47,9 @@ enum class DiagnosticKind : std::uint8_t {
     ExpectedFloat,
     TypeMismatch,
     UnassignableType,
+    InvalidAssignment,
+    InvalidOperand,
+    InvalidOperands,
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -68,7 +71,12 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::TypeMismatch,
              "expected value of type `{0}`, found value of type `{1}`"},
             {DiagnosticKind::UnassignableType,
-             "cannot assign value to unassignable type"}};
+             "cannot assign value to unassignable type"},
+            {DiagnosticKind::InvalidAssignment, "cannot assign `{0}` to `{1}`"},
+            {DiagnosticKind::InvalidOperand,
+             "invalid operand to operator: `{0}`"},
+            {DiagnosticKind::InvalidOperands,
+             "invalid operands to operator: `{0}` and `{1}`"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;

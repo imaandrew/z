@@ -55,6 +55,7 @@ public:
     [[nodiscard]] virtual bool is_void() const { return false; }
 
     virtual void dump(std::ostream& stream = std::cout) const = 0;
+    [[nodiscard]] virtual std::string basic_name() const = 0;
 };
 
 class IntegerType final : public Type {
@@ -93,6 +94,10 @@ public:
         stream << "IntegerType { bit_width: " << bit_width
                << ", is_signed: " << is_signed << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return std::format("{}{}", is_signed ? "i" : "u", bit_width);
+    }
 };
 
 class FloatType final : public Type {
@@ -126,6 +131,10 @@ public:
     void dump(std::ostream& stream = std::cout) const override {
         stream << "FloatType { bit_width: " << bit_width << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return std::format("f{}", bit_width);
+    }
 };
 
 class BooleanType final : public Type {
@@ -135,18 +144,24 @@ public:
     void dump(std::ostream& stream = std::cout) const override {
         stream << "BooleanType";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return "bool"; }
 };
 
 class StringType final : public Type {
     void dump(std::ostream& stream = std::cout) const override {
         stream << "StringType";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return "string"; }
 };
 
 class CharType final : public Type {
     void dump(std::ostream& stream = std::cout) const override {
         stream << "CharType";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return "char"; }
 };
 
 class PointerType final : public Type {
@@ -170,6 +185,10 @@ public:
         stream << "PointerType { type: ";
         type->dump(stream);
         stream << " }";
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return type->basic_name() + "*";
     }
 };
 
@@ -210,6 +229,10 @@ public:
         // TODO
         stream << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return std::format("[{}]", type->basic_name());
+    }
 };
 
 class UnknownType final : public Type {
@@ -236,6 +259,8 @@ public:
     void dump(std::ostream& stream = std::cout) const override {
         stream << "UnknownType { ident: }";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return "unk"; }
 };
 
 class FunctionType final : public Type {
@@ -276,6 +301,22 @@ public:
         }
         stream << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override {
+        std::string s = "(";
+        for (size_t i = 0; i < params.size() - 1; i++) {
+            s += params[i]->basic_name() + ", ";
+        }
+        s += params.back()->basic_name() + ")";
+
+        if (return_val) {
+            s += "(" + return_val->basic_name() + ")";
+        } else {
+            s += "()";
+        }
+
+        return s;
+    }
 };
 
 class StructType final : public Type {
@@ -294,7 +335,7 @@ public:
                             const std::shared_ptr<Type>& type) {
         fields.insert_or_assign(field, type);
     }
-    
+
     std::shared_ptr<Type> get_field_type(const std::string& field) const {
         return fields.at(field);
     }
@@ -305,6 +346,8 @@ public:
     void dump(std::ostream& stream = std::cout) const override {
         stream << "StructType { name: " << name << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return name; }
 };
 
 class EnumType final : public Type {
@@ -325,19 +368,25 @@ public:
     void dump(std::ostream& stream = std::cout) const override {
         stream << "EnumType { name: " << name << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return name; }
 };
 
 class EnumVariantType final : public Type {
     std::string parent_enum;
 
 public:
-    explicit EnumVariantType(std::string parent_enum) : parent_enum(std::move(parent_enum)) {};
+    explicit EnumVariantType(std::string parent_enum)
+        : parent_enum(std::move(parent_enum)) {};
 
-    [[nodiscard]] const std::string& get_parent_enum() const { return parent_enum; }
+    [[nodiscard]] const std::string& get_parent_enum() const {
+        return parent_enum;
+    }
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_enum = dynamic_cast<const EnumVariantType*>(other);
+            const auto* other_enum =
+                dynamic_cast<const EnumVariantType*>(other);
             return parent_enum == other_enum->get_parent_enum();
         }
 
@@ -346,6 +395,10 @@ public:
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "EnumVariantType { parent: " << parent_enum << " }";
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return parent_enum;
     }
 };
 
@@ -405,6 +458,10 @@ public:
         stream << ", is_const: " << is_const << ", is_static: " << is_static
                << " }";
     }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return internal_type->basic_name();
+    }
 };
 
 class VoidType final : public Type {
@@ -413,6 +470,8 @@ class VoidType final : public Type {
     void dump(std::ostream& stream = std::cout) const override {
         stream << "VoidType";
     }
+
+    [[nodiscard]] std::string basic_name() const override { return "()"; }
 };
 
 class InvalidType final : public Type {
@@ -423,6 +482,10 @@ public:
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "InvalidType";
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return "invalid_type";
     }
 };
 
@@ -442,7 +505,42 @@ public:
 
     [[nodiscard]] InferType get_infer_type() const { return infer_type; }
 
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_type = dynamic_cast<const InferredType*>(other);
+            if (infer_type == InferType::Var ||
+                other_type->infer_type == InferType::Var ||
+                infer_type == InferType::Block ||
+                other_type->infer_type == InferType::Block) {
+                return true;
+            }
+
+            return infer_type == other_type->infer_type;
+        }
+
+        if (other->is_integral() && infer_type == InferType::IntLiteral) {
+            return true;
+        }
+
+        if (other->is_float() && infer_type == InferType::FloatLiteral) {
+            return true;
+        }
+
+        return infer_type == InferType::Var || infer_type == InferType::Block;
+    }
+
     void dump(std::ostream& stream = std::cout) const override {
         stream << "InferrableType";
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        switch (infer_type) {
+        case InferType::IntLiteral:
+            return "integer";
+        case InferType::FloatLiteral:
+            return "float";
+        default:
+            return "unknown";
+        }
     }
 };
