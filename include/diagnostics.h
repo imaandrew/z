@@ -37,6 +37,8 @@ enum class DiagnosticKind : std::uint8_t {
     ExpectedToken,
     ExpectedSemi,
     ExpectedDecl,
+    IntegerOutOfRange,
+    FloatOutOfRange,
     RedeclaredType,
     RedeclaredFunc,
     RedeclaredVar,
@@ -58,6 +60,8 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::ExpectedToken, "expected `{0}`, found `{1}`"},
             {DiagnosticKind::ExpectedSemi, "expected `;` after statement"},
             {DiagnosticKind::ExpectedDecl, "expected declaration, found `{0}`"},
+            {DiagnosticKind::IntegerOutOfRange, "integer literal out of range"},
+            {DiagnosticKind::FloatOutOfRange, "float literal out of range"},
             {DiagnosticKind::RedeclaredType, "redeclaration of type `{0}`"},
             {DiagnosticKind::RedeclaredFunc, "redeclaration of function `{0}`"},
             {DiagnosticKind::RedeclaredVar, "redeclaration of variable `{0}`"},
@@ -144,13 +148,13 @@ struct Diagnostic {
 class DiagnosticsEngine {
     SourceManager* source;
 
-    void print_location(const LinePos& pos, std::ostream& out) {
+    void print_location(const LinePos& pos, std::ostream& out) const {
         out << source->get_path() << ":" << pos.get_line() << ":"
             << pos.get_col();
     }
 
     void print_diagnostic(const Diagnostic& diag,
-                          std::ostream& out = std::cerr) {
+                          std::ostream& out = std::cerr) const {
         const auto pos = source->get_pos(diag.primary_location);
         print_location(pos, out);
 
@@ -167,7 +171,7 @@ public:
 
     template <typename... Args>
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    void emit(const Span& span, const DiagnosticKind kind, Args&&... args) {
+    void emit(const Span& span, const DiagnosticKind kind, Args&&... args) const {
         print_diagnostic(Diagnostic(
             kind, span,
             std::make_unique<SimpleDiagnosticData>(std::vformat(
@@ -177,11 +181,11 @@ public:
     template <typename... Args>
     Diagnostic
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    emit_with_notes(const Span& span, DiagnosticKind kind, Args&&... args) {
+    emit_with_notes(const Span& span, DiagnosticKind kind, Args&&... args) const {
         auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
             get_diagnostic_string(kind), std::make_format_args(args...)));
         return Diagnostic(kind, span, std::move(data));
     }
 
-    void emit(const Diagnostic& diag) { print_diagnostic(diag); }
+    void emit(const Diagnostic& diag) const { print_diagnostic(diag); }
 };
