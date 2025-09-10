@@ -27,7 +27,6 @@ public:
 
     void
     fill_top_level_syms(const std::vector<std::unique_ptr<Decl>>& decls) const;
-    void visit(InvalidStmt& stmt) override;
     void visit(Identifier& ident) override;
     void visit(IntExpr& expr) override;
     void visit(FloatExpr& expr) override;

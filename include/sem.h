@@ -38,19 +38,9 @@ public:
         return *this;
     }
 
-    void
-    fill_top_level_syms(const std::vector<std::unique_ptr<Decl>>& decls) const {
-        for (const auto& decl : decls) {
-            decl->declare_type(syms);
+    void visit(Identifier& ident) override {
+        if (!ident.is_valid()) {
         }
-
-        for (const auto& decl : decls) {
-            decl->resolve_sym(syms);
-        }
-    }
-
-    void visit(InvalidStmt& stmt) override {
-        stmt.node_type = std::make_unique<InvalidType>();
     }
 
     void visit(IntExpr& expr) override {
@@ -291,10 +281,6 @@ public:
         for (auto& val : expr.vals) {
             val->accept(*this);
         }
-    }
-
-    void visit(Identifier& ident) override {
-        ident.node_type = std::make_unique<InvalidType>();
     }
 
     void visit(Block& block) override {

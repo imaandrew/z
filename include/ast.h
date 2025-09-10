@@ -31,7 +31,6 @@ enum class BinOpPrecedence : std::uint8_t {
     Postfix,
 };
 
-struct InvalidStmt;
 struct IntExpr;
 struct FloatExpr;
 struct PrefixExpr;
@@ -71,7 +70,6 @@ public:
     ASTVisitor& operator=(const ASTVisitor&) = delete;
     ASTVisitor(ASTVisitor&&) = delete;
     ASTVisitor& operator=(ASTVisitor&&) = delete;
-    virtual void visit(InvalidStmt&) = 0;
     virtual void visit(IntExpr&) = 0;
     virtual void visit(FloatExpr&) = 0;
     virtual void visit(PrefixExpr&) = 0;
@@ -140,22 +138,6 @@ struct Stmt : ASTNode {
     Stmt& operator=(const Stmt&) = delete;
     Stmt(Stmt&&) = delete;
     Stmt& operator=(Stmt&&) = delete;
-};
-
-struct InvalidStmt final : Stmt {
-    InvalidStmt() { mark_invalid(); };
-
-    void dump(SourceManager* /* source */, int indent,
-              std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "InvalidStmt";
-        dump_type(stream);
-    }
-
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
 };
 
 struct Expr : Stmt {

@@ -23,10 +23,6 @@ void TypeResolver::fill_top_level_syms(
     }
 }
 
-void TypeResolver::visit(InvalidStmt& stmt) {
-    stmt.node_type = std::make_unique<InvalidType>();
-}
-
 void TypeResolver::visit(Identifier& ident) {
     if (const auto type = syms->get_var(ident.to_string())) {
         ident.node_type = type;
