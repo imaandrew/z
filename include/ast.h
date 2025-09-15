@@ -105,8 +105,9 @@ public:
 struct ASTNode {
     bool valid = true;
     std::shared_ptr<Type> node_type = nullptr;
+    Span span;
 
-    ASTNode() = default;
+    explicit ASTNode(Span span) : span(span) {}
     virtual ~ASTNode() = default;
 
     ASTNode(const ASTNode&) = delete;
@@ -116,6 +117,7 @@ struct ASTNode {
 
     [[nodiscard]] bool is_valid() const { return valid; }
     void mark_invalid() { valid = false; }
+    [[nodiscard]] Span get_span() const { return span; }
     virtual void accept(ASTVisitor& visitor) = 0;
 
     virtual void dump(SourceManager* source, int indent = 0,
@@ -132,7 +134,7 @@ struct ASTNode {
 };
 
 struct Stmt : ASTNode {
-    Stmt() = default;
+    explicit Stmt(Span span) : ASTNode(span) {};
     ~Stmt() override = default;
     Stmt(const Stmt&) = delete;
     Stmt& operator=(const Stmt&) = delete;
@@ -141,7 +143,7 @@ struct Stmt : ASTNode {
 };
 
 struct Expr : Stmt {
-    Expr() = default;
+    explicit Expr(Span span) : Stmt(span) {};
     ~Expr() override = default;
     Expr(const Expr&) = delete;
     Expr& operator=(const Expr&) = delete;
@@ -154,7 +156,7 @@ struct Identifier final : Expr {
     std::string_view ident;
 
     explicit Identifier(const Token& tok, std::string_view ident)
-        : tok(tok), ident(ident) {};
+        : Expr(tok.get_span()), tok(tok), ident(ident) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -165,11 +167,7 @@ struct Identifier final : Expr {
 
     [[nodiscard]] std::string to_string() const { return std::string(ident); }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct IntExpr final : Expr {
@@ -177,7 +175,7 @@ struct IntExpr final : Expr {
     unsigned long long val;
 
     IntExpr(const Token& tok, const unsigned long long val)
-        : tok(tok), val(val) {};
+        : Expr(tok.get_span()), tok(tok), val(val) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -185,18 +183,15 @@ struct IntExpr final : Expr {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct FloatExpr final : Expr {
     Token tok;
     double val;
 
-    FloatExpr(const Token& tok, const double val) : tok(tok), val(val) {};
+    FloatExpr(const Token& tok, const double val)
+        : Expr(tok.get_span()), tok(tok), val(val) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -204,11 +199,7 @@ struct FloatExpr final : Expr {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 // NOLINTBEGIN(readability-identifier-length)
@@ -218,7 +209,7 @@ struct PrefixExpr final : Expr {
     std::shared_ptr<Expr> expr;
 
     PrefixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : op(op), expr(std::move(expr)) {};
+        : Expr(op.get_span() + expr->span), op(op), expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -228,11 +219,7 @@ struct PrefixExpr final : Expr {
         expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct PostfixExpr final : Expr {
@@ -240,7 +227,7 @@ struct PostfixExpr final : Expr {
     std::unique_ptr<Expr> expr;
 
     PostfixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : op(op), expr(std::move(expr)) {};
+        : Expr(op.get_span() + expr->span), op(op), expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -250,11 +237,7 @@ struct PostfixExpr final : Expr {
         expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct BinaryExpr final : Expr {
@@ -264,7 +247,8 @@ struct BinaryExpr final : Expr {
 
     BinaryExpr(const Token& op, std::unique_ptr<Expr> lhs,
                std::unique_ptr<Expr> rhs)
-        : op(op), lhs(std::move(lhs)), rhs(std::move(rhs)) {};
+        : Expr(lhs->span + rhs->span), op(op), lhs(std::move(lhs)),
+          rhs(std::move(rhs)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -275,11 +259,7 @@ struct BinaryExpr final : Expr {
         rhs->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct TernaryExpr final : Expr {
@@ -291,8 +271,8 @@ struct TernaryExpr final : Expr {
 
     TernaryExpr(const Token& op, const Token& op2, std::unique_ptr<Expr> lhs,
                 std::unique_ptr<Expr> mhs, std::unique_ptr<Expr> rhs)
-        : op(op), op2(op2), lhs(std::move(lhs)), mhs(std::move(mhs)),
-          rhs(std::move(rhs)) {};
+        : Expr(lhs->span + rhs->span), op(op), op2(op2), lhs(std::move(lhs)),
+          mhs(std::move(mhs)), rhs(std::move(rhs)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -304,11 +284,7 @@ struct TernaryExpr final : Expr {
         rhs->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 // NOLINTEND(readability-identifier-length)
@@ -317,9 +293,9 @@ struct CallExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<Expr>> args;
 
-    CallExpr(std::unique_ptr<Expr> func,
+    CallExpr(Span span, std::unique_ptr<Expr> func,
              std::vector<std::unique_ptr<Expr>> args)
-        : ident(std::move(func)), args(std::move(args)) {};
+        : Expr(span), ident(std::move(func)), args(std::move(args)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -331,22 +307,18 @@ struct CallExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct ArrayExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::unique_ptr<Expr> val;
 
-    explicit ArrayExpr(std::unique_ptr<Expr> ident)
-        : ident(std::move(ident)) {};
+    explicit ArrayExpr(Span span, std::unique_ptr<Expr> ident)
+        : Expr(span), ident(std::move(ident)) {};
 
-    ArrayExpr(std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
-        : ident(std::move(ident)), val(std::move(val)) {};
+    ArrayExpr(Span span, std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
+        : Expr(span), ident(std::move(ident)), val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -357,18 +329,14 @@ struct ArrayExpr final : Expr {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct ArrayInitExpr final : Expr {
     std::vector<std::unique_ptr<Expr>> vals;
 
-    explicit ArrayInitExpr(std::vector<std::unique_ptr<Expr>> vals)
-        : vals(std::move(vals)) {};
+    explicit ArrayInitExpr(Span span, std::vector<std::unique_ptr<Expr>> vals)
+        : Expr(span), vals(std::move(vals)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -379,20 +347,16 @@ struct ArrayInitExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct StructInitExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<Expr>> vals;
 
-    StructInitExpr(std::unique_ptr<Expr> ident,
+    StructInitExpr(Span span, std::unique_ptr<Expr> ident,
                    std::vector<std::unique_ptr<Expr>> vals)
-        : ident(std::move(ident)), vals(std::move(vals)) {};
+        : Expr(span), ident(std::move(ident)), vals(std::move(vals)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -404,19 +368,15 @@ struct StructInitExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct Block final : Stmt {
     std::vector<std::unique_ptr<Stmt>> stmts;
     ScopeContext ctxt;
 
-    explicit Block(std::vector<std::unique_ptr<Stmt>> stmts)
-        : stmts(std::move(stmts)) {};
+    explicit Block(Span span, std::vector<std::unique_ptr<Stmt>> stmts)
+        : Stmt(span), stmts(std::move(stmts)) {};
 
     ScopeContext* get_scope_ctxt() { return &ctxt; }
 
@@ -429,19 +389,16 @@ struct Block final : Stmt {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct Param final : Expr {
     std::unique_ptr<Identifier> name;
     std::shared_ptr<Type> type;
 
-    Param(std::unique_ptr<Identifier> name, std::shared_ptr<Type> type)
-        : name(std::move(name)), type(std::move(type)) {};
+    Param(Span span, std::unique_ptr<Identifier> name,
+          std::shared_ptr<Type> type)
+        : Expr(span), name(std::move(name)), type(std::move(type)) {};
 
     void dump(SourceManager* source, int indent,
               std::ostream& stream) const override {
@@ -452,15 +409,11 @@ struct Param final : Expr {
         stream << '\n';
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct Decl : ASTNode {
-    Decl() = default;
+    explicit Decl(Span span) : ASTNode(span) {}
     ~Decl() override = default;
     Decl(const Decl&) = delete;
     Decl& operator=(const Decl&) = delete;
@@ -478,11 +431,11 @@ struct FuncDecl final : Decl {
     std::shared_ptr<Type> ret;
     std::unique_ptr<Block> body;
 
-    FuncDecl(std::unique_ptr<Identifier> name,
+    FuncDecl(Span span, std::unique_ptr<Identifier> name,
              std::optional<std::shared_ptr<Identifier>> impl_type,
              std::vector<std::unique_ptr<Param>> params,
              std::shared_ptr<Type> ret, std::unique_ptr<Block> body)
-        : name(std::move(name)), impl_type(std::move(impl_type)),
+        : Decl(span), name(std::move(name)), impl_type(std::move(impl_type)),
           params(std::move(params)), ret(std::move(ret)),
           body(std::move(body)) {};
 
@@ -502,11 +455,7 @@ struct FuncDecl final : Decl {
         body->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
         auto param_types = std::vector<std::shared_ptr<Type>>();
@@ -544,9 +493,9 @@ struct BreakStmt final : Stmt {
     Token tok;
     std::unique_ptr<Expr> expr;
 
-    explicit BreakStmt(const Token& tok) : tok(tok) {};
-    BreakStmt(const Token& tok, std::unique_ptr<Expr> expr)
-        : tok(tok), expr(std::move(expr)) {};
+    explicit BreakStmt(Span span, const Token& tok) : Stmt(span), tok(tok) {};
+    BreakStmt(Span span, const Token& tok, std::unique_ptr<Expr> expr)
+        : Stmt(span), tok(tok), expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -556,17 +505,14 @@ struct BreakStmt final : Stmt {
             expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct ContinueStmt final : Stmt {
     Token tok;
 
-    explicit ContinueStmt(const Token& tok) : tok(tok) {};
+    explicit ContinueStmt(Span span, const Token& tok)
+        : Stmt(span), tok(tok) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -574,11 +520,7 @@ struct ContinueStmt final : Stmt {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct ForExpr final : Expr {
@@ -586,9 +528,9 @@ struct ForExpr final : Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
-    ForExpr(std::unique_ptr<Identifier> ident, std::unique_ptr<Expr> expr,
-            std::unique_ptr<Block> block)
-        : ident(std::move(ident)), expr(std::move(expr)),
+    ForExpr(Span span, std::unique_ptr<Identifier> ident,
+            std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
+        : Expr(span), ident(std::move(ident)), expr(std::move(expr)),
           block(std::move(block)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -599,11 +541,7 @@ struct ForExpr final : Expr {
         block->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct LetStmt final : Stmt {
@@ -612,17 +550,17 @@ struct LetStmt final : Stmt {
     std::shared_ptr<Expr> val;
     std::optional<Span> eq;
 
-    explicit LetStmt(std::unique_ptr<Identifier> ident)
-        : ident(std::move(ident)) {};
+    explicit LetStmt(Span span, std::unique_ptr<Identifier> ident)
+        : Stmt(span), ident(std::move(ident)) {};
 
-    LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Expr> val,
-            Span eq)
-        : ident(std::move(ident)), val(std::move(val)), eq(eq) {};
-
-    LetStmt(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
+    LetStmt(Span span, std::unique_ptr<Identifier> ident,
             std::shared_ptr<Expr> val, Span eq)
-        : ident(std::move(ident)), type(std::move(type)), val(std::move(val)),
-          eq(eq) {};
+        : Stmt(span), ident(std::move(ident)), val(std::move(val)), eq(eq) {};
+
+    LetStmt(Span span, std::unique_ptr<Identifier> ident,
+            std::shared_ptr<Type> type, std::shared_ptr<Expr> val, Span eq)
+        : Stmt(span), ident(std::move(ident)), type(std::move(type)),
+          val(std::move(val)), eq(eq) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -638,18 +576,15 @@ struct LetStmt final : Stmt {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct ReturnStmt final : Stmt {
     std::unique_ptr<Expr> expr;
 
-    ReturnStmt() = default;
-    explicit ReturnStmt(std::unique_ptr<Expr> expr) : expr(std::move(expr)) {};
+    explicit ReturnStmt(Span span) : Stmt(span) {}
+    ReturnStmt(Span span, std::unique_ptr<Expr> expr)
+        : Stmt(span), expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -659,21 +594,17 @@ struct ReturnStmt final : Stmt {
             expr->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct ElseExpr final : Expr {
     std::unique_ptr<Expr> if_expr;
     std::unique_ptr<Block> block;
 
-    explicit ElseExpr(std::unique_ptr<Block> block)
-        : block(std::move(block)) {};
-    explicit ElseExpr(std::unique_ptr<Expr> if_expr)
-        : if_expr(std::move(if_expr)) {};
+    ElseExpr(Span span, std::unique_ptr<Block> block)
+        : Expr(span), block(std::move(block)) {};
+    ElseExpr(Span span, std::unique_ptr<Expr> if_expr)
+        : Expr(span), if_expr(std::move(if_expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -687,11 +618,7 @@ struct ElseExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct IfExpr final : Expr {
@@ -699,11 +626,11 @@ struct IfExpr final : Expr {
     std::unique_ptr<Block> block;
     std::unique_ptr<ElseExpr> else_expr;
 
-    IfExpr(std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
-        : expr(std::move(expr)), block(std::move(block)) {};
-    IfExpr(std::unique_ptr<Expr> expr, std::unique_ptr<Block> block,
+    IfExpr(Span span, std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
+        : Expr(span), expr(std::move(expr)), block(std::move(block)) {};
+    IfExpr(Span span, std::unique_ptr<Expr> expr, std::unique_ptr<Block> block,
            std::unique_ptr<ElseExpr> else_expr)
-        : expr(std::move(expr)), block(std::move(block)),
+        : Expr(span), expr(std::move(expr)), block(std::move(block)),
           else_expr(std::move(else_expr)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -717,19 +644,16 @@ struct IfExpr final : Expr {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct LoopExpr final : Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
-    LoopExpr(std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
-        : expr(std::move(expr)), block(std::move(block)) {};
+    LoopExpr(Span span, std::unique_ptr<Expr> expr,
+             std::unique_ptr<Block> block)
+        : Expr(span), expr(std::move(expr)), block(std::move(block)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -741,19 +665,16 @@ struct LoopExpr final : Expr {
         block->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct WhileExpr final : Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
-    WhileExpr(std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
-        : expr(std::move(expr)), block(std::move(block)) {};
+    WhileExpr(Span span, std::unique_ptr<Expr> expr,
+              std::unique_ptr<Block> block)
+        : Expr(span), expr(std::move(expr)), block(std::move(block)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -763,17 +684,13 @@ struct WhileExpr final : Expr {
         block->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct StringExpr final : Expr {
     Span span;
 
-    explicit StringExpr(Span span) : span(span) {};
+    explicit StringExpr(Span span) : Expr(span), span(span) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -782,19 +699,16 @@ struct StringExpr final : Expr {
         dump_type(stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct StructField final : ASTNode {
     std::shared_ptr<Identifier> ident;
     std::shared_ptr<Type> type;
 
-    StructField(std::shared_ptr<Identifier> ident, std::shared_ptr<Type> type)
-        : ident(std::move(ident)), type(std::move(type)) {};
+    StructField(Span span, std::shared_ptr<Identifier> ident,
+                std::shared_ptr<Type> type)
+        : ASTNode(span), ident(std::move(ident)), type(std::move(type)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -806,20 +720,16 @@ struct StructField final : ASTNode {
         stream << '\n';
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct StructDecl final : Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<StructField>> fields;
 
-    StructDecl(std::unique_ptr<Identifier> ident,
+    StructDecl(Span span, std::unique_ptr<Identifier> ident,
                std::vector<std::unique_ptr<StructField>> fields)
-        : ident(std::move(ident)), fields(std::move(fields)) {};
+        : Decl(span), ident(std::move(ident)), fields(std::move(fields)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -830,11 +740,7 @@ struct StructDecl final : Decl {
             field->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->to_string();
@@ -880,11 +786,11 @@ struct EnumField final : ASTNode {
     std::unique_ptr<Identifier> ident;
     std::vector<std::shared_ptr<Type>> types;
 
-    explicit EnumField(std::unique_ptr<Identifier> ident)
-        : ident(std::move(ident)) {};
-    EnumField(std::unique_ptr<Identifier> ident,
+    EnumField(Span span, std::unique_ptr<Identifier> ident)
+        : ASTNode(span), ident(std::move(ident)) {};
+    EnumField(Span span, std::unique_ptr<Identifier> ident,
               std::vector<std::shared_ptr<Type>> types)
-        : ident(std::move(ident)), types(std::move(types)) {};
+        : ASTNode(span), ident(std::move(ident)), types(std::move(types)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -898,20 +804,16 @@ struct EnumField final : ASTNode {
         }
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct EnumDecl final : Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<EnumField>> fields;
 
-    EnumDecl(std::unique_ptr<Identifier> ident,
+    EnumDecl(Span span, std::unique_ptr<Identifier> ident,
              std::vector<std::unique_ptr<EnumField>> fields)
-        : ident(std::move(ident)), fields(std::move(fields)) {};
+        : Decl(span), ident(std::move(ident)), fields(std::move(fields)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -922,11 +824,7 @@ struct EnumDecl final : Decl {
             field->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->to_string();
@@ -968,9 +866,9 @@ struct ConstDecl final : Decl {
     std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
-    ConstDecl(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
-              std::unique_ptr<Expr> val)
-        : ident(std::move(ident)), type(std::move(type)),
+    ConstDecl(Span span, std::unique_ptr<Identifier> ident,
+              std::shared_ptr<Type> type, std::unique_ptr<Expr> val)
+        : Decl(span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -985,11 +883,7 @@ struct ConstDecl final : Decl {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
         valid = syms->declare_var(ident,
@@ -1017,9 +911,9 @@ struct StaticDecl final : Decl {
     std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
-    StaticDecl(std::unique_ptr<Identifier> ident, std::shared_ptr<Type> type,
-               std::unique_ptr<Expr> val)
-        : ident(std::move(ident)), type(std::move(type)),
+    StaticDecl(Span span, std::unique_ptr<Identifier> ident,
+               std::shared_ptr<Type> type, std::unique_ptr<Expr> val)
+        : Decl(span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -1034,11 +928,7 @@ struct StaticDecl final : Decl {
             val->dump(source, indent + 2, stream);
     }
 
-    void accept(ASTVisitor& visitor) override {
-        if (is_valid()) {
-            visitor.visit(*this);
-        }
-    }
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
         valid = syms->declare_var(

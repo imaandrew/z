@@ -17,6 +17,19 @@ struct Span {
     Span() = default;
     Span(std::uint32_t index, std::uint16_t len) : index(index), len(len) {};
 
+    Span& operator+=(const Span& rhs) {
+        auto start = index < rhs.index ? index : rhs.index;
+
+        auto lhs_end = index + len;
+        auto rhs_end = rhs.index + rhs.len;
+        auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
+
+        index = start;
+        len = end - index;
+
+        return *this;
+    }
+
     friend Span operator+(Span lhs, const Span& rhs) {
         auto index = lhs.index < rhs.index ? lhs.index : rhs.index;
 

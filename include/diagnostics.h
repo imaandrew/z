@@ -22,6 +22,13 @@ public:
     explicit Result(T&& val) : val(std::move(val)) {}
 
     [[nodiscard]] bool is_valid() const { return valid; }
+    const T& get() {
+        if (val.has_value()) {
+            return val.value();
+        }
+
+        throw std::runtime_error("Result does not hold value");
+    }
     T take() {
         if (val.has_value()) {
             T tmp = std::move(val.value());
@@ -52,6 +59,8 @@ enum class DiagnosticKind : std::uint8_t {
     InvalidAssignment,
     InvalidOperand,
     InvalidOperands,
+    UndefinedIdentifier,
+    ExprNotAssignable
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -68,6 +77,7 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::DuplicateField, "`{0}` has duplicate field `{1}`"},
             {DiagnosticKind::UndeclaredType, "use of undeclared type `{0}`"},
             {DiagnosticKind::UndeclaredVar, "use of undeclared var `{0}`"},
+            {DiagnosticKind::UndefinedIdentifier, "`{0}` is undefined"},
             {DiagnosticKind::ExpectedInteger,
              "expected integral value, found `{0}`"},
             {DiagnosticKind::ExpectedFloat,
@@ -80,7 +90,9 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::InvalidOperand,
              "invalid operand to operator: `{0}`"},
             {DiagnosticKind::InvalidOperands,
-             "invalid operands to operator: `{0}` and `{1}`"}};
+             "invalid operands to operator: `{0}` and `{1}`"},
+            {DiagnosticKind::ExprNotAssignable,
+             "cannot assign value to expr of type `{0}`"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;
