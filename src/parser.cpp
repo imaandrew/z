@@ -27,7 +27,6 @@ BinOpPrecedence get_op_precedence(const TokenKind kind) {
         case TokenKind::ShlEq:
         case TokenKind::ShrEq:
         case TokenKind::Eq:
-        case TokenKind::Colon:
             return BinOpPrecedence::Assignment;
         case TokenKind::Range:
         case TokenKind::RangeEq:
@@ -629,11 +628,11 @@ ExprResult Parser::parse_expr(const int precedence) {
                 if (!then_expr.is_valid())
                     return ExprError();
 
-                if (!consume(TokenKind::Colon))
+                if (!assert(TokenKind::Colon))
                     return ExprError();
                 auto colon_tok = tok;
 
-                auto else_expr = parse_expr(static_cast<int>(BinOpPrecedence::Prefix) - 1);
+                auto else_expr = prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix) - 1);
                 if (!else_expr.is_valid())
                     return ExprError();
 
@@ -715,8 +714,7 @@ ExprResult Parser::parse_expr(const int precedence) {
             case TokenKind::OrEq:
             case TokenKind::ShlEq:
             case TokenKind::ShrEq:
-            case TokenKind::Eq:
-            case TokenKind::Colon: {
+            case TokenKind::Eq: {
                 auto operator_tok = tok;
                 auto expr = prime_parse_expr(
                     static_cast<int>(get_op_precedence(tok.get_kind())) - 1);
