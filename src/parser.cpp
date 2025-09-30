@@ -507,7 +507,7 @@ StmtResult Parser::parse_stmt() {
         next_token();
 
         if (can_be_expr()) {
-            auto expr = prime_parse_expr();
+            auto expr = parse_expr();
             if (!expr.is_valid())
                 return StmtError();
 
@@ -531,12 +531,14 @@ StmtResult Parser::parse_stmt() {
     return Result(std::move(stmt));
 }
 
-ExprResult Parser::prime_parse_expr(const int precedence) {
+ExprResult Parser::prime_parse_expr(const int precedence,
+                                    const std::optional<TokenKind> ignore) {
     next_token();
-    return parse_expr(precedence);
+    return parse_expr(precedence, ignore);
 }
 
-ExprResult Parser::parse_expr(const int precedence) {
+ExprResult Parser::parse_expr(const int precedence,
+                              const std::optional<TokenKind> ignore) {
     std::unique_ptr<Expr> lhs;
     Span span = tok.get_span();
     switch (tok.get_kind()) {
@@ -615,6 +617,9 @@ ExprResult Parser::parse_expr(const int precedence) {
     }
 
     while (precedence < static_cast<int>(get_op_precedence(tok.get_kind()))) {
+        if (ignore && ignore.value() == tok.get_kind())
+            break;
+
         switch (tok.get_kind()) {
             case TokenKind::PlusPlus:
             case TokenKind::MinusMinus:
@@ -731,7 +736,7 @@ ExprResult Parser::parse_expr(const int precedence) {
                     throw std::runtime_error("invalid operator");
 
                 auto operator_tok = tok;
-                auto expr = prime_parse_expr(prec);
+                auto expr = prime_parse_expr(prec, ignore);
                 if (!expr.is_valid())
                     return ExprError();
 
@@ -814,7 +819,7 @@ ExprResult Parser::parse_for_expr() {
     if (!consume(TokenKind::KwIn))
         return ExprError();
 
-    auto expr = prime_parse_expr();
+    auto expr = prime_parse_expr(0, TokenKind::LBrace);
     if (!expr.is_valid())
         return ExprError();
 
@@ -831,7 +836,7 @@ ExprResult Parser::parse_if_expr() {
     assert(TokenKind::KwIf);
     Span span = tok.get_span();
 
-    auto expr = prime_parse_expr();
+    auto expr = prime_parse_expr(0, TokenKind::LBrace);
     if (!expr.is_valid())
         return ExprError();
 
@@ -877,7 +882,7 @@ ExprResult Parser::parse_loop_expr() {
     ExprResult expr;
 
     if (!kind(TokenKind::LBrace)) {
-        expr = parse_expr();
+        expr = parse_expr(0, TokenKind::LBrace);
         if (!expr.is_valid())
             return ExprError();
     }
@@ -895,7 +900,7 @@ ExprResult Parser::parse_while_expr() {
     assert(TokenKind::KwWhile);
     Span span = tok.get_span();
 
-    auto expr = prime_parse_expr();
+    auto expr = prime_parse_expr(0, TokenKind::LBrace);
     if (!expr.is_valid())
         return ExprError();
 

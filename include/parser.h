@@ -65,8 +65,10 @@ class Parser {
     Result<std::unique_ptr<Param>> parse_param_decl();
     Result<std::unique_ptr<Block>> parse_block(bool implicit_return = true);
     StmtResult parse_stmt();
-    ExprResult prime_parse_expr(int precedence = 0);
-    ExprResult parse_expr(int precedence = 0);
+    ExprResult prime_parse_expr(int precedence = 0,
+                                std::optional<TokenKind> ignore = std::nullopt);
+    ExprResult parse_expr(int precedence = 0,
+                          std::optional<TokenKind> ignore = std::nullopt);
     [[nodiscard]] std::unique_ptr<Expr> parse_num() const;
     ExprResult parse_for_expr();
     ExprResult parse_if_expr();
