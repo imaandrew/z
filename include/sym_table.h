@@ -31,6 +31,7 @@ public:
     bool declare_type(const std::unique_ptr<Identifier>& name,
                       std::shared_ptr<Type> type);
     [[nodiscard]] std::shared_ptr<Type> get_var(const std::string& name) const;
+    [[nodiscard]] std::shared_ptr<Type> get_global_var(const std::string& name) const;
     [[nodiscard]] std::shared_ptr<Type> get_func(const std::string& name) const;
     [[nodiscard]] std::shared_ptr<Type> get_type(const std::string& name) const;
     void update_type(const std::string& name, std::shared_ptr<Type>& type);

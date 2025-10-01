@@ -141,10 +141,13 @@ void TypeResolver::visit(BinaryExpr& expr) {
 
         break;
     case TokenKind::Dot: {
-        auto* struct_var = dynamic_cast<StructType*>(
-            dynamic_cast<VariableType*>(expr.lhs->node_type.get())
-                ->get_type()
-                .get());
+        auto* var_type = dynamic_cast<VariableType*>(expr.lhs->node_type.get());
+        if (var_type == nullptr) {
+            expr.mark_invalid();
+            break;
+        }
+        auto* struct_var =
+            dynamic_cast<StructType*>(var_type->get_type().get());
         expr.node_type = struct_var->get_field_type(
             dynamic_cast<Identifier*>(expr.rhs.get())->to_string());
         break;
@@ -192,6 +195,10 @@ void TypeResolver::visit(CallExpr& expr) {
     if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
         auto func = syms->get_func(ident->to_string());
         const auto* func_ptr = dynamic_cast<FunctionType*>(func.get());
+        if (func_ptr == nullptr) {
+            expr.mark_invalid();
+            return;
+        }
         expr.node_type = func_ptr->get_return_val();
 
         const auto& params = func_ptr->get_params();
@@ -337,6 +344,8 @@ void TypeResolver::visit(FuncDecl& func) {
 
     if (!func.body->is_valid()) {
         func.mark_invalid();
+        func.name->mark_invalid();
+        resolve(&func);
         return;
     }
 
@@ -350,10 +359,11 @@ void TypeResolver::visit(FuncDecl& func) {
         func.node_type = syms->get_func(func.get_abs_name());
         func.name->node_type = syms->get_func(func.get_abs_name());
 
-        resolve(&func);
     } else {
         func.mark_invalid();
+        func.name->mark_invalid();
     }
+    resolve(&func);
 
     infctxt.emplace();
 }
@@ -375,6 +385,10 @@ void TypeResolver::visit(ContinueStmt& stmt) {
 }
 
 void TypeResolver::visit(ForExpr& expr) {
+    expr.ident->node_type = infctxt->new_type(InferType::Var);
+    expr.block->get_scope_ctxt()->declare_var(expr.ident,
+                                              expr.ident->node_type);
+
     expr.expr->accept(*this);
     if (!expr.expr->is_valid()) {
         expr.mark_invalid();
@@ -573,7 +587,11 @@ void TypeResolver::visit(ConstDecl& decl) {
         return;
     }
 
-    decl.ident->node_type = std::make_shared<VariableType>(decl.type);
+    decl.ident->node_type = syms->get_global_var(decl.ident->to_string());
+    if (!decl.ident->node_type) {
+        decl.mark_invalid();
+        return;
+    }
 
     if (!infctxt->eq(decl.val->node_type, decl.type)) {
         decl.mark_invalid();
@@ -623,7 +641,8 @@ void TypeResolver::resolve(std::shared_ptr<Type>& type) {
 }
 
 void TypeResolver::resolve(ASTNode* node) {
-    resolve(node->node_type);
+    if (node->is_valid() && node->node_type)
+        resolve(node->node_type);
 
     if (auto* expr = dynamic_cast<PrefixExpr*>(node)) {
         resolve(expr->expr.get());

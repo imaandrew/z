@@ -81,6 +81,16 @@ std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) const {
     return nullptr;
 }
 
+std::shared_ptr<Type> SymbolTable::get_global_var(const std::string& name) const {
+    if (const auto* scope = scopes.front()) {
+        if (auto type = scope->get_var(name)) {
+            return type->type;
+        }
+    }
+
+    return nullptr;
+}
+
 std::shared_ptr<Type> SymbolTable::get_func(const std::string& name) const {
     for (auto* scope : std::ranges::reverse_view(scopes)) {
         if (auto type = scope->get_func(name)) {

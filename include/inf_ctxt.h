@@ -116,6 +116,10 @@ public:
         lhs = try_resolve(lhs);
         rhs = try_resolve(rhs);
 
+        if (lhs->is_explicit() && rhs->is_explicit()) {
+            return true;
+        }
+
         if (!lhs->is_explicit() && !rhs->is_explicit()) {
             auto* lhs_inf = dynamic_cast<InferredType*>(lhs.get());
             auto* rhs_inf = dynamic_cast<InferredType*>(rhs.get());
