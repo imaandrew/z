@@ -64,17 +64,20 @@ public:
             return false;
         }
 
+        const auto* type_x_inf = dynamic_cast<InferredType*>(type_x.get());
+        const auto* type_y_inf = dynamic_cast<InferredType*>(type_y.get());
+
         if (type_x->is_variable())
             val = type_x;
         else if (type_y->is_variable())
             val = type_y;
         else if (!type_x->is_explicit() &&
-                 dynamic_cast<InferredType*>(type_x.get())->get_infer_type() !=
-                     InferType::Var)
+                 type_x_inf->get_infer_type() != InferType::Var &&
+                 type_x_inf->get_infer_type() != InferType::Block)
             val = type_x;
         else if (!type_y->is_explicit() &&
-                 dynamic_cast<InferredType*>(type_y.get())->get_infer_type() !=
-                     InferType::Var)
+                 type_y_inf->get_infer_type() != InferType::Var &&
+                 type_y_inf->get_infer_type() != InferType::Block)
             val = type_y;
         else
             val = type_x;
