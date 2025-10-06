@@ -469,19 +469,21 @@ struct FuncDecl final : Decl {
     }
 
     void resolve_sym(SymbolTable* syms) override {
-        const auto func_type = syms->get_func(get_abs_name());
+        auto* func_type = dynamic_cast<FunctionType*>(syms->get_func(get_abs_name()).get());
 
-        for (const auto& param : params) {
-            if (param->type->is_unknown() &&
-                !syms->resolve_unk_type(param->type)) {
+        for (size_t i = 0; i < params.size(); i++) {
+            if (params[i]->type->is_unknown()) {
+                if (syms->resolve_unk_type(params[i]->type)) {
+                    func_type->get_params()[i] = params[i]->type;
+                } else {
                 valid = false;
+                }
             }
         }
 
         if (ret->is_unknown()) {
             if (syms->resolve_unk_type(ret)) {
-                auto* func_ptr = dynamic_cast<FunctionType*>(func_type.get());
-                func_ptr->set_return_val(ret);
+                func_type->set_return_val(ret);
             } else {
                 valid = false;
             }
