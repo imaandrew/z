@@ -429,13 +429,15 @@ void TypeResolver::visit(LetStmt& stmt) {
             stmt.mark_invalid();
             return;
         }
-
-        stmt.ident->node_type = stmt.type;
+        stmt.ident->node_type = std::make_shared<VariableType>(stmt.type);
     } else if (stmt.val) {
-        stmt.ident->node_type = infctxt->new_type(InferType::Var);
-        infctxt->eq(stmt.ident->node_type, stmt.val->node_type);
+        auto var_type =
+            std::make_shared<VariableType>(infctxt->new_type(InferType::Var));
+        infctxt->eq(var_type->get_type(), stmt.val->node_type);
+        stmt.ident->node_type = var_type;
     } else {
-        stmt.ident->node_type = infctxt->new_type(InferType::Var);
+        stmt.ident->node_type =
+            std::make_shared<VariableType>(infctxt->new_type(InferType::Var));
     }
 
     syms->declare_var(stmt.ident, stmt.ident->node_type);

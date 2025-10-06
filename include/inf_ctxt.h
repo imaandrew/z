@@ -5,6 +5,15 @@
 #include <utility>
 #include <vector>
 
+static const InferredType* get_inf_type(const Type* type) {
+    if (type->is_variable()) {
+        return dynamic_cast<const InferredType*>(
+            dynamic_cast<const VariableType*>(type)->get_type().get());
+    }
+
+    return dynamic_cast<const InferredType*>(type);
+}
+
 class UnificationTable final {
     struct Value final {
         TypeID parent;
@@ -64,19 +73,17 @@ public:
             return false;
         }
 
-        const auto* type_x_inf = dynamic_cast<InferredType*>(type_x.get());
-        const auto* type_y_inf = dynamic_cast<InferredType*>(type_y.get());
+        const auto* type_x_inf = get_inf_type(type_x.get());
+        const auto* type_y_inf = get_inf_type(type_y.get());
 
-        if (type_x->is_variable())
+        if (type_x->is_explicit())
             val = type_x;
-        else if (type_y->is_variable())
+        else if (type_y->is_explicit())
             val = type_y;
-        else if (!type_x->is_explicit() &&
-                 type_x_inf->get_infer_type() != InferType::Var &&
+        else if (type_x_inf->get_infer_type() != InferType::Var &&
                  type_x_inf->get_infer_type() != InferType::Block)
             val = type_x;
-        else if (!type_y->is_explicit() &&
-                 type_y_inf->get_infer_type() != InferType::Var &&
+        else if (type_y_inf->get_infer_type() != InferType::Var &&
                  type_y_inf->get_infer_type() != InferType::Block)
             val = type_y;
         else
@@ -124,26 +131,30 @@ public:
         }
 
         if (!lhs->is_explicit() && !rhs->is_explicit()) {
-            auto* lhs_inf = dynamic_cast<InferredType*>(lhs.get());
-            auto* rhs_inf = dynamic_cast<InferredType*>(rhs.get());
+            const auto* lhs_inf = get_inf_type(lhs.get());
+            const auto* rhs_inf = get_inf_type(rhs.get());
             return unification_table.unify(lhs_inf->get_id(),
                                            rhs_inf->get_id());
         }
 
         if (!lhs->is_explicit()) {
-            auto* lhs_inf = dynamic_cast<InferredType*>(lhs.get());
+            const auto* lhs_inf = get_inf_type(lhs.get());
             return unification_table.unify(lhs_inf->get_id(), rhs);
         }
 
-        auto* rhs_inf = dynamic_cast<InferredType*>(rhs.get());
+        const auto* rhs_inf = get_inf_type(rhs.get());
         return unification_table.unify(rhs_inf->get_id(), lhs);
     }
 
     [[nodiscard]] std::shared_ptr<Type>
     try_resolve(std::shared_ptr<Type> type) {
         if (!type->is_explicit()) {
-            auto* infer = dynamic_cast<InferredType*>(type.get());
+            const auto* infer = get_inf_type(type.get());
             if (auto known_type = unification_table.get_val(infer->get_id())) {
+                if (type->is_variable()) {
+                    dynamic_cast<VariableType*>(type.get())->replace_type(known_type);
+                    return type;
+                }
                 return known_type;
             }
         }

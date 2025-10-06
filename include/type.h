@@ -414,6 +414,8 @@ public:
         : internal_type(std::move(internal_type)), is_const(is_const),
           is_static(is_static) {};
 
+    [[nodiscard]] bool is_explicit() const override { return internal_type->is_explicit(); }
+
     void replace_type(const std::shared_ptr<Type>& type) {
         internal_type = type;
     }
