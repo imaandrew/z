@@ -1,14 +1,18 @@
 #pragma once
 
 #include "diagnostics.h"
+#include "scope.h"
+#include "src_mgr.h"
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 

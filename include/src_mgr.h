@@ -2,11 +2,14 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 

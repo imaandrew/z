@@ -4,7 +4,10 @@
 #include "token.h"
 #include "type.h"
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 class ScopeContext {
     struct TypeWithSpan {
