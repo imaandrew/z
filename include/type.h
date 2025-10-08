@@ -54,23 +54,31 @@ public:
 
     [[nodiscard]] virtual bool is_void() const { return false; }
 
+    [[nodiscard]] virtual bool is_array() const { return false; }
+
+    [[nodiscard]] virtual bool is_iterable() const { return false; }
+
     virtual void dump(std::ostream& stream = std::cout) const = 0;
     [[nodiscard]] virtual std::string basic_name() const = 0;
 };
 
 class IntegerType final : public Type {
     int bit_width;
-    bool is_signed;
+    bool _signed;
 
 public:
     IntegerType(const int bit_width, const bool is_signed)
-        : bit_width(bit_width), is_signed(is_signed) {};
+        : bit_width(bit_width), _signed(is_signed) {};
+
+    [[nodiscard]] int get_width() const { return bit_width; }
+
+    [[nodiscard]] bool is_signed() const { return _signed; }
 
     bool is_arithmetic_compatible(Type* other) const override {
         if (typeid(*this) == typeid(*other)) {
             const auto* other_int = dynamic_cast<IntegerType*>(other);
             return this->bit_width == other_int->bit_width &&
-                   this->is_signed == other_int->is_signed;
+                   this->_signed == other_int->_signed;
         }
 
         return false;
@@ -84,7 +92,7 @@ public:
         if (Type::is_assignment_compatible(other)) {
             const auto* other_int = dynamic_cast<const IntegerType*>(other);
             return this->bit_width == other_int->bit_width &&
-                   this->is_signed == other_int->is_signed;
+                   this->_signed == other_int->_signed;
         }
 
         return false;
@@ -92,11 +100,11 @@ public:
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "IntegerType { bit_width: " << bit_width
-               << ", is_signed: " << is_signed << " }";
+               << ", is_signed: " << _signed << " }";
     }
 
     [[nodiscard]] std::string basic_name() const override {
-        return std::format("{}{}", is_signed ? "i" : "u", bit_width);
+        return std::format("{}{}", _signed ? "i" : "u", bit_width);
     }
 };
 
@@ -105,6 +113,8 @@ class FloatType final : public Type {
 
 public:
     explicit FloatType(const int bit_width) : bit_width(bit_width) {};
+
+    [[nodiscard]] int get_width() const { return bit_width; }
 
     bool is_arithmetic_compatible(Type* other) const override {
         if (Type::is_arithmetic_compatible(other)) {
@@ -152,6 +162,8 @@ class StringType final : public Type {
     void dump(std::ostream& stream = std::cout) const override {
         stream << "StringType";
     }
+
+    [[nodiscard]] bool is_iterable() const override { return true; }
 
     [[nodiscard]] std::string basic_name() const override { return "string"; }
 };
@@ -207,6 +219,10 @@ public:
     ArrayType& operator=(ArrayType&&) = delete;
 
     [[nodiscard]] std::shared_ptr<Type> get_type() const { return type; }
+
+    [[nodiscard]] bool is_array() const override { return true; }
+
+    [[nodiscard]] bool is_iterable() const override { return true; }
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
@@ -414,7 +430,9 @@ public:
         : internal_type(std::move(internal_type)), is_const(is_const),
           is_static(is_static) {};
 
-    [[nodiscard]] bool is_explicit() const override { return internal_type->is_explicit(); }
+    [[nodiscard]] bool is_explicit() const override {
+        return internal_type->is_explicit();
+    }
 
     void replace_type(const std::shared_ptr<Type>& type) {
         internal_type = type;
@@ -453,6 +471,10 @@ public:
     }
 
     [[nodiscard]] bool is_variable() const override { return true; }
+
+    [[nodiscard]] bool is_iterable() const override {
+        return internal_type->is_iterable();
+    }
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "VariableType { internal_type: ";

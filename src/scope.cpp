@@ -1,5 +1,10 @@
 #include "scope.h"
 #include "ast.h"
+#include "type.h"
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 
 bool ScopeContext::declare_var(const std::unique_ptr<Identifier>& name,
                                std::shared_ptr<Type> type) {

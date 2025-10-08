@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "ast.h"
 #include "diagnostics.h"
+#include "src_mgr.h"
 #include "token.h"
 #include "type.h"
 #include <charconv>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -562,8 +564,8 @@ ExprResult Parser::parse_expr(const int precedence,
         case TokenKind::Not:
         case TokenKind::Minus: {
             auto prefix_tok = tok;
-            auto expr =
-                prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix));
+            auto expr = prime_parse_expr(
+                static_cast<int>(BinOpPrecedence::Prefix), ignore);
             if (!expr.is_valid())
                 return ExprError();
 
@@ -571,7 +573,7 @@ ExprResult Parser::parse_expr(const int precedence,
             break;
         }
         case TokenKind::LParen: {
-            auto expr = prime_parse_expr();
+            auto expr = prime_parse_expr(0, ignore);
             if (!expr.is_valid())
                 return ExprError();
 
@@ -755,13 +757,14 @@ std::unique_ptr<Expr> Parser::parse_num() const {
     for (size_t i = 0; i < val.length(); i++) {
         if (val[i] == '.') {
             double num = NAN;
-            if (std::from_chars(val.data(), val.data() + val.size(), num).ec == std::errc::result_out_of_range) {
+            if (std::from_chars(val.begin(), val.end(), num).ec ==
+                std::errc::result_out_of_range) {
                 diag.emit(tok.get_span(), DiagnosticKind::FloatOutOfRange);
                 auto res = std::make_unique<FloatExpr>(tok, num);
                 res->mark_invalid();
                 return res;
             }
-            
+
             return std::make_unique<FloatExpr>(tok, num);
         }
     }
@@ -788,14 +791,16 @@ std::unique_ptr<Expr> Parser::parse_num() const {
 
     unsigned long long num = 0;
     if (base != 10) {
-        if (std::from_chars(val.data() + 2, val.data() + val.size(), num, base).ec == std::errc::result_out_of_range) {
+        if (std::from_chars(&val[2], val.end(), num, base).ec ==
+            std::errc::result_out_of_range) {
             diag.emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
             auto res = std::make_unique<IntExpr>(tok, num);
             res->mark_invalid();
             return res;
-        } 
+        }
     } else {
-        if (std::from_chars(val.data(), val.data() + val.size(), num).ec == std::errc::result_out_of_range) {
+        if (std::from_chars(val.begin(), val.end(), num).ec ==
+            std::errc::result_out_of_range) {
             diag.emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
             auto res = std::make_unique<IntExpr>(tok, num);
             res->mark_invalid();

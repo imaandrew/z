@@ -5,6 +5,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 add_compile_options(-Wall -Wextra -Wpedantic)
 
-add_executable(z src/main.cpp src/lexer.cpp src/parser.cpp src/type.cpp src/sym_table.cpp src/type_res.cpp src/scope.cpp)
+add_executable(z src/main.cpp src/lexer.cpp src/parser.cpp src/type.cpp src/sym_table.cpp src/type_res.cpp src/scope.cpp src/sem.cpp)
 
 target_include_directories(z PRIVATE include)

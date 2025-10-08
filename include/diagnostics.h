@@ -51,16 +51,24 @@ enum class DiagnosticKind : std::uint8_t {
     RedeclaredVar,
     DuplicateField,
     UndeclaredType,
-    UndeclaredVar,
     ExpectedInteger,
     ExpectedFloat,
     TypeMismatch,
     UnassignableType,
     InvalidAssignment,
-    InvalidOperand,
+    InvalidUnaryOperand,
+    InvalidBinaryOperand,
     InvalidOperands,
     UndefinedIdentifier,
-    ExprNotAssignable
+    ExprNotAssignable,
+    TypeHasNoFields,
+    IncorrectArgQuantity,
+    TypeCannotBeIndexed,
+    InvalidIndexType,
+    ReturnTypeMismatch,
+    NotAStruct,
+    TypeNotIterable,
+    ElseExprTypeMismatch,
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -76,23 +84,38 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::RedeclaredVar, "redeclaration of variable `{0}`"},
             {DiagnosticKind::DuplicateField, "`{0}` has duplicate field `{1}`"},
             {DiagnosticKind::UndeclaredType, "use of undeclared type `{0}`"},
-            {DiagnosticKind::UndeclaredVar, "use of undeclared var `{0}`"},
             {DiagnosticKind::UndefinedIdentifier, "`{0}` is undefined"},
             {DiagnosticKind::ExpectedInteger,
              "expected integral value, found `{0}`"},
             {DiagnosticKind::ExpectedFloat,
              "expected floating value, found `(0)`"},
-            {DiagnosticKind::TypeMismatch,
-             "expected value of type `{0}`, found value of type `{1}`"},
+            {DiagnosticKind::TypeMismatch, "expected `{0}`, found `{1}`"},
             {DiagnosticKind::UnassignableType,
              "cannot assign value to unassignable type"},
             {DiagnosticKind::InvalidAssignment, "cannot assign `{0}` to `{1}`"},
-            {DiagnosticKind::InvalidOperand,
-             "invalid operand to operator: `{0}`"},
+            {DiagnosticKind::InvalidUnaryOperand,
+             "cannot apply unary operator `{0}` to type: `{1}`"},
+            {DiagnosticKind::InvalidBinaryOperand,
+             "cannot apply binary operator `{0}` to type: `{1}`"},
             {DiagnosticKind::InvalidOperands,
-             "invalid operands to operator: `{0}` and `{1}`"},
+             "invalid operands to `{0}`: `{1}` and `{2}`"},
             {DiagnosticKind::ExprNotAssignable,
-             "cannot assign value to expr of type `{0}`"}};
+             "cannot assign value to expression"},
+            {DiagnosticKind::TypeHasNoFields,
+             "type `{0}` does not have fields"},
+            {DiagnosticKind::IncorrectArgQuantity,
+             "function takes {0} arguments but {1} were supplied"},
+            {DiagnosticKind::TypeCannotBeIndexed, "`{0}` cannot be indexed"},
+            {DiagnosticKind::InvalidIndexType,
+             "`{0}` is not a valid index type"},
+            {DiagnosticKind::ReturnTypeMismatch,
+             "`{0}` should return `{1}` but got `{2}`"},
+            {DiagnosticKind::NotAStruct,
+             "non struct type `{0}` used in struct initializer"},
+            {DiagnosticKind::TypeNotIterable, "type `{0}` is not iterable"},
+            {DiagnosticKind::ElseExprTypeMismatch,
+             "else clause should have same type as if clause, which has type "
+             "`{0}`, instead of `{1}`"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;
@@ -183,7 +206,8 @@ public:
 
     template <typename... Args>
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    void emit(const Span& span, const DiagnosticKind kind, Args&&... args) const {
+    void emit(const Span& span, const DiagnosticKind kind,
+              Args&&... args) const {
         print_diagnostic(Diagnostic(
             kind, span,
             std::make_unique<SimpleDiagnosticData>(std::vformat(
@@ -193,7 +217,8 @@ public:
     template <typename... Args>
     Diagnostic
     // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    emit_with_notes(const Span& span, DiagnosticKind kind, Args&&... args) const {
+    emit_with_notes(const Span& span, DiagnosticKind kind,
+                    Args&&... args) const {
         auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
             get_diagnostic_string(kind), std::make_format_args(args...)));
         return Diagnostic(kind, span, std::move(data));

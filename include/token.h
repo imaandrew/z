@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 enum class TokenKind : std::uint8_t {
     Eof,
@@ -166,7 +167,42 @@ inline const std::string& tok_kind_to_string(const TokenKind kind) {
         return str->second;
     }
 
-    throw std::runtime_error("Cannot convert tokenkind to string");
+    std::unreachable();
+}
+
+inline const std::string& operator_to_string(const TokenKind kind) {
+    static std::unordered_map<TokenKind, const std::string> token_strs = {
+        {TokenKind::LParen, "("},      {TokenKind::RParen, ")"},
+        {TokenKind::LBrace, "{"},      {TokenKind::RBrace, "}"},
+        {TokenKind::LBracket, "["},    {TokenKind::RBracket, "]"},
+        {TokenKind::Plus, "+"},        {TokenKind::Minus, "-"},
+        {TokenKind::Star, "*"},        {TokenKind::Slash, "/"},
+        {TokenKind::Percent, "%"},     {TokenKind::Caret, "^"},
+        {TokenKind::Not, "!"},         {TokenKind::LogicalNot, "~"},
+        {TokenKind::And, "&"},         {TokenKind::Or, "|"},
+        {TokenKind::AndAnd, "&&"},     {TokenKind::OrOr, "||"},
+        {TokenKind::Shl, "<<"},        {TokenKind::Shr, ">>"},
+        {TokenKind::PlusPlus, "++"},   {TokenKind::MinusMinus, "--"},
+        {TokenKind::Range, ".."},      {TokenKind::RangeEq, "..="},
+        {TokenKind::PlusEq, "+="},     {TokenKind::MinusEq, "-="},
+        {TokenKind::StarEq, "*="},     {TokenKind::SlashEq, "/="},
+        {TokenKind::PercentEq, "%="},  {TokenKind::CaretEq, "^="},
+        {TokenKind::AndEq, "&="},      {TokenKind::OrEq, "|="},
+        {TokenKind::ShlEq, "<<="},     {TokenKind::ShrEq, ">>="},
+        {TokenKind::Eq, "="},          {TokenKind::EqEq, "=="},
+        {TokenKind::Ne, "!="},         {TokenKind::Gt, ">"},
+        {TokenKind::Lt, "<"},          {TokenKind::Ge, ">="},
+        {TokenKind::Le, "<="},         {TokenKind::Comma, ","},
+        {TokenKind::Semi, ";"},        {TokenKind::Colon, ":"},
+        {TokenKind::ColonColon, "::"}, {TokenKind::Question, "?"},
+        {TokenKind::Dot, "."},         {TokenKind::Arrow, "->"},
+    };
+
+    if (const auto str = token_strs.find(kind); str != token_strs.end()) {
+        return str->second;
+    }
+
+    throw std::runtime_error("Not valid operator");
 }
 
 class Token {

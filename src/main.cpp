@@ -37,4 +37,8 @@ int main(int argc, char** argv) {
     for (const auto& decl : decls) {
         decl->dump(&source_mgr);
     }
+
+    for (const auto& decl : decls) {
+        decl->accept(sem);
+    }
 }

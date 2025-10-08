@@ -117,6 +117,7 @@ struct ASTNode {
 
     [[nodiscard]] bool is_valid() const { return valid; }
     void mark_invalid() { valid = false; }
+    [[nodiscard]] bool has_type() const { return node_type != nullptr; }
     [[nodiscard]] Span get_span() const { return span; }
     virtual void accept(ASTVisitor& visitor) = 0;
 
@@ -476,7 +477,7 @@ struct FuncDecl final : Decl {
                 if (syms->resolve_unk_type(params[i]->type)) {
                     func_type->get_params()[i] = params[i]->type;
                 } else {
-                valid = false;
+                    valid = false;
                 }
             }
         }

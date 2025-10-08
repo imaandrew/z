@@ -156,13 +156,14 @@ Token Lexer::lex_token() {
             }
             return make_token(TokenKind::Caret);
         }
-        case '~': return make_token(TokenKind::LogicalNot);
+        case '~':
+            return make_token(TokenKind::Not);
         case '!': {
             if (peek() == '=') {
                 next();
                 return make_token(TokenKind::Ne);
             }
-            return make_token(TokenKind::Not);
+            return make_token(TokenKind::LogicalNot);
         }
         case '&': {
             switch (peek()) {
