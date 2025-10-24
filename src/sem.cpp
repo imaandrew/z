@@ -27,9 +27,7 @@ void SemChecker::visit(PrefixExpr& expr) {
     switch (expr.op.get_kind()) {
     case TokenKind::PlusPlus:
     case TokenKind::MinusMinus:
-        if (!type->is_assignable()) {
-            diag.emit(expr.expr->get_span(), DiagnosticKind::ExprNotAssignable);
-        }
+        check_expr_assignable(*expr.expr);
 
         if (!type->is_integral()) {
             diag.emit(
@@ -72,9 +70,7 @@ void SemChecker::visit(PostfixExpr& expr) {
     switch (expr.op.get_kind()) {
     case TokenKind::PlusPlus:
     case TokenKind::MinusMinus:
-        if (!expr.expr->node_type->is_assignable()) {
-            diag.emit(expr.expr->get_span(), DiagnosticKind::ExprNotAssignable);
-        }
+        check_expr_assignable(*expr.expr);
 
         if (!expr.expr->node_type->is_integral()) {
             diag.emit(expr.expr->get_span(),
@@ -103,9 +99,7 @@ void SemChecker::visit(BinaryExpr& expr) {
     case TokenKind::MinusEq:
     case TokenKind::StarEq:
     case TokenKind::SlashEq:
-        if (!l_type->is_assignable()) {
-            diag.emit(expr.lhs->get_span(), DiagnosticKind::ExprNotAssignable);
-        }
+        check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_numeric()) {
             diag.emit(
@@ -131,9 +125,7 @@ void SemChecker::visit(BinaryExpr& expr) {
     case TokenKind::OrEq:
     case TokenKind::ShlEq:
     case TokenKind::ShrEq:
-        if (!l_type->is_assignable()) {
-            diag.emit(expr.lhs->get_span(), DiagnosticKind::ExprNotAssignable);
-        }
+        check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_integral()) {
             diag.emit(
@@ -154,9 +146,7 @@ void SemChecker::visit(BinaryExpr& expr) {
 
         break;
     case TokenKind::Eq:
-        if (!l_type->is_assignable()) {
-            diag.emit(expr.lhs->get_span(), DiagnosticKind::ExprNotAssignable);
-        }
+        check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_assignment_compatible(r_type)) {
             diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
@@ -208,14 +198,9 @@ void SemChecker::visit(BinaryExpr& expr) {
     case TokenKind::ColonColon:
         break;
     case TokenKind::Dot: {
-        if (!l_type->is_variable()) {
+        if (!l_type->is_struct()) {
             diag.emit(expr.lhs->get_span(), DiagnosticKind::TypeHasNoFields,
                       l_type->basic_name());
-        }
-
-        if (!r_type->is_variable()) {
-            diag.emit(expr.rhs->get_span(), DiagnosticKind::TypeMismatch,
-                      "identifier", r_type->basic_name());
         }
 
         break;
@@ -309,6 +294,26 @@ void SemChecker::visit(ArrayExpr& expr) {
     if (!expr.val->node_type->is_integral()) {
         diag.emit(expr.val->get_span(), DiagnosticKind::InvalidIndexType,
                   expr.val->node_type->basic_name());
+    }
+}
+
+void SemChecker::visit(FieldExpr& expr) {
+    if (!expr.container->node_type->is_struct()) {
+        diag.emit(expr.container->get_span(), DiagnosticKind::TypeHasNoFields,
+                  expr.container->node_type->basic_name());
+        return;
+    }
+
+    auto* struct_var =
+        dynamic_cast<StructType*>(expr.container->node_type.get());
+    if (struct_var == nullptr) {
+        return;
+    }
+
+    if (!struct_var->get_field_type(expr.field->to_string())) {
+        diag.emit(expr.field->get_span(), DiagnosticKind::UnknownField,
+                  expr.container->node_type->basic_name(),
+                  expr.field->to_string());
     }
 }
 
@@ -499,3 +504,9 @@ void SemChecker::visit(EnumDecl& /*decl*/) {}
 void SemChecker::visit(ConstDecl& /*decl*/) {}
 
 void SemChecker::visit(StaticDecl& /*decl*/) {}
+
+void SemChecker::check_expr_assignable(Expr& expr) {
+    if (!expr.is_assignable()) {
+        diag.emit(expr.get_span(), DiagnosticKind::ExprNotAssignable);
+    }
+}

@@ -43,6 +43,7 @@ struct BinaryExpr;
 struct TernaryExpr;
 struct CallExpr;
 struct ArrayExpr;
+struct FieldExpr;
 struct ArrayInitExpr;
 struct StructInitExpr;
 struct Identifier;
@@ -82,6 +83,7 @@ public:
     virtual void visit(TernaryExpr&) = 0;
     virtual void visit(CallExpr&) = 0;
     virtual void visit(ArrayExpr&) = 0;
+    virtual void visit(FieldExpr&) = 0;
     virtual void visit(ArrayInitExpr&) = 0;
     virtual void visit(StructInitExpr&) = 0;
     virtual void visit(Identifier&) = 0;
@@ -154,6 +156,8 @@ struct Expr : Stmt {
     Expr& operator=(const Expr&) = delete;
     Expr(Expr&&) = delete;
     Expr& operator=(Expr&&) = delete;
+
+    [[nodiscard]] virtual bool is_assignable() const { return false; }
 };
 
 struct Identifier final : Expr {
@@ -173,6 +177,8 @@ struct Identifier final : Expr {
     [[nodiscard]] std::string to_string() const { return std::string(ident); }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    [[nodiscard]] bool is_assignable() const override { return true; }
 };
 
 struct IntExpr final : Expr {
@@ -335,6 +341,30 @@ struct ArrayExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    [[nodiscard]] bool is_assignable() const override { return true; }
+};
+
+struct FieldExpr final : Expr {
+    std::unique_ptr<Expr> container;
+    std::unique_ptr<Identifier> field;
+
+    FieldExpr(std::unique_ptr<Expr> container,
+              std::unique_ptr<Identifier> field)
+        : Expr(container->get_span() + field->get_span()),
+          container(std::move(container)), field(std::move(field)) {};
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "FieldExpr";
+        dump_type(stream);
+        container->dump(source, indent + 2, stream);
+        field->dump(source, indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    [[nodiscard]] bool is_assignable() const override { return true; }
 };
 
 struct ArrayInitExpr final : Expr {
@@ -474,7 +504,8 @@ struct FuncDecl final : Decl {
     }
 
     void resolve_sym(SymbolTable* syms) override {
-        auto* func_type = dynamic_cast<FunctionType*>(syms->get_func(get_abs_name()).get());
+        auto* func_type =
+            dynamic_cast<FunctionType*>(syms->get_func(get_abs_name()).get());
 
         for (size_t i = 0; i < params.size(); i++) {
             if (params[i]->type->is_unknown()) {
@@ -893,8 +924,7 @@ struct ConstDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_var(ident,
-                                  std::make_shared<VariableType>(type, true));
+        valid = syms->declare_var(ident, type);
     }
 
     void resolve_sym(SymbolTable* syms) override {
@@ -906,10 +936,6 @@ struct ConstDecl final : Decl {
             valid = false;
             return;
         }
-
-        auto* const_type = dynamic_cast<VariableType*>(
-            syms->get_var(ident->to_string()).get());
-        const_type->replace_type(type);
     }
 };
 
@@ -938,8 +964,7 @@ struct StaticDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_var(
-            ident, std::make_shared<VariableType>(type, false, true));
+        valid = syms->declare_var(ident, type);
     }
 
     void resolve_sym(SymbolTable* syms) override {
@@ -951,9 +976,5 @@ struct StaticDecl final : Decl {
             valid = false;
             return;
         }
-
-        auto* static_type = dynamic_cast<VariableType*>(
-            syms->get_var(ident->to_string()).get());
-        static_type->replace_type(type);
     }
 };

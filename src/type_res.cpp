@@ -133,19 +133,6 @@ void TypeResolver::visit(BinaryExpr& expr) {
         }
 
         break;
-    case TokenKind::Dot: {
-        auto* var_type = dynamic_cast<VariableType*>(expr.lhs->node_type.get());
-        if (var_type == nullptr) {
-            break;
-        }
-        auto* struct_var =
-            dynamic_cast<StructType*>(var_type->get_type().get());
-        if (const auto* ident = dynamic_cast<Identifier*>(expr.rhs.get())) {
-            expr.node_type = std::make_shared<VariableType>(
-                struct_var->get_field_type(ident->to_string()));
-        }
-        break;
-    }
     default:
         std::unreachable();
     }
@@ -224,6 +211,21 @@ void TypeResolver::visit(ArrayExpr& expr) {
     } else {
         expr.ident->accept(*this);
     }
+}
+
+void TypeResolver::visit(FieldExpr& expr) {
+    expr.container->accept(*this);
+    if (expr.container->has_type())
+        resolve(expr.container->node_type);
+
+    auto* struct_var =
+        dynamic_cast<StructType*>(expr.container->node_type.get());
+    if (struct_var == nullptr) {
+        return;
+    }
+
+    expr.node_type = struct_var->get_field_type(expr.field->to_string());
+    expr.field->node_type = expr.node_type;
 }
 
 void TypeResolver::visit(ArrayInitExpr& expr) {
@@ -362,15 +364,13 @@ void TypeResolver::visit(LetStmt& stmt) {
         if (stmt.type->is_unknown()) {
             resolve(stmt.type);
         }
-        stmt.ident->node_type = std::make_shared<VariableType>(stmt.type);
+        stmt.ident->node_type = stmt.type;
     } else if (stmt.val) {
-        auto var_type =
-            std::make_shared<VariableType>(infctxt->new_type(InferType::Var));
-        infctxt->eq(var_type->get_type(), stmt.val->node_type);
+        auto var_type = infctxt->new_type(InferType::Var);
+        infctxt->eq(var_type, stmt.val->node_type);
         stmt.ident->node_type = var_type;
     } else {
-        stmt.ident->node_type =
-            std::make_shared<VariableType>(infctxt->new_type(InferType::Var));
+        stmt.ident->node_type = infctxt->new_type(InferType::Var);
     }
 
     syms->declare_var(stmt.ident, stmt.ident->node_type);
@@ -487,7 +487,7 @@ void TypeResolver::visit(ConstDecl& decl) {
 }
 
 void TypeResolver::visit(StaticDecl& decl) {
-    decl.ident->node_type = std::make_shared<VariableType>(decl.type);
+    decl.ident->node_type = decl.type;
 
     decl.val->accept(*this);
     if (decl.val->has_type()) {

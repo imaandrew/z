@@ -69,6 +69,7 @@ enum class DiagnosticKind : std::uint8_t {
     NotAStruct,
     TypeNotIterable,
     ElseExprTypeMismatch,
+    UnknownField,
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -115,7 +116,9 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::TypeNotIterable, "type `{0}` is not iterable"},
             {DiagnosticKind::ElseExprTypeMismatch,
              "else clause should have same type as if clause, which has type "
-             "`{0}`, instead of `{1}`"}};
+             "`{0}`, instead of `{1}`"},
+            {DiagnosticKind::UnknownField,
+             "type `{0}` doesn't have field `{1}`"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;

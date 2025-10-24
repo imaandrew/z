@@ -18,61 +18,61 @@ namespace {
 
 BinOpPrecedence get_op_precedence(const TokenKind kind) {
     switch (kind) {
-        case TokenKind::PlusEq:
-        case TokenKind::MinusEq:
-        case TokenKind::StarEq:
-        case TokenKind::SlashEq:
-        case TokenKind::PercentEq:
-        case TokenKind::CaretEq:
-        case TokenKind::AndEq:
-        case TokenKind::OrEq:
-        case TokenKind::ShlEq:
-        case TokenKind::ShrEq:
-        case TokenKind::Eq:
-            return BinOpPrecedence::Assignment;
-        case TokenKind::Range:
-        case TokenKind::RangeEq:
-            return BinOpPrecedence::Range;
-        case TokenKind::Question:
-            return BinOpPrecedence::Conditional;
-        case TokenKind::OrOr:
-            return BinOpPrecedence::LogicalOr;
-        case TokenKind::AndAnd:
-            return BinOpPrecedence::LogicalAnd;
-        case TokenKind::EqEq:
-        case TokenKind::Ne:
-        case TokenKind::Gt:
-        case TokenKind::Lt:
-        case TokenKind::Ge:
-        case TokenKind::Le:
-            return BinOpPrecedence::Equality;
-        case TokenKind::Or:
-            return BinOpPrecedence::Or;
-        case TokenKind::Caret:
-            return BinOpPrecedence::Xor;
-        case TokenKind::And:
-            return BinOpPrecedence::And;
-        case TokenKind::Shl:
-        case TokenKind::Shr:
-            return BinOpPrecedence::Shift;
-        case TokenKind::Plus:
-        case TokenKind::Minus:
-            return BinOpPrecedence::Addition;
-        case TokenKind::Star:
-        case TokenKind::Slash:
-        case TokenKind::Percent:
-            return BinOpPrecedence::Multiplication;
-        case TokenKind::ColonColon:
-            return BinOpPrecedence::ScopeRes;
-        case TokenKind::LParen:
-        case TokenKind::LBracket:
-        case TokenKind::LBrace:
-        case TokenKind::PlusPlus:
-        case TokenKind::MinusMinus:
-        case TokenKind::Dot:
-            return BinOpPrecedence::Postfix;
-        default:
-            return BinOpPrecedence::Unknown;
+    case TokenKind::PlusEq:
+    case TokenKind::MinusEq:
+    case TokenKind::StarEq:
+    case TokenKind::SlashEq:
+    case TokenKind::PercentEq:
+    case TokenKind::CaretEq:
+    case TokenKind::AndEq:
+    case TokenKind::OrEq:
+    case TokenKind::ShlEq:
+    case TokenKind::ShrEq:
+    case TokenKind::Eq:
+        return BinOpPrecedence::Assignment;
+    case TokenKind::Range:
+    case TokenKind::RangeEq:
+        return BinOpPrecedence::Range;
+    case TokenKind::Question:
+        return BinOpPrecedence::Conditional;
+    case TokenKind::OrOr:
+        return BinOpPrecedence::LogicalOr;
+    case TokenKind::AndAnd:
+        return BinOpPrecedence::LogicalAnd;
+    case TokenKind::EqEq:
+    case TokenKind::Ne:
+    case TokenKind::Gt:
+    case TokenKind::Lt:
+    case TokenKind::Ge:
+    case TokenKind::Le:
+        return BinOpPrecedence::Equality;
+    case TokenKind::Or:
+        return BinOpPrecedence::Or;
+    case TokenKind::Caret:
+        return BinOpPrecedence::Xor;
+    case TokenKind::And:
+        return BinOpPrecedence::And;
+    case TokenKind::Shl:
+    case TokenKind::Shr:
+        return BinOpPrecedence::Shift;
+    case TokenKind::Plus:
+    case TokenKind::Minus:
+        return BinOpPrecedence::Addition;
+    case TokenKind::Star:
+    case TokenKind::Slash:
+    case TokenKind::Percent:
+        return BinOpPrecedence::Multiplication;
+    case TokenKind::ColonColon:
+        return BinOpPrecedence::ScopeRes;
+    case TokenKind::LParen:
+    case TokenKind::LBracket:
+    case TokenKind::LBrace:
+    case TokenKind::PlusPlus:
+    case TokenKind::MinusMinus:
+    case TokenKind::Dot:
+        return BinOpPrecedence::Postfix;
+    default:
+        return BinOpPrecedence::Unknown;
     }
 }
 
@@ -86,33 +86,33 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
     DeclResult decl(false);
     while (!tok.is(TokenKind::Eof)) {
         switch (tok.get_kind()) {
-            case TokenKind::KwStruct:
-                decl = parse_struct_decl();
-                break;
-            case TokenKind::KwEnum:
-                decl = parse_enum_decl();
-                break;
-            case TokenKind::KwConst:
-                decl = parse_const_decl();
-                break;
-            case TokenKind::KwStatic:
-                decl = parse_static_decl();
-                break;
-            case TokenKind::KwFn:
-                decl = parse_func_decl();
-                break;
-            default:
-                diag.emit(tok.get_span(), DiagnosticKind::ExpectedDecl,
-                          tok_kind_to_string(tok.get_kind()));
-                recover_decl();
-                continue;
-            }
+        case TokenKind::KwStruct:
+            decl = parse_struct_decl();
+            break;
+        case TokenKind::KwEnum:
+            decl = parse_enum_decl();
+            break;
+        case TokenKind::KwConst:
+            decl = parse_const_decl();
+            break;
+        case TokenKind::KwStatic:
+            decl = parse_static_decl();
+            break;
+        case TokenKind::KwFn:
+            decl = parse_func_decl();
+            break;
+        default:
+            diag.emit(tok.get_span(), DiagnosticKind::ExpectedDecl,
+                      tok_kind_to_string(tok.get_kind()));
+            recover_decl();
+            continue;
+        }
 
-            if (decl.is_valid()) {
-                decls.push_back(decl.take());
-            } else {
-                recover_decl();
-            }
+        if (decl.is_valid()) {
+            decls.push_back(decl.take());
+        } else {
+            recover_decl();
+        }
     }
 
     return decls;
@@ -529,7 +529,7 @@ StmtResult Parser::parse_stmt() {
         stmt = expr.take();
         required_semi = !expr_no_semi;
     }
-    
+
     return Result(std::move(stmt));
 }
 
@@ -544,46 +544,151 @@ ExprResult Parser::parse_expr(const int precedence,
     std::unique_ptr<Expr> lhs;
     Span span = tok.get_span();
     switch (tok.get_kind()) {
-        case TokenKind::Number:
-            lhs = parse_num();
-            next_token();
-            break;
-        case TokenKind::Identifier:
-            lhs = std::make_unique<Identifier>(
-                tok, source->get_string(tok.get_span()));
-            next_token();
-            break;
-        case TokenKind::String: {
-            lhs = std::make_unique<StringExpr>(tok.get_span());
-            next_token();
-            break;
-        }
-        case TokenKind::PlusPlus:
-        case TokenKind::MinusMinus:
-        case TokenKind::LogicalNot:
-        case TokenKind::Not:
-        case TokenKind::Minus: {
-            auto prefix_tok = tok;
-            auto expr = prime_parse_expr(
-                static_cast<int>(BinOpPrecedence::Prefix), ignore);
+    case TokenKind::Number:
+        lhs = parse_num();
+        next_token();
+        break;
+    case TokenKind::Identifier:
+        lhs = std::make_unique<Identifier>(tok,
+                                           source->get_string(tok.get_span()));
+        next_token();
+        break;
+    case TokenKind::String: {
+        lhs = std::make_unique<StringExpr>(tok.get_span());
+        next_token();
+        break;
+    }
+    case TokenKind::PlusPlus:
+    case TokenKind::MinusMinus:
+    case TokenKind::LogicalNot:
+    case TokenKind::Not:
+    case TokenKind::Minus: {
+        auto prefix_tok = tok;
+        auto expr =
+            prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix), ignore);
+        if (!expr.is_valid())
+            return ExprError();
+
+        lhs = std::make_unique<PrefixExpr>(prefix_tok, expr.take());
+        break;
+    }
+    case TokenKind::LParen: {
+        auto expr = prime_parse_expr(0, ignore);
+        if (!expr.is_valid())
+            return ExprError();
+
+        lhs = expr.take();
+        if (!assert(TokenKind::RParen))
+            return ExprError();
+
+        next_token();
+        break;
+    }
+    case TokenKind::LBrace: {
+        std::vector<std::unique_ptr<Expr>> vals;
+
+        while (!kind(TokenKind::RBrace)) {
+            auto expr = parse_expr();
             if (!expr.is_valid())
                 return ExprError();
 
-            lhs = std::make_unique<PrefixExpr>(prefix_tok, expr.take());
+            vals.push_back(expr.take());
+
+            if (!tok.is(TokenKind::Comma)) {
+                if (!assert(TokenKind::RBrace))
+                    return ExprError();
+                break;
+            }
+        }
+
+        span += tok.get_span();
+        next_token();
+        lhs = std::make_unique<ArrayInitExpr>(span, std::move(vals));
+        break;
+    }
+    case TokenKind::KwFor:
+        return parse_for_expr();
+    case TokenKind::KwIf:
+        return parse_if_expr();
+    case TokenKind::KwLoop:
+        return parse_loop_expr();
+    case TokenKind::KwWhile:
+        return parse_while_expr();
+    default:
+        return ExprError();
+    }
+
+    while (precedence < static_cast<int>(get_op_precedence(tok.get_kind()))) {
+        if (ignore && ignore.value() == tok.get_kind())
+            break;
+
+        switch (tok.get_kind()) {
+        case TokenKind::PlusPlus:
+        case TokenKind::MinusMinus:
+            lhs = std::make_unique<PostfixExpr>(tok, std::move(lhs));
+            next_token();
+            break;
+        case TokenKind::Question: {
+            auto operator_tok = tok;
+
+            auto then_expr = prime_parse_expr();
+            if (!then_expr.is_valid())
+                return ExprError();
+
+            if (!assert(TokenKind::Colon))
+                return ExprError();
+            auto colon_tok = tok;
+
+            auto else_expr =
+                prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix) - 1);
+            if (!else_expr.is_valid())
+                return ExprError();
+
+            lhs = std::make_unique<TernaryExpr>(
+                operator_tok, colon_tok, std::move(lhs), then_expr.take(),
+                else_expr.take());
             break;
         }
         case TokenKind::LParen: {
-            auto expr = prime_parse_expr(0, ignore);
-            if (!expr.is_valid())
-                return ExprError();
+            std::vector<std::unique_ptr<Expr>> args;
 
-            lhs = expr.take();
-            if (!assert(TokenKind::RParen))
-                return ExprError();
+            while (!kind(TokenKind::RParen)) {
+                auto expr = parse_expr();
+                if (!expr.is_valid())
+                    return ExprError();
 
+                args.push_back(expr.take());
+
+                if (!tok.is(TokenKind::Comma)) {
+                    if (!assert(TokenKind::RParen))
+                        return ExprError();
+                    break;
+                }
+            }
+
+            span += tok.get_span();
             next_token();
+            lhs = std::make_unique<CallExpr>(span, std::move(lhs),
+                                             std::move(args));
             break;
         }
+        case TokenKind::LBracket:
+            if (kind(TokenKind::RBracket)) {
+                span += tok.get_span();
+                lhs = std::make_unique<ArrayExpr>(span, std::move(lhs));
+            } else {
+                auto expr = parse_expr();
+                if (!expr.is_valid())
+                    return ExprError();
+
+                span += tok.get_span();
+                lhs = std::make_unique<ArrayExpr>(span, std::move(lhs),
+                                                  expr.take());
+                if (!assert(TokenKind::RBracket))
+                    return ExprError();
+            }
+            next_token();
+            break;
         case TokenKind::LBrace: {
             std::vector<std::unique_ptr<Expr>> vals;
 
@@ -601,151 +706,56 @@ ExprResult Parser::parse_expr(const int precedence,
                 }
             }
 
-            span += tok.get_span();
+            span = tok.get_span();
             next_token();
-            lhs = std::make_unique<ArrayInitExpr>(span, std::move(vals));
+            lhs = std::make_unique<StructInitExpr>(span, std::move(lhs),
+                                                   std::move(vals));
             break;
         }
-        case TokenKind::KwFor:
-            return parse_for_expr();
-        case TokenKind::KwIf:
-            return parse_if_expr();
-        case TokenKind::KwLoop:
-            return parse_loop_expr();
-        case TokenKind::KwWhile:
-            return parse_while_expr();
-        default:
-            return ExprError();
-    }
+        case TokenKind::Dot:
+            if (!consume(TokenKind::Identifier))
+                return ExprError();
 
-    while (precedence < static_cast<int>(get_op_precedence(tok.get_kind()))) {
-        if (ignore && ignore.value() == tok.get_kind())
+            lhs = std::make_unique<FieldExpr>(
+                std::move(lhs), std::make_unique<Identifier>(
+                                    tok, source->get_string(tok.get_span())));
+            next_token();
             break;
+        case TokenKind::PlusEq:
+        case TokenKind::MinusEq:
+        case TokenKind::StarEq:
+        case TokenKind::SlashEq:
+        case TokenKind::PercentEq:
+        case TokenKind::CaretEq:
+        case TokenKind::AndEq:
+        case TokenKind::OrEq:
+        case TokenKind::ShlEq:
+        case TokenKind::ShrEq:
+        case TokenKind::Eq: {
+            auto operator_tok = tok;
+            auto expr = prime_parse_expr(
+                static_cast<int>(get_op_precedence(tok.get_kind())) - 1);
+            if (!expr.is_valid())
+                return ExprError();
 
-        switch (tok.get_kind()) {
-            case TokenKind::PlusPlus:
-            case TokenKind::MinusMinus:
-                lhs = std::make_unique<PostfixExpr>(tok, std::move(lhs));
-                next_token();
-                break;
-            case TokenKind::Question: {
-                auto operator_tok = tok;
+            lhs = std::make_unique<BinaryExpr>(operator_tok, std::move(lhs),
+                                               expr.take());
+            break;
+        }
+        default: {
+            auto prec = static_cast<int>(get_op_precedence(tok.get_kind()));
+            if (prec == 0)
+                throw std::runtime_error("invalid operator");
 
-                auto then_expr = prime_parse_expr();
-                if (!then_expr.is_valid())
-                    return ExprError();
+            auto operator_tok = tok;
+            auto expr = prime_parse_expr(prec, ignore);
+            if (!expr.is_valid())
+                return ExprError();
 
-                if (!assert(TokenKind::Colon))
-                    return ExprError();
-                auto colon_tok = tok;
-
-                auto else_expr = prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix) - 1);
-                if (!else_expr.is_valid())
-                    return ExprError();
-
-                lhs = std::make_unique<TernaryExpr>(
-                    operator_tok, colon_tok, std::move(lhs), then_expr.take(),
-                    else_expr.take());
-                break;
-            }
-            case TokenKind::LParen: {
-                std::vector<std::unique_ptr<Expr>> args;
-
-                while (!kind(TokenKind::RParen)) {
-                    auto expr = parse_expr();
-                    if (!expr.is_valid())
-                        return ExprError();
-
-                    args.push_back(expr.take());
-
-                    if (!tok.is(TokenKind::Comma)) {
-                        if (!assert(TokenKind::RParen))
-                            return ExprError();
-                        break;
-                    }
-                }
-
-                span += tok.get_span();
-                next_token();
-                lhs = std::make_unique<CallExpr>(span, std::move(lhs),
-                                                 std::move(args));
-                break;
-            }
-            case TokenKind::LBracket:
-                if (kind(TokenKind::RBracket)) {
-                    span += tok.get_span();
-                    lhs = std::make_unique<ArrayExpr>(span, std::move(lhs));
-                } else {
-                    auto expr = parse_expr();
-                    if (!expr.is_valid())
-                        return ExprError();
-
-                    span += tok.get_span();
-                    lhs = std::make_unique<ArrayExpr>(span, std::move(lhs),
-                                                      expr.take());
-                    if (!assert(TokenKind::RBracket))
-                        return ExprError();
-                }
-                next_token();
-                break;
-            case TokenKind::LBrace: {
-                std::vector<std::unique_ptr<Expr>> vals;
-
-                while (!kind(TokenKind::RBrace)) {
-                    auto expr = parse_expr();
-                    if (!expr.is_valid())
-                        return ExprError();
-
-                    vals.push_back(expr.take());
-
-                    if (!tok.is(TokenKind::Comma)) {
-                        if (!assert(TokenKind::RBrace))
-                            return ExprError();
-                        break;
-                    }
-                }
-
-                span = tok.get_span();
-                next_token();
-                lhs = std::make_unique<StructInitExpr>(span, std::move(lhs),
-                                                       std::move(vals));
-                break;
-            }
-            case TokenKind::PlusEq:
-            case TokenKind::MinusEq:
-            case TokenKind::StarEq:
-            case TokenKind::SlashEq:
-            case TokenKind::PercentEq:
-            case TokenKind::CaretEq:
-            case TokenKind::AndEq:
-            case TokenKind::OrEq:
-            case TokenKind::ShlEq:
-            case TokenKind::ShrEq:
-            case TokenKind::Eq: {
-                auto operator_tok = tok;
-                auto expr = prime_parse_expr(
-                    static_cast<int>(get_op_precedence(tok.get_kind())) - 1);
-                if (!expr.is_valid())
-                    return ExprError();
-
-                lhs = std::make_unique<BinaryExpr>(operator_tok, std::move(lhs),
-                                                   expr.take());
-                break;
-            }
-            default: {
-                auto prec = static_cast<int>(get_op_precedence(tok.get_kind()));
-                if (prec == 0)
-                    throw std::runtime_error("invalid operator");
-
-                auto operator_tok = tok;
-                auto expr = prime_parse_expr(prec, ignore);
-                if (!expr.is_valid())
-                    return ExprError();
-
-                lhs = std::make_unique<BinaryExpr>(operator_tok, std::move(lhs),
-                                                   expr.take());
-                break;
-            }
+            lhs = std::make_unique<BinaryExpr>(operator_tok, std::move(lhs),
+                                               expr.take());
+            break;
+        }
         }
     }
     return Result(std::move(lhs));
@@ -772,20 +782,20 @@ std::unique_ptr<Expr> Parser::parse_num() const {
     auto base = 10;
     if (val.length() >= 3 && val.front() == '0') {
         switch (val[1]) {
-            case 'b':
-            case 'B':
-                base = 2;
-                break;
-            case 'o':
-            case 'O':
-                base = 8;
-                break;
-            case 'x':
-            case 'X':
-                base = 16;
-                break;
-            default:
-                base = 10;
+        case 'b':
+        case 'B':
+            base = 2;
+            break;
+        case 'o':
+        case 'O':
+            base = 8;
+            break;
+        case 'x':
+        case 'X':
+            base = 16;
+            break;
+        default:
+            base = 10;
         }
     }
 
@@ -1028,8 +1038,9 @@ bool Parser::kind(const TokenKind kind) {
 bool Parser::assert(const TokenKind kind) {
     if (!tok.is(kind)) {
         if (kind == TokenKind::Semi) {
-            diag.emit(Span(prev_tok.get_span().index + prev_tok.get_span().len, 1),
-                      DiagnosticKind::ExpectedSemi);
+            diag.emit(
+                Span(prev_tok.get_span().index + prev_tok.get_span().len, 1),
+                DiagnosticKind::ExpectedSemi);
         } else {
             diag.emit(tok.get_span(), DiagnosticKind::ExpectedToken,
                       tok_kind_to_string(kind),

@@ -6,11 +6,6 @@
 #include <vector>
 
 static const InferredType* get_inf_type(const Type* type) {
-    if (type->is_variable()) {
-        return dynamic_cast<const InferredType*>(
-            dynamic_cast<const VariableType*>(type)->get_type().get());
-    }
-
     return dynamic_cast<const InferredType*>(type);
 }
 
@@ -101,12 +96,7 @@ public:
             return false;
         }
 
-        if (y->is_variable()) {
-            values.at(root_x).type =
-                dynamic_cast<VariableType*>(y.get())->get_type();
-        } else {
-            values.at(root_x).type = std::move(y);
-        }
+        values.at(root_x).type = std::move(y);
         return true;
     }
 
@@ -156,11 +146,6 @@ public:
         if (!type->is_explicit()) {
             const auto* infer = get_inf_type(type.get());
             if (auto known_type = unification_table.get_val(infer->get_id())) {
-                if (type->is_variable()) {
-                    dynamic_cast<VariableType*>(type.get())
-                        ->replace_type(known_type);
-                    return type;
-                }
                 return known_type;
             }
         }

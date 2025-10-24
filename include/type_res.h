@@ -36,6 +36,7 @@ public:
     void visit(TernaryExpr& expr) override;
     void visit(CallExpr& expr) override;
     void visit(ArrayExpr& expr) override;
+    void visit(FieldExpr& expr) override;
     void visit(ArrayInitExpr& expr) override;
     void visit(StructInitExpr& expr) override;
     void visit(Block& block) override;

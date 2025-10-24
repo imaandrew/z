@@ -28,6 +28,7 @@ public:
     void visit(TernaryExpr& expr) override;
     void visit(CallExpr& expr) override;
     void visit(ArrayExpr& expr) override;
+    void visit(FieldExpr& expr) override;
     void visit(ArrayInitExpr& expr) override;
     void visit(StructInitExpr& expr) override;
     void visit(Block& block) override;
@@ -49,4 +50,6 @@ public:
     void visit(EnumDecl& decl) override;
     void visit(ConstDecl& decl) override;
     void visit(StaticDecl& decl) override;
+
+    void check_expr_assignable(Expr& expr);
 };

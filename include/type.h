@@ -30,8 +30,6 @@ public:
         return false;
     }
 
-    [[nodiscard]] virtual bool is_assignable() const { return false; }
-
     [[nodiscard]] virtual bool
     is_assignment_compatible(const Type* other) const {
         return typeid(*this) == typeid(*other);
@@ -49,8 +47,6 @@ public:
 
     [[nodiscard]] virtual bool is_unknown() const { return false; }
 
-    [[nodiscard]] virtual bool is_variable() const { return false; }
-
     [[nodiscard]] virtual bool is_explicit() const { return true; }
 
     [[nodiscard]] virtual bool is_void() const { return false; }
@@ -58,6 +54,8 @@ public:
     [[nodiscard]] virtual bool is_array() const { return false; }
 
     [[nodiscard]] virtual bool is_iterable() const { return false; }
+
+    [[nodiscard]] virtual bool is_struct() const { return false; }
 
     virtual void dump(std::ostream& stream = std::cout) const = 0;
     [[nodiscard]] virtual std::string basic_name() const = 0;
@@ -343,6 +341,8 @@ class StructType final : public Type {
 public:
     explicit StructType(const std::unique_ptr<Identifier>& ident);
 
+    [[nodiscard]] bool is_struct() const override { return true; }
+
     bool define_field(const std::string& field,
                       const std::shared_ptr<Type>& type) {
         return fields.insert({field, type}).second;
@@ -354,6 +354,9 @@ public:
     }
 
     std::shared_ptr<Type> get_field_type(const std::string& field) const {
+        if (!fields.contains(field))
+            return nullptr;
+
         return fields.at(field);
     }
 
@@ -416,76 +419,6 @@ public:
 
     [[nodiscard]] std::string basic_name() const override {
         return parent_enum;
-    }
-};
-
-class VariableType final : public Type {
-    std::shared_ptr<Type> internal_type;
-    bool is_const;
-    bool is_static;
-
-public:
-    explicit VariableType(std::shared_ptr<Type> internal_type,
-                          const bool is_const = false,
-                          const bool is_static = false)
-        : internal_type(std::move(internal_type)), is_const(is_const),
-          is_static(is_static) {};
-
-    [[nodiscard]] bool is_explicit() const override {
-        return internal_type->is_explicit();
-    }
-
-    void replace_type(const std::shared_ptr<Type>& type) {
-        internal_type = type;
-    }
-
-    [[nodiscard]] std::shared_ptr<Type> get_type() const {
-        return internal_type;
-    }
-
-    [[nodiscard]] bool is_assignable() const override { return true; }
-
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_var = dynamic_cast<const VariableType*>(other);
-            return internal_type->is_assignment_compatible(
-                other_var->internal_type.get());
-        }
-
-        return internal_type->is_assignment_compatible(other);
-    }
-
-    [[nodiscard]] bool is_logical() const override {
-        return internal_type->is_logical();
-    }
-
-    [[nodiscard]] bool is_integral() const override {
-        return internal_type->is_integral();
-    }
-
-    [[nodiscard]] bool is_float() const override {
-        return internal_type->is_float();
-    }
-
-    [[nodiscard]] bool is_numeric() const override {
-        return internal_type->is_numeric();
-    }
-
-    [[nodiscard]] bool is_variable() const override { return true; }
-
-    [[nodiscard]] bool is_iterable() const override {
-        return internal_type->is_iterable();
-    }
-
-    void dump(std::ostream& stream = std::cout) const override {
-        stream << "VariableType { internal_type: ";
-        internal_type->dump(stream);
-        stream << ", is_const: " << is_const << ", is_static: " << is_static
-               << " }";
-    }
-
-    [[nodiscard]] std::string basic_name() const override {
-        return internal_type->basic_name();
     }
 };
 
