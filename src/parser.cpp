@@ -548,6 +548,14 @@ ExprResult Parser::parse_expr(const int precedence,
         lhs = parse_num();
         next_token();
         break;
+    case TokenKind::KwTrue:
+        lhs = std::make_unique<BoolExpr>(tok, true);
+        next_token();
+        break;
+    case TokenKind::KwFalse:
+        lhs = std::make_unique<BoolExpr>(tok, false);
+        next_token();
+        break;
     case TokenKind::Identifier:
         lhs = std::make_unique<Identifier>(tok,
                                            source->get_string(tok.get_span()));

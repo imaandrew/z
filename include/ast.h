@@ -37,6 +37,7 @@ enum class BinOpPrecedence : std::uint8_t {
 
 struct IntExpr;
 struct FloatExpr;
+struct BoolExpr;
 struct PrefixExpr;
 struct PostfixExpr;
 struct BinaryExpr;
@@ -77,6 +78,7 @@ public:
     ASTVisitor& operator=(ASTVisitor&&) = delete;
     virtual void visit(IntExpr&) = 0;
     virtual void visit(FloatExpr&) = 0;
+    virtual void visit(BoolExpr&) = 0;
     virtual void visit(PrefixExpr&) = 0;
     virtual void visit(PostfixExpr&) = 0;
     virtual void visit(BinaryExpr&) = 0;
@@ -207,6 +209,23 @@ struct FloatExpr final : Expr {
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FloatExpr " << val;
+        dump_type(stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+};
+
+struct BoolExpr final : Expr {
+    Token tok;
+    bool val;
+
+    BoolExpr(const Token& tok, const bool val)
+        : Expr(tok.get_span()), tok(tok), val(val) {};
+
+    void dump(SourceManager* /* source */, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "BoolExpr "
+               << (val ? "true" : "false");
         dump_type(stream);
     }
 

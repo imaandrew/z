@@ -36,6 +36,10 @@ void TypeResolver::visit(FloatExpr& expr) {
     expr.node_type = infctxt->new_type(InferType::FloatLiteral);
 }
 
+void TypeResolver::visit(BoolExpr& expr) {
+    expr.node_type = std::make_shared<BooleanType>();
+}
+
 void TypeResolver::visit(PrefixExpr& expr) {
     expr.expr->accept(*this);
     if (!expr.expr->has_type()) {

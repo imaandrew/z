@@ -17,6 +17,8 @@ void SemChecker::visit(IntExpr& /*expr*/) {}
 
 void SemChecker::visit(FloatExpr& /*expr*/) {}
 
+void SemChecker::visit(BoolExpr& /*expr*/) {}
+
 void SemChecker::visit(PrefixExpr& expr) {
     expr.expr->accept(*this);
 

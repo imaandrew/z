@@ -30,6 +30,7 @@ public:
     void visit(Identifier& ident) override;
     void visit(IntExpr& expr) override;
     void visit(FloatExpr& expr) override;
+    void visit(BoolExpr& expr) override;
     void visit(PrefixExpr& expr) override;
     void visit(PostfixExpr& expr) override;
     void visit(BinaryExpr& expr) override;
