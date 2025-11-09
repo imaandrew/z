@@ -16,10 +16,10 @@ using ExprResult = Result<std::unique_ptr<Expr>>;
 using DeclResult = Result<std::unique_ptr<Decl>>;
 using TypeResult = Result<std::unique_ptr<Type>>;
 
-inline StmtResult StmtError() { return StmtResult(false); }
-inline ExprResult ExprError() { return ExprResult(false); }
-inline DeclResult DeclError() { return DeclResult(false); }
-inline TypeResult TypeError() { return TypeResult(false); }
+inline StmtResult StmtError() { return StmtResult(); }
+inline ExprResult ExprError() { return ExprResult(); }
+inline DeclResult DeclError() { return DeclResult(); }
+inline TypeResult TypeError() { return TypeResult(); }
 
 enum class SyncFlags : std::uint8_t {
     None = 0,

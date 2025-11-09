@@ -83,7 +83,7 @@ std::vector<std::unique_ptr<Decl>> Parser::parse() {
 
     std::vector<std::unique_ptr<Decl>> decls;
 
-    DeclResult decl(false);
+    DeclResult decl;
     while (!tok.is(TokenKind::Eof)) {
         switch (tok.get_kind()) {
         case TokenKind::KwStruct:
@@ -159,19 +159,19 @@ DeclResult Parser::parse_struct_decl() {
 
 Result<std::unique_ptr<StructField>> Parser::parse_struct_field() {
     if (!assert(TokenKind::Identifier)) {
-        return Result<std::unique_ptr<StructField>>(false);
+        return Result<std::unique_ptr<StructField>>();
     }
     Span span = tok.get_span();
     auto ident =
         std::make_unique<Identifier>(tok, source->get_string(tok.get_span()));
 
     if (!consume(TokenKind::Colon)) {
-        return Result<std::unique_ptr<StructField>>(false);
+        return Result<std::unique_ptr<StructField>>();
     }
 
     auto type = prime_parse_type();
     if (!type.is_valid()) {
-        return Result<std::unique_ptr<StructField>>(false);
+        return Result<std::unique_ptr<StructField>>();
     }
 
     span += prev_tok.get_span();
@@ -219,7 +219,7 @@ DeclResult Parser::parse_enum_decl() {
 
 Result<std::unique_ptr<EnumField>> Parser::parse_enum_field() {
     if (!assert(TokenKind::Identifier)) {
-        return Result<std::unique_ptr<EnumField>>(false);
+        return Result<std::unique_ptr<EnumField>>();
     }
 
     Span span = tok.get_span();
@@ -232,13 +232,13 @@ Result<std::unique_ptr<EnumField>> Parser::parse_enum_field() {
             auto type = parse_type();
 
             if (!type.is_valid()) {
-                return Result<std::unique_ptr<EnumField>>(false);
+                return Result<std::unique_ptr<EnumField>>();
             }
 
             types.push_back(type.take());
 
             if (!tok.is(TokenKind::RParen) && !assert(TokenKind::Comma)) {
-                return Result<std::unique_ptr<EnumField>>(false);
+                return Result<std::unique_ptr<EnumField>>();
             }
         }
 
@@ -372,12 +372,12 @@ Result<std::vector<std::unique_ptr<Param>>> Parser::parse_func_params() {
     while (!tok.is(TokenKind::RParen)) {
         auto param_decl = parse_param_decl();
         if (!param_decl.is_valid())
-            return Result<std::vector<std::unique_ptr<Param>>>(false);
+            return Result<std::vector<std::unique_ptr<Param>>>();
 
         params.push_back(param_decl.take());
 
         if (!tok.is(TokenKind::RParen) && !assert(TokenKind::Comma)) {
-            return Result<std::vector<std::unique_ptr<Param>>>(false);
+            return Result<std::vector<std::unique_ptr<Param>>>();
         }
     }
 
@@ -388,18 +388,18 @@ Result<std::vector<std::unique_ptr<Param>>> Parser::parse_func_params() {
 
 Result<std::unique_ptr<Param>> Parser::parse_param_decl() {
     if (!assert(TokenKind::Identifier))
-        return Result<std::unique_ptr<Param>>(false);
+        return Result<std::unique_ptr<Param>>();
 
     Span span = tok.get_span();
     auto name =
         std::make_unique<Identifier>(tok, source->get_string(tok.get_span()));
 
     if (!consume(TokenKind::Colon))
-        return Result<std::unique_ptr<Param>>(false);
+        return Result<std::unique_ptr<Param>>();
 
     auto type = prime_parse_type();
     if (!type.is_valid())
-        return Result<std::unique_ptr<Param>>(false);
+        return Result<std::unique_ptr<Param>>();
 
     span += prev_tok.get_span();
     return Result(std::make_unique<Param>(span, std::move(name), type.take()));
@@ -424,7 +424,7 @@ Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
         } else {
             recover_stmt();
             if (tok.is(TokenKind::Eof))
-                return Result<std::unique_ptr<Block>>(false);
+                return Result<std::unique_ptr<Block>>();
             continue;
         }
 
@@ -447,7 +447,7 @@ Result<std::unique_ptr<Block>> Parser::parse_block(const bool implicit_return) {
     next_token();
 
     if (!is_valid)
-        return Result<std::unique_ptr<Block>>(false);
+        return Result<std::unique_ptr<Block>>();
     return Result(std::make_unique<Block>(span, std::move(stmts)));
 }
 

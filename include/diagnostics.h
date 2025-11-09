@@ -14,14 +14,12 @@
 
 template <class T> class Result {
     std::optional<T> val;
-    bool valid = true;
 
 public:
-    explicit Result(const bool valid = true)
-        : val(std::nullopt), valid(valid) {};
+    Result() = default;
     explicit Result(T&& val) : val(std::move(val)) {}
 
-    [[nodiscard]] bool is_valid() const { return valid; }
+    [[nodiscard]] bool is_valid() const { return val.has_value(); }
     const T& get() {
         if (val.has_value()) {
             return val.value();
