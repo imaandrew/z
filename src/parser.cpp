@@ -1024,25 +1024,6 @@ TypeResult Parser::parse_type() {
         }
         assert(TokenKind::RBracket);
         next_token();
-    } else if (tok.is(TokenKind::LParen)) {
-        std::vector<std::unique_ptr<Type>> types;
-        // TODO: don't think this is ever reached
-
-        while (!kind(TokenKind::RParen)) {
-            auto elem_type = parse_type();
-            if (!elem_type.is_valid())
-                return TypeError();
-
-            types.push_back(elem_type.take());
-
-            if (!tok.is(TokenKind::Comma)) {
-                if (!assert(TokenKind::RParen))
-                    return TypeError();
-
-                next_token();
-                break;
-            }
-        }
     } else {
         return TypeError();
     }
