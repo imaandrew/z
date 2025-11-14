@@ -30,11 +30,12 @@ public:
                       std::shared_ptr<FunctionType> type);
     bool declare_type(const std::unique_ptr<Identifier>& name,
                       std::shared_ptr<Type> type);
-    [[nodiscard]] std::shared_ptr<Type> get_var(const std::string& name) const;
-    [[nodiscard]] std::shared_ptr<Type> get_global_var(const std::string& name) const;
+    [[nodiscard]] std::shared_ptr<Type> get_var(std::string_view name) const;
+    [[nodiscard]] std::shared_ptr<Type>
+    get_global_var(std::string_view name) const;
     [[nodiscard]] std::shared_ptr<Type> get_func(const std::string& name) const;
-    [[nodiscard]] std::shared_ptr<Type> get_type(const std::string& name) const;
-    void update_type(const std::string& name, std::shared_ptr<Type>& type);
+    [[nodiscard]] std::shared_ptr<Type> get_type(std::string_view name) const;
+    void update_type(std::string_view name, std::shared_ptr<Type>& type);
     bool resolve_unk_type(std::shared_ptr<Type>& type) const;
     ScopeContext* get_current_scope() { return scopes.back(); }
 };

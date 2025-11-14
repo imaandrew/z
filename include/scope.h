@@ -16,9 +16,9 @@ class ScopeContext {
     };
 
     std::shared_ptr<Type> scope_type;
-    std::unordered_map<std::string, TypeWithSpan> vars;
+    std::unordered_map<std::string_view, TypeWithSpan> vars;
     std::unordered_map<std::string, TypeWithSpan> funcs;
-    std::unordered_map<std::string, TypeWithSpan> user_defined_types;
+    std::unordered_map<std::string_view, TypeWithSpan> user_defined_types;
 
     bool declare_var(const std::unique_ptr<Identifier>& name,
                      std::shared_ptr<Type> type);
@@ -26,9 +26,9 @@ class ScopeContext {
                       std::shared_ptr<FunctionType> type);
     bool declare_type(const std::unique_ptr<Identifier>& name,
                       std::shared_ptr<Type> type);
-    std::optional<TypeWithSpan> get_var(const std::string& name) const;
+    std::optional<TypeWithSpan> get_var(std::string_view name) const;
     std::optional<TypeWithSpan> get_func(const std::string& name) const;
-    std::optional<TypeWithSpan> get_type(const std::string& name) const;
+    std::optional<TypeWithSpan> get_type(std::string_view name) const;
 
     friend class SymbolTable;
     friend class TypeResolver;

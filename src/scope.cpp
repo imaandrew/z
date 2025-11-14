@@ -9,7 +9,7 @@
 bool ScopeContext::declare_var(const std::unique_ptr<Identifier>& name,
                                std::shared_ptr<Type> type) {
     const bool is_unique =
-        vars.insert({name->to_string(),
+        vars.insert({name->get_ident(),
                      TypeWithSpan(std::move(type), name->tok.get_span())})
             .second;
 
@@ -29,7 +29,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<Identifier>& name,
                                 std::shared_ptr<Type> type) {
     const bool is_unique =
         user_defined_types
-            .insert({name->to_string(),
+            .insert({name->get_ident(),
                      TypeWithSpan(std::move(type), name->tok.get_span())})
             .second;
 
@@ -37,7 +37,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<Identifier>& name,
 }
 
 std::optional<ScopeContext::TypeWithSpan>
-ScopeContext::get_var(const std::string& name) const {
+ScopeContext::get_var(std::string_view name) const {
     if (auto var = vars.find(name); var != vars.end()) {
         return var->second;
     }
@@ -54,7 +54,7 @@ ScopeContext::get_func(const std::string& name) const {
 }
 
 std::optional<ScopeContext::TypeWithSpan>
-ScopeContext::get_type(const std::string& name) const {
+ScopeContext::get_type(std::string_view name) const {
     if (const auto type = user_defined_types.find(name);
         type != user_defined_types.end())
         return type->second;

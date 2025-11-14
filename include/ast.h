@@ -824,7 +824,7 @@ struct StructDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        const auto name = ident->to_string();
+        const auto name = ident->get_ident();
 
         if (!syms->declare_type(ident, std::make_shared<StructType>(ident))) {
             valid = false;
@@ -836,7 +836,7 @@ struct StructDecl final : Decl {
 
         for (const auto& field : fields) {
             const bool is_unique = struct_type->define_field(
-                field->ident->to_string(), field->type);
+                field->ident->get_ident(), field->type);
             if (!is_unique) {
                 syms->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
@@ -848,12 +848,12 @@ struct StructDecl final : Decl {
 
     void resolve_sym(SymbolTable* syms) override {
         auto* struct_type =
-            dynamic_cast<StructType*>(syms->get_type(ident->to_string()).get());
+            dynamic_cast<StructType*>(syms->get_type(ident->get_ident()).get());
 
         for (const auto& field : fields) {
             if (field->type->is_unknown()) {
                 if (syms->resolve_unk_type(field->type)) {
-                    struct_type->replace_field_type(field->ident->to_string(),
+                    struct_type->replace_field_type(field->ident->get_ident(),
                                                     field->type);
                 } else {
                     valid = false;
@@ -908,7 +908,7 @@ struct EnumDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        const auto name = ident->to_string();
+        const auto name = ident->get_ident();
 
         const bool is_unique =
             syms->declare_type(ident, std::make_shared<EnumType>(ident));
@@ -920,7 +920,7 @@ struct EnumDecl final : Decl {
         auto* enum_type = dynamic_cast<EnumType*>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
-            if (!enum_type->define_field(field->ident->to_string(),
+            if (!enum_type->define_field(field->ident->get_ident(),
                                          field->types)) {
                 syms->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,

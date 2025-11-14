@@ -273,7 +273,7 @@ void SemChecker::visit(ArrayExpr& expr) {
 
     if (expr.ident->has_type()) {
         if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
-            const auto var = syms->get_var(ident->to_string());
+            const auto var = syms->get_var(ident->get_ident());
             if (!var) {
                 diag.emit(expr.ident->get_span(),
                           DiagnosticKind::UndefinedIdentifier,
@@ -313,7 +313,7 @@ void SemChecker::visit(FieldExpr& expr) {
         return;
     }
 
-    if (!struct_var->get_field_type(expr.field->to_string())) {
+    if (!struct_var->get_field_type(expr.field->get_ident())) {
         diag.emit(expr.field->get_span(), DiagnosticKind::UnknownField,
                   expr.container->node_type->basic_name(),
                   expr.field->to_string());
@@ -362,7 +362,7 @@ void SemChecker::visit(StructInitExpr& expr) {
             return;
 
         const auto* struct_type =
-            dynamic_cast<StructType*>(syms->get_type(ident->to_string()).get());
+            dynamic_cast<StructType*>(syms->get_type(ident->get_ident()).get());
         if (struct_type == nullptr) {
             diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
                       ident->to_string(), expr.ident->node_type->basic_name());
@@ -375,7 +375,7 @@ void SemChecker::visit(StructInitExpr& expr) {
 
         for (const auto& field : expr.fields) {
             if (required_fields.erase(field->ident->get_ident()) == 0) {
-                if (struct_type->has_field(field->ident->to_string())) {
+                if (struct_type->has_field(field->ident->get_ident())) {
                     diag.emit(field->get_span(),
                               DiagnosticKind::DuplicateFieldInitialization,
                               field->ident->to_string());

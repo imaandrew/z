@@ -23,7 +23,7 @@ void TypeResolver::fill_top_level_syms(
 }
 
 void TypeResolver::visit(Identifier& ident) {
-    if (const auto type = syms->get_var(ident.to_string())) {
+    if (const auto type = syms->get_var(ident.get_ident())) {
         ident.node_type = type;
     }
 }
@@ -185,7 +185,7 @@ void TypeResolver::visit(CallExpr& expr) {
 
 void TypeResolver::visit_method_call(BinaryExpr& expr) {
     const auto* impl_type = dynamic_cast<Identifier*>(expr.lhs.get());
-    expr.lhs->node_type = syms->get_type(impl_type->to_string());
+    expr.lhs->node_type = syms->get_type(impl_type->get_ident());
 
     auto* func_call = dynamic_cast<CallExpr*>(expr.rhs.get());
     for (auto& arg : func_call->args) {
@@ -206,7 +206,7 @@ void TypeResolver::visit(ArrayExpr& expr) {
     expr.val->accept(*this);
 
     if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
-        auto arr = syms->get_var(ident->to_string());
+        auto arr = syms->get_var(ident->get_ident());
         expr.ident->node_type = arr;
 
         if (const auto* type = dynamic_cast<ArrayType*>(arr.get())) {
@@ -228,7 +228,7 @@ void TypeResolver::visit(FieldExpr& expr) {
         return;
     }
 
-    expr.node_type = struct_var->get_field_type(expr.field->to_string());
+    expr.node_type = struct_var->get_field_type(expr.field->get_ident());
     expr.field->node_type = expr.node_type;
 }
 
@@ -261,7 +261,7 @@ void TypeResolver::visit(StructInitExpr& expr) {
     }
 
     if (auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
-        expr.node_type = syms->get_type(ident->to_string());
+        expr.node_type = syms->get_type(ident->get_ident());
         expr.ident->node_type = expr.node_type;
 
         auto* struct_type = dynamic_cast<StructType*>(expr.node_type.get());
@@ -272,7 +272,7 @@ void TypeResolver::visit(StructInitExpr& expr) {
             const auto* ident = dynamic_cast<Identifier*>(field->ident.get());
             if (ident != nullptr) {
                 const auto field_type =
-                    struct_type->get_field_type(ident->to_string());
+                    struct_type->get_field_type(ident->get_ident());
                 if (field_type) {
                     infctxt->eq(field_type, field->ident->node_type);
                     infctxt->eq(field->ident->node_type, field->val->node_type);
@@ -313,7 +313,7 @@ void TypeResolver::visit(Param& param) {
 void TypeResolver::visit(FuncDecl& func) {
     if (func.impl_type) {
         func.impl_type->get()->node_type =
-            syms->get_type(func.impl_type->get()->to_string());
+            syms->get_type(func.impl_type->get()->get_ident());
     }
 
     for (auto& param : func.params) {
@@ -478,13 +478,13 @@ void TypeResolver::visit(StringExpr& expr) {
 void TypeResolver::visit(StructField& /* field */) {}
 
 void TypeResolver::visit(StructDecl& decl) {
-    decl.node_type = syms->get_type(decl.ident->to_string());
+    decl.node_type = syms->get_type(decl.ident->get_ident());
     decl.ident->node_type = decl.node_type;
 
     const auto* struct_type = dynamic_cast<StructType*>(decl.node_type.get());
     for (auto& field : decl.fields) {
         field->ident->node_type =
-            struct_type->get_field_type(field->ident->to_string());
+            struct_type->get_field_type(field->ident->get_ident());
         field->node_type = field->ident->node_type;
     }
 }
@@ -492,8 +492,8 @@ void TypeResolver::visit(StructDecl& decl) {
 void TypeResolver::visit(EnumField& /* field*/) {}
 
 void TypeResolver::visit(EnumDecl& decl) {
-    decl.node_type = syms->get_type(decl.ident->to_string());
-    decl.ident->node_type = syms->get_type(decl.ident->to_string());
+    decl.node_type = syms->get_type(decl.ident->get_ident());
+    decl.ident->node_type = syms->get_type(decl.ident->get_ident());
 
     for (auto& field : decl.fields) {
         field->node_type =
@@ -502,7 +502,7 @@ void TypeResolver::visit(EnumDecl& decl) {
 }
 
 void TypeResolver::visit(ConstDecl& decl) {
-    decl.ident->node_type = syms->get_global_var(decl.ident->to_string());
+    decl.ident->node_type = syms->get_global_var(decl.ident->get_ident());
 
     decl.val->accept(*this);
     if (decl.val->has_type()) {
@@ -544,7 +544,7 @@ void TypeResolver::resolve(std::shared_ptr<Type>& type) {
         }
     } else if (type->is_unknown()) {
         type = syms->get_type(
-            dynamic_cast<UnknownType*>(type.get())->get_ident()->to_string());
+            dynamic_cast<UnknownType*>(type.get())->get_ident()->get_ident());
     }
 }
 

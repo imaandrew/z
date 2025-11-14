@@ -18,7 +18,7 @@ bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
                                          name->to_string());
 
         for (const auto* scope : scopes) {
-            if (auto type = scope->get_var(name->to_string())) {
+            if (auto type = scope->get_var(name->get_ident())) {
                 data.add_note(type->span, "first defined here");
                 break;
             }
@@ -60,7 +60,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<Identifier>& name,
                                          name->to_string());
 
         for (const auto* scope : scopes) {
-            if (auto type = scope->get_type(name->to_string())) {
+            if (auto type = scope->get_type(name->get_ident())) {
                 data.add_note(type->span, "first defined here");
                 break;
             }
@@ -71,7 +71,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<Identifier>& name,
     return is_unique;
 }
 
-std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) const {
+std::shared_ptr<Type> SymbolTable::get_var(std::string_view name) const {
     for (auto* scope : std::ranges::reverse_view(scopes)) {
         if (auto type = scope->get_var(name)) {
             return type->type;
@@ -81,7 +81,7 @@ std::shared_ptr<Type> SymbolTable::get_var(const std::string& name) const {
     return nullptr;
 }
 
-std::shared_ptr<Type> SymbolTable::get_global_var(const std::string& name) const {
+std::shared_ptr<Type> SymbolTable::get_global_var(std::string_view name) const {
     if (const auto* scope = scopes.front()) {
         if (auto type = scope->get_var(name)) {
             return type->type;
@@ -101,7 +101,7 @@ std::shared_ptr<Type> SymbolTable::get_func(const std::string& name) const {
     return nullptr;
 }
 
-std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) const {
+std::shared_ptr<Type> SymbolTable::get_type(std::string_view name) const {
     for (auto* scope : std::ranges::reverse_view(scopes)) {
         if (auto type = scope->get_type(name)) {
             return type->type;
@@ -111,7 +111,7 @@ std::shared_ptr<Type> SymbolTable::get_type(const std::string& name) const {
     return nullptr;
 }
 
-void SymbolTable::update_type(const std::string& name,
+void SymbolTable::update_type(std::string_view name,
                               std::shared_ptr<Type>& new_type) {
 
     for (auto* scope : std::ranges::reverse_view(scopes)) {

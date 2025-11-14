@@ -336,36 +336,36 @@ public:
 
 class StructType final : public Type {
     std::string name;
-    std::unordered_map<std::string, std::shared_ptr<Type>> fields;
+    std::unordered_map<std::string_view, std::shared_ptr<Type>> fields;
 
 public:
     explicit StructType(const std::unique_ptr<Identifier>& ident);
 
     [[nodiscard]] bool is_struct() const override { return true; }
 
-    bool define_field(const std::string& field,
+    bool define_field(std::string_view field,
                       const std::shared_ptr<Type>& type) {
         return fields.insert({field, type}).second;
     }
 
-    void replace_field_type(const std::string& field,
+    void replace_field_type(std::string_view field,
                             const std::shared_ptr<Type>& type) {
         fields.insert_or_assign(field, type);
     }
 
-    std::shared_ptr<Type> get_field_type(const std::string& field) const {
+    std::shared_ptr<Type> get_field_type(std::string_view field) const {
         if (!fields.contains(field))
             return nullptr;
 
         return fields.at(field);
     }
 
-    const std::unordered_map<std::string, std::shared_ptr<Type>>&
+    const std::unordered_map<std::string_view, std::shared_ptr<Type>>&
     get_fields() const {
         return fields;
     }
 
-    bool has_field(const std::string& field) const {
+    bool has_field(std::string_view field) const {
         return fields.contains(field);
     }
 
@@ -381,12 +381,13 @@ public:
 
 class EnumType final : public Type {
     std::string name;
-    std::unordered_map<std::string, std::vector<std::shared_ptr<Type>>&> fields;
+    std::unordered_map<std::string_view, std::vector<std::shared_ptr<Type>>&>
+        fields;
 
 public:
     explicit EnumType(const std::unique_ptr<Identifier>& ident);
 
-    bool define_field(const std::string& field,
+    bool define_field(std::string_view field,
                       std::vector<std::shared_ptr<Type>>& types) {
         return fields.insert({field, types}).second;
     }
