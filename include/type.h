@@ -369,8 +369,14 @@ public:
         return fields.contains(field);
     }
 
-    // TODO
-    bool is_assignment_compatible(const Type* other) const override;
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_struct = dynamic_cast<const StructType*>(other);
+            return name == other_struct->basic_name();
+        }
+
+        return false;
+    }
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "StructType { name: " << name << " }";
@@ -392,8 +398,14 @@ public:
         return fields.insert({field, types}).second;
     }
 
-    // TODO
-    bool is_assignment_compatible(const Type* other) const override;
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_enum = dynamic_cast<const EnumType*>(other);
+            return name == other_enum->basic_name();
+        }
+
+        return false;
+    }
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "EnumType { name: " << name << " }";
