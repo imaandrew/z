@@ -46,6 +46,7 @@ struct CallExpr;
 struct ArrayExpr;
 struct FieldExpr;
 struct ArrayInitExpr;
+struct StructExprField;
 struct StructInitExpr;
 struct Identifier;
 struct Block;
@@ -87,6 +88,7 @@ public:
     virtual void visit(ArrayExpr&) = 0;
     virtual void visit(FieldExpr&) = 0;
     virtual void visit(ArrayInitExpr&) = 0;
+    virtual void visit(StructExprField&) = 0;
     virtual void visit(StructInitExpr&) = 0;
     virtual void visit(Identifier&) = 0;
     virtual void visit(Block&) = 0;
@@ -177,6 +179,8 @@ struct Identifier final : Expr {
     }
 
     [[nodiscard]] std::string to_string() const { return std::string(ident); }
+
+    [[nodiscard]] std::string_view get_ident() const { return ident; }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
@@ -404,21 +408,41 @@ struct ArrayInitExpr final : Expr {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
+struct StructExprField final : Expr {
+    std::unique_ptr<Identifier> ident;
+    std::unique_ptr<Expr> val;
+
+    StructExprField(std::unique_ptr<Identifier> ident,
+                    std::unique_ptr<Expr> val)
+        : Expr(ident->get_span() + val->get_span()), ident(std::move(ident)),
+          val(std::move(val)) {};
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "StructExprField";
+        dump_type(stream);
+        ident->dump(source, indent + 2, stream);
+        val->dump(source, indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+};
+
 struct StructInitExpr final : Expr {
     std::unique_ptr<Expr> ident;
-    std::vector<std::unique_ptr<Expr>> vals;
+    std::vector<std::unique_ptr<StructExprField>> fields;
 
     StructInitExpr(Span span, std::unique_ptr<Expr> ident,
-                   std::vector<std::unique_ptr<Expr>> vals)
-        : Expr(span), ident(std::move(ident)), vals(std::move(vals)) {};
+                   std::vector<std::unique_ptr<StructExprField>> fields)
+        : Expr(span), ident(std::move(ident)), fields(std::move(fields)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "StructInitExpr";
         dump_type(stream);
         ident->dump(source, indent + 2, stream);
-        for (const auto& val : vals) {
-            val->dump(source, indent + 2, stream);
+        for (const auto& field : fields) {
+            field->dump(source, indent + 2, stream);
         }
     }
 

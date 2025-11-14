@@ -4,6 +4,7 @@
 #include "token.h"
 #include "type.h"
 #include <cstddef>
+#include <unordered_set>
 #include <utility>
 
 void SemChecker::visit(Identifier& ident) {
@@ -341,10 +342,19 @@ void SemChecker::visit(ArrayInitExpr& expr) {
     }
 }
 
+void SemChecker::visit(StructExprField& expr) {
+    if (!expr.ident->node_type->is_assignment_compatible(
+            expr.val->node_type.get())) {
+        diag.emit(expr.get_span(), DiagnosticKind::TypeMismatch,
+                  expr.ident->node_type->basic_name(),
+                  expr.val->node_type->basic_name());
+    }
+}
+
 void SemChecker::visit(StructInitExpr& expr) {
     expr.ident->accept(*this);
-    for (auto& val : expr.vals) {
-        val->accept(*this);
+    for (auto& field : expr.fields) {
+        field->accept(*this);
     }
 
     if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
@@ -356,6 +366,32 @@ void SemChecker::visit(StructInitExpr& expr) {
         if (struct_type == nullptr) {
             diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
                       ident->to_string(), expr.ident->node_type->basic_name());
+        }
+
+        std::unordered_set<std::string_view> required_fields;
+        for (const auto& field : struct_type->get_fields()) {
+            required_fields.insert(field.first);
+        }
+
+        for (const auto& field : expr.fields) {
+            if (required_fields.erase(field->ident->get_ident()) == 0) {
+                if (struct_type->has_field(field->ident->to_string())) {
+                    diag.emit(field->get_span(),
+                              DiagnosticKind::DuplicateFieldInitialization,
+                              field->ident->to_string());
+                } else {
+                    diag.emit(field->ident->get_span(),
+                              DiagnosticKind::UnknownField, ident->to_string(),
+                              field->ident->to_string());
+                }
+            }
+        }
+
+        if (!required_fields.empty()) {
+            for (const auto& field : required_fields) {
+                diag.emit(expr.get_span(), DiagnosticKind::FieldNotInitialized,
+                          field);
+            }
         }
     } else {
         diag.emit(expr.ident->get_span(), DiagnosticKind::TypeMismatch,

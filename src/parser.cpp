@@ -698,14 +698,14 @@ ExprResult Parser::parse_expr(const int precedence,
             next_token();
             break;
         case TokenKind::LBrace: {
-            std::vector<std::unique_ptr<Expr>> vals;
+            std::vector<std::unique_ptr<StructExprField>> vals;
 
             while (!kind(TokenKind::RBrace)) {
-                auto expr = parse_expr();
-                if (!expr.is_valid())
+                auto field = parse_struct_expr_field();
+                if (!field.is_valid())
                     return ExprError();
 
-                vals.push_back(expr.take());
+                vals.push_back(field.take());
 
                 if (!tok.is(TokenKind::Comma)) {
                     if (!assert(TokenKind::RBrace))
@@ -767,6 +767,28 @@ ExprResult Parser::parse_expr(const int precedence,
         }
     }
     return Result(std::move(lhs));
+}
+
+Result<std::unique_ptr<StructExprField>> Parser::parse_struct_expr_field() {
+    if (!assert(TokenKind::Identifier))
+        return Result<std::unique_ptr<StructExprField>>();
+
+    auto ident = parse_ident_unchecked();
+
+    if (!consume(TokenKind::Colon))
+        return Result<std::unique_ptr<StructExprField>>();
+
+    auto expr = prime_parse_expr();
+    if (!expr.is_valid())
+        return Result<std::unique_ptr<StructExprField>>();
+
+    return Result<std::unique_ptr<StructExprField>>(
+        std::make_unique<StructExprField>(std::move(ident), expr.take()));
+}
+
+std::unique_ptr<Identifier> Parser::parse_ident_unchecked() {
+    return std::make_unique<Identifier>(tok,
+                                        source->get_string(tok.get_span()));
 }
 
 std::unique_ptr<Expr> Parser::parse_num() const {

@@ -246,14 +246,39 @@ void TypeResolver::visit(ArrayInitExpr& expr) {
     expr.node_type = std::make_shared<ArrayType>(std::move(internal_type));
 }
 
+void TypeResolver::visit(StructExprField& expr) {
+    expr.val->accept(*this);
+
+    expr.ident->node_type = infctxt->new_type(InferType::Var);
+    expr.node_type = infctxt->new_type(InferType::Var);
+
+    infctxt->eq(expr.ident->node_type, expr.node_type);
+}
+
 void TypeResolver::visit(StructInitExpr& expr) {
-    for (auto& val : expr.vals) {
-        val->accept(*this);
+    for (auto& field : expr.fields) {
+        field->accept(*this);
     }
 
     if (auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
         expr.node_type = syms->get_type(ident->to_string());
         expr.ident->node_type = expr.node_type;
+
+        auto* struct_type = dynamic_cast<StructType*>(expr.node_type.get());
+        if (struct_type == nullptr)
+            return;
+
+        for (auto& field : expr.fields) {
+            const auto* ident = dynamic_cast<Identifier*>(field->ident.get());
+            if (ident != nullptr) {
+                const auto field_type =
+                    struct_type->get_field_type(ident->to_string());
+                if (field_type) {
+                    infctxt->eq(field_type, field->ident->node_type);
+                    infctxt->eq(field->ident->node_type, field->val->node_type);
+                }
+            }
+        }
     } else {
         expr.ident->accept(*this);
     }
@@ -560,10 +585,13 @@ void TypeResolver::resolve(ASTNode* node) {
         for (auto& val : expr->vals) {
             resolve(val.get());
         }
+    } else if (auto* expr = dynamic_cast<StructExprField*>(node)) {
+        resolve(expr->ident.get());
+        resolve(expr->val.get());
     } else if (auto* expr = dynamic_cast<StructInitExpr*>(node)) {
         resolve(expr->ident.get());
-        for (auto& val : expr->vals) {
-            resolve(val.get());
+        for (auto& field : expr->fields) {
+            resolve(field.get());
         }
     } else if (auto* decl = dynamic_cast<FuncDecl*>(node)) {
         resolve(decl->name.get());

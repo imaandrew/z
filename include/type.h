@@ -360,6 +360,15 @@ public:
         return fields.at(field);
     }
 
+    const std::unordered_map<std::string, std::shared_ptr<Type>>&
+    get_fields() const {
+        return fields;
+    }
+
+    bool has_field(const std::string& field) const {
+        return fields.contains(field);
+    }
+
     // TODO
     bool is_assignment_compatible(const Type* other) const override;
 

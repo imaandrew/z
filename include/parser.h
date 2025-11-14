@@ -70,6 +70,8 @@ class Parser {
                                 std::optional<TokenKind> ignore = std::nullopt);
     ExprResult parse_expr(int precedence = 0,
                           std::optional<TokenKind> ignore = std::nullopt);
+    Result<std::unique_ptr<StructExprField>> parse_struct_expr_field();
+    std::unique_ptr<Identifier> parse_ident_unchecked();
     [[nodiscard]] std::unique_ptr<Expr> parse_num() const;
     ExprResult parse_for_expr();
     ExprResult parse_if_expr();

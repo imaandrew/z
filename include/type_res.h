@@ -39,6 +39,7 @@ public:
     void visit(ArrayExpr& expr) override;
     void visit(FieldExpr& expr) override;
     void visit(ArrayInitExpr& expr) override;
+    void visit(StructExprField& expr) override;
     void visit(StructInitExpr& expr) override;
     void visit(Block& block) override;
     void visit(Param& param) override;

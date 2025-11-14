@@ -68,6 +68,8 @@ enum class DiagnosticKind : std::uint8_t {
     TypeNotIterable,
     ElseExprTypeMismatch,
     UnknownField,
+    DuplicateFieldInitialization,
+    FieldNotInitialized,
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -116,7 +118,11 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
              "else clause should have same type as if clause, which has type "
              "`{0}`, instead of `{1}`"},
             {DiagnosticKind::UnknownField,
-             "type `{0}` doesn't have field `{1}`"}};
+             "type `{0}` doesn't have field `{1}`"},
+            {DiagnosticKind::DuplicateFieldInitialization,
+             "field `{0}` already initialized"},
+            {DiagnosticKind::FieldNotInitialized,
+             "required field `{0}` not initialized"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;
