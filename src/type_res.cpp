@@ -171,9 +171,9 @@ void TypeResolver::visit(CallExpr& expr) {
         arg->accept(*this);
     }
 
-    if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
+    if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
         auto func = syms->get_func(ident->to_string());
-        const auto* func_ptr = dynamic_cast<FunctionType*>(func.get());
+        const auto* func_ptr = dyn_cast<FunctionType>(func.get());
         if (func_ptr == nullptr) {
             return;
         }
@@ -184,19 +184,19 @@ void TypeResolver::visit(CallExpr& expr) {
 }
 
 void TypeResolver::visit_method_call(BinaryExpr& expr) {
-    const auto* impl_type = dynamic_cast<Identifier*>(expr.lhs.get());
+    const auto* impl_type = cast<Identifier>(expr.lhs.get());
     expr.lhs->node_type = syms->get_type(impl_type->get_ident());
 
-    auto* func_call = dynamic_cast<CallExpr*>(expr.rhs.get());
+    auto* func_call = cast<CallExpr>(expr.rhs.get());
     for (auto& arg : func_call->args) {
         arg->accept(*this);
     }
 
     const std::string name =
         impl_type->to_string() +
-        "::" + dynamic_cast<Identifier*>(func_call->ident.get())->to_string();
+        "::" + cast<Identifier>(func_call->ident.get())->to_string();
     auto func = syms->get_func(name);
-    const auto* func_ptr = dynamic_cast<FunctionType*>(func.get());
+    const auto* func_ptr = cast<FunctionType>(func.get());
     func_call->node_type = func_ptr->get_return_val();
     func_call->ident->node_type = func;
     expr.node_type = func_call->node_type;
@@ -205,11 +205,11 @@ void TypeResolver::visit_method_call(BinaryExpr& expr) {
 void TypeResolver::visit(ArrayExpr& expr) {
     expr.val->accept(*this);
 
-    if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
+    if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
         auto arr = syms->get_var(ident->get_ident());
         expr.ident->node_type = arr;
 
-        if (const auto* type = dynamic_cast<ArrayType*>(arr.get())) {
+        if (const auto* type = dyn_cast<ArrayType>(arr.get())) {
             expr.node_type = type->get_type();
         }
     } else {
@@ -222,8 +222,7 @@ void TypeResolver::visit(FieldExpr& expr) {
     if (expr.container->has_type())
         resolve(expr.container->node_type);
 
-    auto* struct_var =
-        dynamic_cast<StructType*>(expr.container->node_type.get());
+    auto* struct_var = dyn_cast<StructType>(expr.container->node_type.get());
     if (struct_var == nullptr) {
         return;
     }
@@ -260,16 +259,16 @@ void TypeResolver::visit(StructInitExpr& expr) {
         field->accept(*this);
     }
 
-    if (auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
+    if (auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
         expr.node_type = syms->get_type(ident->get_ident());
         expr.ident->node_type = expr.node_type;
 
-        auto* struct_type = dynamic_cast<StructType*>(expr.node_type.get());
+        auto* struct_type = dyn_cast<StructType>(expr.node_type.get());
         if (struct_type == nullptr)
             return;
 
         for (auto& field : expr.fields) {
-            const auto* ident = dynamic_cast<Identifier*>(field->ident.get());
+            const auto* ident = dyn_cast<Identifier>(field->ident.get());
             if (ident != nullptr) {
                 const auto field_type =
                     struct_type->get_field_type(ident->get_ident());
@@ -297,8 +296,7 @@ void TypeResolver::visit(Block& block) {
     }
 
     if (!block.stmts.empty() && block.stmts.back()->has_type() &&
-        (dynamic_cast<VoidType*>(block.stmts.back()->node_type.get()) ==
-         nullptr)) {
+        (dyn_cast<VoidType>(block.stmts.back()->node_type.get()) == nullptr)) {
         infctxt->eq(scope_type, block.stmts.back()->node_type);
     }
 
@@ -316,11 +314,11 @@ void TypeResolver::visit(FuncDecl& func) {
             syms->get_type(func.impl_type->get()->get_ident());
     }
 
+    auto* body = cast<Block>(func.body.get());
+
     for (auto& param : func.params) {
         param->accept(*this);
-        dynamic_cast<Block*>(func.body.get())
-            ->get_scope_ctxt()
-            ->declare_var(param->name, param->type);
+        body->get_scope_ctxt()->declare_var(param->name, param->type);
     }
 
     func.body->accept(*this);
@@ -481,7 +479,7 @@ void TypeResolver::visit(StructDecl& decl) {
     decl.node_type = syms->get_type(decl.ident->get_ident());
     decl.ident->node_type = decl.node_type;
 
-    const auto* struct_type = dynamic_cast<StructType*>(decl.node_type.get());
+    const auto* struct_type = cast<StructType>(decl.node_type.get());
     for (auto& field : decl.fields) {
         field->ident->node_type =
             struct_type->get_field_type(field->ident->get_ident());
@@ -544,7 +542,7 @@ void TypeResolver::resolve(std::shared_ptr<Type>& type) {
         }
     } else if (type->is_unknown()) {
         type = syms->get_type(
-            dynamic_cast<UnknownType*>(type.get())->get_ident()->get_ident());
+            cast<UnknownType>(type.get())->get_ident()->get_ident());
     }
 }
 

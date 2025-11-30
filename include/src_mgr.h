@@ -61,9 +61,22 @@ class SourceManager {
     std::vector<size_t> line_indices;
 
     SourceManager(std::filesystem::path& path, std::vector<char> input)
-        : input(std::move(input)), path(path) {};
+        : input(std::move(input)), path(path) {
+        calculate_line_indices();
+    };
     explicit SourceManager(std::vector<char> input)
-        : input(std::move(input)), path(std::nullopt) {};
+        : input(std::move(input)), path(std::nullopt) {
+        calculate_line_indices();
+    };
+
+    void calculate_line_indices() {
+        line_indices.clear();
+        for (size_t i = 0; i < input.size(); ++i) {
+            if (input[i] == '\n') {
+                line_indices.push_back(i);
+            }
+        }
+    }
 
 public:
     static std::optional<SourceManager> Create(std::vector<char> input) {
@@ -73,13 +86,15 @@ public:
     static std::optional<SourceManager> Create(const char* path_) {
         auto path = std::filesystem::path(path_);
         if (!std::filesystem::exists(path)) {
-            std::cerr << std::format("error: no such file or directory: '{}'\n", path_);
+            std::cerr << std::format("error: no such file or directory: '{}'\n",
+                                     path_);
             return std::nullopt;
         }
 
         auto file = std::ifstream(path, std::ios::ate);
         if (!file.is_open()) {
-            std::cerr << std::format("error: could not open file: '{}'\n", path_);
+            std::cerr << std::format("error: could not open file: '{}'\n",
+                                     path_);
             return std::nullopt;
         }
 
@@ -87,7 +102,8 @@ public:
         file.seekg(0);
         auto input = std::vector<char>(size);
         if (!file.read(input.data(), size)) {
-            std::cerr << std::format("error: could not read file: '{}'\n", path_);
+            std::cerr << std::format("error: could not read file: '{}'\n",
+                                     path_);
             return std::nullopt;
         }
 
@@ -99,7 +115,8 @@ public:
             return std::nullopt;
         }
 
-        if (input[index] == '\n' && (line_indices.empty() || line_indices.back() != index))
+        if (input[index] == '\n' &&
+            (line_indices.empty() || line_indices.back() != index))
             line_indices.push_back(index);
 
         return input[index];
@@ -136,9 +153,10 @@ public:
     }
 
     [[nodiscard]] LinePos get_pos(const Span& span) const {
-        auto line = std::ranges::lower_bound(line_indices, span.index) - line_indices.begin();
+        auto line = std::ranges::lower_bound(line_indices, span.index) -
+                    line_indices.begin();
         auto line_start = (line == 0) ? 0 : line_indices[line - 1] + 1;
-        
+
         return LinePos(line + 1, span.index - line_start + 1);
     }
 };

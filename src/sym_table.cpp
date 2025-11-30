@@ -6,6 +6,7 @@
 #include <memory>
 #include <ranges>
 #include <string>
+#include <string_view>
 #include <utility>
 
 bool SymbolTable::declare_var(const std::unique_ptr<Identifier>& name,
@@ -122,7 +123,7 @@ void SymbolTable::update_type(std::string_view name,
 }
 
 bool SymbolTable::resolve_unk_type(std::shared_ptr<Type>& type) const {
-    if (auto* unk_type = dynamic_cast<UnknownType*>(type.get())) {
+    if (auto* unk_type = dyn_cast<UnknownType>(type.get())) {
         const auto ident = unk_type->to_string();
         if (const auto new_type = get_type(ident)) {
             type = new_type;

@@ -69,6 +69,42 @@ struct EnumDecl;
 struct ConstDecl;
 struct StaticDecl;
 
+enum class ASTKind : std::uint8_t {
+    Identifier,
+    IntExpr,
+    FloatExpr,
+    BoolExpr,
+    PrefixExpr,
+    PostfixExpr,
+    BinaryExpr,
+    TernaryExpr,
+    CallExpr,
+    ArrayExpr,
+    FieldExpr,
+    ArrayInitExpr,
+    StructExprField,
+    StructInitExpr,
+    Block,
+    Param,
+    FuncDecl,
+    BreakStmt,
+    ContinueStmt,
+    ForExpr,
+    LetStmt,
+    ReturnStmt,
+    ElseExpr,
+    IfExpr,
+    LoopExpr,
+    WhileExpr,
+    StringExpr,
+    StructField,
+    StructDecl,
+    EnumField,
+    EnumDecl,
+    ConstDecl,
+    StaticDecl
+};
+
 class ASTVisitor {
 public:
     ASTVisitor() = default;
@@ -113,11 +149,12 @@ public:
 };
 
 struct ASTNode {
-    bool valid = true;
     std::shared_ptr<Type> node_type = nullptr;
     Span span;
+    const ASTKind kind;
+    bool valid = true;
 
-    explicit ASTNode(Span span) : span(span) {}
+    ASTNode(ASTKind kind, Span span) : span(span), kind(kind) {}
     virtual ~ASTNode() = default;
 
     ASTNode(const ASTNode&) = delete;
@@ -129,6 +166,7 @@ struct ASTNode {
     void mark_invalid() { valid = false; }
     [[nodiscard]] bool has_type() const { return node_type != nullptr; }
     [[nodiscard]] Span get_span() const { return span; }
+    [[nodiscard]] ASTKind get_kind() const { return kind; }
     virtual void accept(ASTVisitor& visitor) = 0;
 
     virtual void dump(SourceManager* source, int indent = 0,
@@ -144,8 +182,34 @@ struct ASTNode {
     }
 };
 
+template <typename T> bool isa(const ASTNode* node) {
+    return node->get_kind() == T::Kind;
+}
+
+template <typename T> T* dyn_cast(ASTNode* node) {
+    if (isa<T>(node))
+        return static_cast<T*>(node);
+    return nullptr;
+}
+
+template <typename T> const T* dyn_cast(const ASTNode* node) {
+    if (isa<T>(node))
+        return static_cast<const T*>(node);
+    return nullptr;
+}
+
+template <typename T> T* cast(ASTNode* node) {
+    assert(isa<T>(node) && "Invalid cast");
+    return static_cast<T*>(node);
+}
+
+template <typename T> const T* cast(const ASTNode* node) {
+    assert(isa<T>(node) && "Invalid cast");
+    return static_cast<T*>(node);
+}
+
 struct Stmt : ASTNode {
-    explicit Stmt(Span span) : ASTNode(span) {};
+    Stmt(ASTKind kind, Span span) : ASTNode(kind, span) {};
     ~Stmt() override = default;
     Stmt(const Stmt&) = delete;
     Stmt& operator=(const Stmt&) = delete;
@@ -154,7 +218,7 @@ struct Stmt : ASTNode {
 };
 
 struct Expr : Stmt {
-    explicit Expr(Span span) : Stmt(span) {};
+    Expr(ASTKind kind, Span span) : Stmt(kind, span) {};
     ~Expr() override = default;
     Expr(const Expr&) = delete;
     Expr& operator=(const Expr&) = delete;
@@ -168,8 +232,10 @@ struct Identifier final : Expr {
     Token tok;
     std::string_view ident;
 
-    explicit Identifier(const Token& tok, std::string_view ident)
-        : Expr(tok.get_span()), tok(tok), ident(ident) {};
+    static constexpr ASTKind Kind = ASTKind::Identifier;
+
+    Identifier(const Token& tok, std::string_view ident)
+        : Expr(Kind, tok.get_span()), tok(tok), ident(ident) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -190,9 +256,10 @@ struct Identifier final : Expr {
 struct IntExpr final : Expr {
     Token tok;
     unsigned long long val;
+    static constexpr ASTKind Kind = ASTKind::IntExpr;
 
     IntExpr(const Token& tok, const unsigned long long val)
-        : Expr(tok.get_span()), tok(tok), val(val) {};
+        : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -206,9 +273,10 @@ struct IntExpr final : Expr {
 struct FloatExpr final : Expr {
     Token tok;
     double val;
+    static constexpr ASTKind Kind = ASTKind::FloatExpr;
 
     FloatExpr(const Token& tok, const double val)
-        : Expr(tok.get_span()), tok(tok), val(val) {};
+        : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -223,8 +291,10 @@ struct BoolExpr final : Expr {
     Token tok;
     bool val;
 
+    static constexpr ASTKind Kind = ASTKind::BoolExpr;
+
     BoolExpr(const Token& tok, const bool val)
-        : Expr(tok.get_span()), tok(tok), val(val) {};
+        : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -242,8 +312,11 @@ struct PrefixExpr final : Expr {
     Token op;
     std::shared_ptr<Expr> expr;
 
+    static constexpr ASTKind Kind = ASTKind::PrefixExpr;
+
     PrefixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(op.get_span() + expr->span), op(op), expr(std::move(expr)) {};
+        : Expr(Kind, op.get_span() + expr->span), op(op),
+          expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -260,8 +333,11 @@ struct PostfixExpr final : Expr {
     Token op;
     std::unique_ptr<Expr> expr;
 
+    static constexpr ASTKind Kind = ASTKind::PostfixExpr;
+
     PostfixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(op.get_span() + expr->span), op(op), expr(std::move(expr)) {};
+        : Expr(Kind, op.get_span() + expr->span), op(op),
+          expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -279,9 +355,11 @@ struct BinaryExpr final : Expr {
     std::unique_ptr<Expr> lhs;
     std::unique_ptr<Expr> rhs;
 
+    static constexpr ASTKind Kind = ASTKind::BinaryExpr;
+
     BinaryExpr(const Token& op, std::unique_ptr<Expr> lhs,
                std::unique_ptr<Expr> rhs)
-        : Expr(lhs->span + rhs->span), op(op), lhs(std::move(lhs)),
+        : Expr(Kind, lhs->span + rhs->span), op(op), lhs(std::move(lhs)),
           rhs(std::move(rhs)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -303,10 +381,12 @@ struct TernaryExpr final : Expr {
     std::unique_ptr<Expr> mhs;
     std::unique_ptr<Expr> rhs;
 
+    static constexpr ASTKind Kind = ASTKind::TernaryExpr;
+
     TernaryExpr(const Token& op, const Token& op2, std::unique_ptr<Expr> lhs,
                 std::unique_ptr<Expr> mhs, std::unique_ptr<Expr> rhs)
-        : Expr(lhs->span + rhs->span), op(op), op2(op2), lhs(std::move(lhs)),
-          mhs(std::move(mhs)), rhs(std::move(rhs)) {};
+        : Expr(Kind, lhs->span + rhs->span), op(op), op2(op2),
+          lhs(std::move(lhs)), mhs(std::move(mhs)), rhs(std::move(rhs)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -327,9 +407,11 @@ struct CallExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<Expr>> args;
 
+    static constexpr ASTKind Kind = ASTKind::CallExpr;
+
     CallExpr(Span span, std::unique_ptr<Expr> func,
              std::vector<std::unique_ptr<Expr>> args)
-        : Expr(span), ident(std::move(func)), args(std::move(args)) {};
+        : Expr(Kind, span), ident(std::move(func)), args(std::move(args)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -348,11 +430,13 @@ struct ArrayExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::unique_ptr<Expr> val;
 
-    explicit ArrayExpr(Span span, std::unique_ptr<Expr> ident)
-        : Expr(span), ident(std::move(ident)) {};
+    static constexpr ASTKind Kind = ASTKind::ArrayExpr;
+
+    ArrayExpr(Span span, std::unique_ptr<Expr> ident)
+        : Expr(Kind, span), ident(std::move(ident)) {};
 
     ArrayExpr(Span span, std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
-        : Expr(span), ident(std::move(ident)), val(std::move(val)) {};
+        : Expr(Kind, span), ident(std::move(ident)), val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -372,9 +456,11 @@ struct FieldExpr final : Expr {
     std::unique_ptr<Expr> container;
     std::unique_ptr<Identifier> field;
 
+    static constexpr ASTKind Kind = ASTKind::FieldExpr;
+
     FieldExpr(std::unique_ptr<Expr> container,
               std::unique_ptr<Identifier> field)
-        : Expr(container->get_span() + field->get_span()),
+        : Expr(Kind, container->get_span() + field->get_span()),
           container(std::move(container)), field(std::move(field)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -393,8 +479,10 @@ struct FieldExpr final : Expr {
 struct ArrayInitExpr final : Expr {
     std::vector<std::unique_ptr<Expr>> vals;
 
-    explicit ArrayInitExpr(Span span, std::vector<std::unique_ptr<Expr>> vals)
-        : Expr(span), vals(std::move(vals)) {};
+    static constexpr ASTKind Kind = ASTKind::ArrayInitExpr;
+
+    ArrayInitExpr(Span span, std::vector<std::unique_ptr<Expr>> vals)
+        : Expr(Kind, span), vals(std::move(vals)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -412,10 +500,12 @@ struct StructExprField final : Expr {
     std::unique_ptr<Identifier> ident;
     std::unique_ptr<Expr> val;
 
+    static constexpr ASTKind Kind = ASTKind::StructExprField;
+
     StructExprField(std::unique_ptr<Identifier> ident,
                     std::unique_ptr<Expr> val)
-        : Expr(ident->get_span() + val->get_span()), ident(std::move(ident)),
-          val(std::move(val)) {};
+        : Expr(Kind, ident->get_span() + val->get_span()),
+          ident(std::move(ident)), val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -432,9 +522,12 @@ struct StructInitExpr final : Expr {
     std::unique_ptr<Expr> ident;
     std::vector<std::unique_ptr<StructExprField>> fields;
 
+    static constexpr ASTKind Kind = ASTKind::StructInitExpr;
+
     StructInitExpr(Span span, std::unique_ptr<Expr> ident,
                    std::vector<std::unique_ptr<StructExprField>> fields)
-        : Expr(span), ident(std::move(ident)), fields(std::move(fields)) {};
+        : Expr(Kind, span), ident(std::move(ident)),
+          fields(std::move(fields)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -453,8 +546,10 @@ struct Block final : Stmt {
     std::vector<std::unique_ptr<Stmt>> stmts;
     ScopeContext ctxt;
 
-    explicit Block(Span span, std::vector<std::unique_ptr<Stmt>> stmts)
-        : Stmt(span), stmts(std::move(stmts)) {};
+    static constexpr ASTKind Kind = ASTKind::Block;
+
+    Block(Span span, std::vector<std::unique_ptr<Stmt>> stmts)
+        : Stmt(Kind, span), stmts(std::move(stmts)) {};
 
     ScopeContext* get_scope_ctxt() { return &ctxt; }
 
@@ -474,9 +569,11 @@ struct Param final : Expr {
     std::unique_ptr<Identifier> name;
     std::shared_ptr<Type> type;
 
+    static constexpr ASTKind Kind = ASTKind::Param;
+
     Param(Span span, std::unique_ptr<Identifier> name,
           std::shared_ptr<Type> type)
-        : Expr(span), name(std::move(name)), type(std::move(type)) {};
+        : Expr(Kind, span), name(std::move(name)), type(std::move(type)) {};
 
     void dump(SourceManager* source, int indent,
               std::ostream& stream) const override {
@@ -491,7 +588,7 @@ struct Param final : Expr {
 };
 
 struct Decl : ASTNode {
-    explicit Decl(Span span) : ASTNode(span) {}
+    Decl(ASTKind kind, Span span) : ASTNode(kind, span) {}
     ~Decl() override = default;
     Decl(const Decl&) = delete;
     Decl& operator=(const Decl&) = delete;
@@ -509,13 +606,15 @@ struct FuncDecl final : Decl {
     std::shared_ptr<Type> ret;
     std::unique_ptr<Block> body;
 
+    static constexpr ASTKind Kind = ASTKind::FuncDecl;
+
     FuncDecl(Span span, std::unique_ptr<Identifier> name,
              std::optional<std::shared_ptr<Identifier>> impl_type,
              std::vector<std::unique_ptr<Param>> params,
              std::shared_ptr<Type> ret, std::unique_ptr<Block> body)
-        : Decl(span), name(std::move(name)), impl_type(std::move(impl_type)),
-          params(std::move(params)), ret(std::move(ret)),
-          body(std::move(body)) {};
+        : Decl(Kind, span), name(std::move(name)),
+          impl_type(std::move(impl_type)), params(std::move(params)),
+          ret(std::move(ret)), body(std::move(body)) {};
 
     [[nodiscard]] std::string get_abs_name() const {
         if (impl_type)
@@ -548,7 +647,7 @@ struct FuncDecl final : Decl {
 
     void resolve_sym(SymbolTable* syms) override {
         auto* func_type =
-            dynamic_cast<FunctionType*>(syms->get_func(get_abs_name()).get());
+            cast<FunctionType>(syms->get_func(get_abs_name()).get());
 
         for (size_t i = 0; i < params.size(); i++) {
             if (params[i]->type->is_unknown()) {
@@ -574,9 +673,11 @@ struct BreakStmt final : Stmt {
     Token tok;
     std::unique_ptr<Expr> expr;
 
-    explicit BreakStmt(Span span, const Token& tok) : Stmt(span), tok(tok) {};
+    static constexpr ASTKind Kind = ASTKind::BreakStmt;
+
+    BreakStmt(Span span, const Token& tok) : Stmt(Kind, span), tok(tok) {};
     BreakStmt(Span span, const Token& tok, std::unique_ptr<Expr> expr)
-        : Stmt(span), tok(tok), expr(std::move(expr)) {};
+        : Stmt(Kind, span), tok(tok), expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -592,8 +693,9 @@ struct BreakStmt final : Stmt {
 struct ContinueStmt final : Stmt {
     Token tok;
 
-    explicit ContinueStmt(Span span, const Token& tok)
-        : Stmt(span), tok(tok) {};
+    static constexpr ASTKind Kind = ASTKind::ContinueStmt;
+
+    ContinueStmt(Span span, const Token& tok) : Stmt(Kind, span), tok(tok) {};
 
     void dump(SourceManager* /* source */, const int indent,
               std::ostream& stream) const override {
@@ -609,9 +711,11 @@ struct ForExpr final : Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
+    static constexpr ASTKind Kind = ASTKind::ForExpr;
+
     ForExpr(Span span, std::unique_ptr<Identifier> ident,
             std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
-        : Expr(span), ident(std::move(ident)), expr(std::move(expr)),
+        : Expr(Kind, span), ident(std::move(ident)), expr(std::move(expr)),
           block(std::move(block)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -631,16 +735,19 @@ struct LetStmt final : Stmt {
     std::shared_ptr<Expr> val;
     std::optional<Span> eq;
 
-    explicit LetStmt(Span span, std::unique_ptr<Identifier> ident)
-        : Stmt(span), ident(std::move(ident)) {};
+    static constexpr ASTKind Kind = ASTKind::LetStmt;
+
+    LetStmt(Span span, std::unique_ptr<Identifier> ident)
+        : Stmt(Kind, span), ident(std::move(ident)) {};
 
     LetStmt(Span span, std::unique_ptr<Identifier> ident,
             std::shared_ptr<Expr> val, Span eq)
-        : Stmt(span), ident(std::move(ident)), val(std::move(val)), eq(eq) {};
+        : Stmt(Kind, span), ident(std::move(ident)), val(std::move(val)),
+          eq(eq) {};
 
     LetStmt(Span span, std::unique_ptr<Identifier> ident,
             std::shared_ptr<Type> type, std::shared_ptr<Expr> val, Span eq)
-        : Stmt(span), ident(std::move(ident)), type(std::move(type)),
+        : Stmt(Kind, span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)), eq(eq) {};
 
     void dump(SourceManager* source, const int indent,
@@ -663,9 +770,11 @@ struct LetStmt final : Stmt {
 struct ReturnStmt final : Stmt {
     std::unique_ptr<Expr> expr;
 
-    explicit ReturnStmt(Span span) : Stmt(span) {}
+    static constexpr ASTKind Kind = ASTKind::ReturnStmt;
+
+    explicit ReturnStmt(Span span) : Stmt(Kind, span) {}
     ReturnStmt(Span span, std::unique_ptr<Expr> expr)
-        : Stmt(span), expr(std::move(expr)) {};
+        : Stmt(Kind, span), expr(std::move(expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -682,10 +791,12 @@ struct ElseExpr final : Expr {
     std::unique_ptr<Expr> if_expr;
     std::unique_ptr<Block> block;
 
+    static constexpr ASTKind Kind = ASTKind::ElseExpr;
+
     ElseExpr(Span span, std::unique_ptr<Block> block)
-        : Expr(span), block(std::move(block)) {};
+        : Expr(Kind, span), block(std::move(block)) {};
     ElseExpr(Span span, std::unique_ptr<Expr> if_expr)
-        : Expr(span), if_expr(std::move(if_expr)) {};
+        : Expr(Kind, span), if_expr(std::move(if_expr)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -707,11 +818,13 @@ struct IfExpr final : Expr {
     std::unique_ptr<Block> block;
     std::unique_ptr<ElseExpr> else_expr;
 
+    static constexpr ASTKind Kind = ASTKind::IfExpr;
+
     IfExpr(Span span, std::unique_ptr<Expr> expr, std::unique_ptr<Block> block)
-        : Expr(span), expr(std::move(expr)), block(std::move(block)) {};
+        : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)) {};
     IfExpr(Span span, std::unique_ptr<Expr> expr, std::unique_ptr<Block> block,
            std::unique_ptr<ElseExpr> else_expr)
-        : Expr(span), expr(std::move(expr)), block(std::move(block)),
+        : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)),
           else_expr(std::move(else_expr)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -732,9 +845,11 @@ struct LoopExpr final : Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
+    static constexpr ASTKind Kind = ASTKind::LoopExpr;
+
     LoopExpr(Span span, std::unique_ptr<Expr> expr,
              std::unique_ptr<Block> block)
-        : Expr(span), expr(std::move(expr)), block(std::move(block)) {};
+        : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -753,9 +868,11 @@ struct WhileExpr final : Expr {
     std::unique_ptr<Expr> expr;
     std::unique_ptr<Block> block;
 
+    static constexpr ASTKind Kind = ASTKind::WhileExpr;
+
     WhileExpr(Span span, std::unique_ptr<Expr> expr,
               std::unique_ptr<Block> block)
-        : Expr(span), expr(std::move(expr)), block(std::move(block)) {};
+        : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -771,7 +888,9 @@ struct WhileExpr final : Expr {
 struct StringExpr final : Expr {
     Span span;
 
-    explicit StringExpr(Span span) : Expr(span), span(span) {};
+    static constexpr ASTKind Kind = ASTKind::StringExpr;
+
+    explicit StringExpr(Span span) : Expr(Kind, span), span(span) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -787,9 +906,12 @@ struct StructField final : ASTNode {
     std::shared_ptr<Identifier> ident;
     std::shared_ptr<Type> type;
 
+    static constexpr ASTKind Kind = ASTKind::StructField;
+
     StructField(Span span, std::shared_ptr<Identifier> ident,
                 std::shared_ptr<Type> type)
-        : ASTNode(span), ident(std::move(ident)), type(std::move(type)) {};
+        : ASTNode(Kind, span), ident(std::move(ident)),
+          type(std::move(type)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -808,9 +930,12 @@ struct StructDecl final : Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<StructField>> fields;
 
+    static constexpr ASTKind Kind = ASTKind::StructDecl;
+
     StructDecl(Span span, std::unique_ptr<Identifier> ident,
                std::vector<std::unique_ptr<StructField>> fields)
-        : Decl(span), ident(std::move(ident)), fields(std::move(fields)) {};
+        : Decl(Kind, span), ident(std::move(ident)),
+          fields(std::move(fields)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -831,8 +956,7 @@ struct StructDecl final : Decl {
             return;
         }
 
-        auto* struct_type =
-            dynamic_cast<StructType*>(syms->get_type(name).get());
+        auto* struct_type = cast<StructType>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
             const bool is_unique = struct_type->define_field(
@@ -847,8 +971,11 @@ struct StructDecl final : Decl {
     }
 
     void resolve_sym(SymbolTable* syms) override {
+        if (!is_valid())
+            return;
+
         auto* struct_type =
-            dynamic_cast<StructType*>(syms->get_type(ident->get_ident()).get());
+            cast<StructType>(syms->get_type(ident->get_ident()).get());
 
         for (const auto& field : fields) {
             if (field->type->is_unknown()) {
@@ -867,11 +994,14 @@ struct EnumField final : ASTNode {
     std::unique_ptr<Identifier> ident;
     std::vector<std::shared_ptr<Type>> types;
 
+    static constexpr ASTKind Kind = ASTKind::EnumField;
+
     EnumField(Span span, std::unique_ptr<Identifier> ident)
-        : ASTNode(span), ident(std::move(ident)) {};
+        : ASTNode(Kind, span), ident(std::move(ident)) {};
     EnumField(Span span, std::unique_ptr<Identifier> ident,
               std::vector<std::shared_ptr<Type>> types)
-        : ASTNode(span), ident(std::move(ident)), types(std::move(types)) {};
+        : ASTNode(Kind, span), ident(std::move(ident)),
+          types(std::move(types)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -892,9 +1022,12 @@ struct EnumDecl final : Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<EnumField>> fields;
 
+    static constexpr ASTKind Kind = ASTKind::EnumDecl;
+
     EnumDecl(Span span, std::unique_ptr<Identifier> ident,
              std::vector<std::unique_ptr<EnumField>> fields)
-        : Decl(span), ident(std::move(ident)), fields(std::move(fields)) {};
+        : Decl(Kind, span), ident(std::move(ident)),
+          fields(std::move(fields)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -917,7 +1050,7 @@ struct EnumDecl final : Decl {
             return;
         }
 
-        auto* enum_type = dynamic_cast<EnumType*>(syms->get_type(name).get());
+        auto* enum_type = cast<EnumType>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
             if (!enum_type->define_field(field->ident->get_ident(),
@@ -947,9 +1080,11 @@ struct ConstDecl final : Decl {
     std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
+    static constexpr ASTKind Kind = ASTKind::ConstDecl;
+
     ConstDecl(Span span, std::unique_ptr<Identifier> ident,
               std::shared_ptr<Type> type, std::unique_ptr<Expr> val)
-        : Decl(span), ident(std::move(ident)), type(std::move(type)),
+        : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,
@@ -987,9 +1122,11 @@ struct StaticDecl final : Decl {
     std::shared_ptr<Type> type;
     std::unique_ptr<Expr> val;
 
+    static constexpr ASTKind Kind = ASTKind::StaticDecl;
+
     StaticDecl(Span span, std::unique_ptr<Identifier> ident,
                std::shared_ptr<Type> type, std::unique_ptr<Expr> val)
-        : Decl(span), ident(std::move(ident)), type(std::move(type)),
+        : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
     void dump(SourceManager* source, const int indent,

@@ -6,7 +6,7 @@
 #include <vector>
 
 static const InferredType* get_inf_type(const Type* type) {
-    return dynamic_cast<const InferredType*>(type);
+    return cast<const InferredType>(type);
 }
 
 class UnificationTable final {

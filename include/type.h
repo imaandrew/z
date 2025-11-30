@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -7,6 +8,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -16,15 +18,37 @@ using TypeID = std::uint32_t;
 struct Expr;
 struct Identifier;
 
+enum class TypeKind : std::uint8_t {
+    Integer,
+    Float,
+    Boolean,
+    Char,
+    String,
+    Pointer,
+    Array,
+    Unknown,
+    Function,
+    Struct,
+    Enum,
+    EnumVariant,
+    Void,
+    Invalid,
+    Inferred
+};
+
 class Type {
+    const TypeKind kind;
+
 public:
+    explicit Type(TypeKind k) : kind(k) {};
     virtual ~Type() = default;
-    Type() = default;
 
     Type(const Type&) = delete;
     Type& operator=(const Type&) = delete;
     Type(Type&&) = delete;
     Type& operator=(Type&&) = delete;
+
+    [[nodiscard]] TypeKind get_kind() const { return kind; }
 
     [[nodiscard]] virtual bool is_arithmetic_compatible(Type* /*other*/) const {
         return false;
@@ -32,13 +56,13 @@ public:
 
     [[nodiscard]] virtual bool
     is_assignment_compatible(const Type* other) const {
-        return typeid(*this) == typeid(*other);
+        return get_kind() == other->get_kind();
     }
 
     [[nodiscard]] virtual bool is_logical() const { return false; }
 
     [[nodiscard]] virtual bool is_comparable(Type* other) const {
-        return typeid(*this) == typeid(*other);
+        return get_kind() == other->get_kind();
     }
 
     [[nodiscard]] virtual bool is_integral() const { return false; }
@@ -61,21 +85,49 @@ public:
     [[nodiscard]] virtual std::string basic_name() const = 0;
 };
 
+template <typename T> bool isa(const Type* type) {
+    return type->get_kind() == T::Kind;
+}
+
+template <typename T> T* dyn_cast(Type* type) {
+    if (isa<T>(type))
+        return static_cast<T*>(type);
+    return nullptr;
+}
+
+template <typename T> const T* dyn_cast(const Type* type) {
+    if (isa<T>(type))
+        return static_cast<const T*>(type);
+    return nullptr;
+}
+
+template <typename T> T* cast(Type* type) {
+    assert(isa<T>(type) && "Invalid cast");
+    return static_cast<T*>(type);
+}
+
+template <typename T> const T* cast(const Type* type) {
+    assert(isa<T>(type) && "Invalid cast");
+    return static_cast<T*>(type);
+}
+
 class IntegerType final : public Type {
     int bit_width;
     bool _signed;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Integer;
+
     IntegerType(const int bit_width, const bool is_signed)
-        : bit_width(bit_width), _signed(is_signed) {};
+        : Type(Kind), bit_width(bit_width), _signed(is_signed) {};
 
     [[nodiscard]] int get_width() const { return bit_width; }
 
     [[nodiscard]] bool is_signed() const { return _signed; }
 
     bool is_arithmetic_compatible(Type* other) const override {
-        if (typeid(*this) == typeid(*other)) {
-            const auto* other_int = dynamic_cast<IntegerType*>(other);
+        if (get_kind() == other->get_kind()) {
+            const auto* other_int = cast<IntegerType>(other);
             return this->bit_width == other_int->bit_width &&
                    this->_signed == other_int->_signed;
         }
@@ -89,7 +141,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_int = dynamic_cast<const IntegerType*>(other);
+            const auto* other_int = cast<const IntegerType>(other);
             return this->bit_width == other_int->bit_width &&
                    this->_signed == other_int->_signed;
         }
@@ -111,13 +163,16 @@ class FloatType final : public Type {
     int bit_width;
 
 public:
-    explicit FloatType(const int bit_width) : bit_width(bit_width) {};
+    static constexpr TypeKind Kind = TypeKind::Float;
+
+    explicit FloatType(const int bit_width)
+        : Type(Kind), bit_width(bit_width) {};
 
     [[nodiscard]] int get_width() const { return bit_width; }
 
     bool is_arithmetic_compatible(Type* other) const override {
         if (Type::is_arithmetic_compatible(other)) {
-            const auto* other_float = dynamic_cast<FloatType*>(other);
+            const auto* other_float = cast<FloatType>(other);
             return this->bit_width == other_float->bit_width;
         }
 
@@ -130,7 +185,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_float = dynamic_cast<const FloatType*>(other);
+            const auto* other_float = cast<const FloatType>(other);
             return this->bit_width == other_float->bit_width;
         }
 
@@ -148,6 +203,10 @@ public:
 
 class BooleanType final : public Type {
 public:
+    static constexpr TypeKind Kind = TypeKind::Boolean;
+
+    BooleanType() : Type(Kind) {};
+
     [[nodiscard]] bool is_logical() const override { return true; }
 
     void dump(std::ostream& stream = std::cout) const override {
@@ -158,6 +217,11 @@ public:
 };
 
 class StringType final : public Type {
+public:
+    static constexpr TypeKind Kind = TypeKind::String;
+
+    StringType() : Type(Kind) {};
+
     void dump(std::ostream& stream = std::cout) const override {
         stream << "StringType";
     }
@@ -168,6 +232,11 @@ class StringType final : public Type {
 };
 
 class CharType final : public Type {
+public:
+    static constexpr TypeKind Kind = TypeKind::Char;
+
+    CharType() : Type(Kind) {};
+
     void dump(std::ostream& stream = std::cout) const override {
         stream << "CharType";
     }
@@ -179,13 +248,16 @@ class PointerType final : public Type {
     std::unique_ptr<Type> type;
 
 public:
-    explicit PointerType(std::unique_ptr<Type> type) : type(std::move(type)) {};
+    static constexpr TypeKind Kind = TypeKind::Pointer;
+
+    explicit PointerType(std::unique_ptr<Type> type)
+        : Type(Kind), type(std::move(type)) {};
 
     [[nodiscard]] bool is_logical() const override { return true; }
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* ptr = dynamic_cast<const PointerType*>(other);
+            const auto* ptr = cast<const PointerType>(other);
             return type->is_assignment_compatible(ptr->type.get());
         }
 
@@ -208,6 +280,8 @@ class ArrayType final : public Type {
     std::shared_ptr<Expr> size;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Array;
+
     explicit ArrayType(std::shared_ptr<Type> type);
     ArrayType(std::shared_ptr<Type> type, std::shared_ptr<Expr> size);
     ~ArrayType() override;
@@ -225,7 +299,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            if (const auto* other_array = dynamic_cast<const ArrayType*>(other);
+            if (const auto* other_array = cast<const ArrayType>(other);
                 !type->is_assignment_compatible(other_array->type.get())) {
                 return false;
             }
@@ -254,6 +328,8 @@ class UnknownType final : public Type {
     std::unique_ptr<Identifier> ident;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Unknown;
+
     explicit UnknownType(std::unique_ptr<Identifier> ident);
     ~UnknownType() override;
 
@@ -283,9 +359,11 @@ class FunctionType final : public Type {
     std::shared_ptr<Type> return_val;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Function;
+
     explicit FunctionType(const std::vector<std::shared_ptr<Type>>& params,
                           const std::shared_ptr<Type>& return_val)
-        : params(params), return_val(return_val) {};
+        : Type(Kind), params(params), return_val(return_val) {};
 
     bool is_assignment_compatible(const Type* /*other*/) const override {
         return false;
@@ -339,6 +417,8 @@ class StructType final : public Type {
     std::unordered_map<std::string_view, std::shared_ptr<Type>> fields;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Struct;
+
     explicit StructType(const std::unique_ptr<Identifier>& ident);
 
     [[nodiscard]] bool is_struct() const override { return true; }
@@ -371,7 +451,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_struct = dynamic_cast<const StructType*>(other);
+            const auto* other_struct = cast<const StructType>(other);
             return name == other_struct->basic_name();
         }
 
@@ -391,6 +471,8 @@ class EnumType final : public Type {
         fields;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Enum;
+
     explicit EnumType(const std::unique_ptr<Identifier>& ident);
 
     bool define_field(std::string_view field,
@@ -400,7 +482,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_enum = dynamic_cast<const EnumType*>(other);
+            const auto* other_enum = cast<const EnumType>(other);
             return name == other_enum->basic_name();
         }
 
@@ -418,8 +500,10 @@ class EnumVariantType final : public Type {
     std::string parent_enum;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::EnumVariant;
+
     explicit EnumVariantType(std::string parent_enum)
-        : parent_enum(std::move(parent_enum)) {};
+        : Type(Kind), parent_enum(std::move(parent_enum)) {};
 
     [[nodiscard]] const std::string& get_parent_enum() const {
         return parent_enum;
@@ -427,8 +511,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_enum =
-                dynamic_cast<const EnumVariantType*>(other);
+            const auto* other_enum = cast<const EnumVariantType>(other);
             return parent_enum == other_enum->get_parent_enum();
         }
 
@@ -445,6 +528,11 @@ public:
 };
 
 class VoidType final : public Type {
+public:
+    static constexpr TypeKind Kind = TypeKind::Void;
+
+    VoidType() : Type(Kind) {};
+
     [[nodiscard]] bool is_void() const override { return true; }
 
     void dump(std::ostream& stream = std::cout) const override {
@@ -456,6 +544,10 @@ class VoidType final : public Type {
 
 class InvalidType final : public Type {
 public:
+    static constexpr TypeKind Kind = TypeKind::Invalid;
+
+    InvalidType() : Type(Kind) {};
+
     bool is_assignment_compatible(const Type* /*other*/) const override {
         return false;
     }
@@ -476,8 +568,10 @@ class InferredType final : public Type {
     InferType infer_type;
 
 public:
+    static constexpr TypeKind Kind = TypeKind::Inferred;
+
     explicit InferredType(TypeID id, InferType infer_type = InferType::Var)
-        : id(id), infer_type(infer_type) {};
+        : Type(Kind), id(id), infer_type(infer_type) {};
 
     [[nodiscard]] TypeID get_id() const { return id; }
 
@@ -487,7 +581,7 @@ public:
 
     bool is_assignment_compatible(const Type* other) const override {
         if (Type::is_assignment_compatible(other)) {
-            const auto* other_type = dynamic_cast<const InferredType*>(other);
+            const auto* other_type = cast<const InferredType>(other);
             if (infer_type == InferType::Var ||
                 other_type->infer_type == InferType::Var ||
                 infer_type == InferType::Block ||

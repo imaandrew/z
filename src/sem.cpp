@@ -4,6 +4,7 @@
 #include "token.h"
 #include "type.h"
 #include <cstddef>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -240,8 +241,8 @@ void SemChecker::visit(CallExpr& expr) {
     if (!expr.ident->has_type())
         return;
 
-    if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
-        auto* func = dynamic_cast<FunctionType*>(expr.ident->node_type.get());
+    if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
+        auto* func = dyn_cast<FunctionType>(expr.ident->node_type.get());
         if (func == nullptr) {
             diag.emit(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
                       ident->to_string());
@@ -272,7 +273,7 @@ void SemChecker::visit(ArrayExpr& expr) {
     expr.val->accept(*this);
 
     if (expr.ident->has_type()) {
-        if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
+        if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
             const auto var = syms->get_var(ident->get_ident());
             if (!var) {
                 diag.emit(expr.ident->get_span(),
@@ -307,8 +308,7 @@ void SemChecker::visit(FieldExpr& expr) {
         return;
     }
 
-    auto* struct_var =
-        dynamic_cast<StructType*>(expr.container->node_type.get());
+    auto* struct_var = dyn_cast<StructType>(expr.container->node_type.get());
     if (struct_var == nullptr) {
         return;
     }
@@ -357,12 +357,12 @@ void SemChecker::visit(StructInitExpr& expr) {
         field->accept(*this);
     }
 
-    if (const auto* ident = dynamic_cast<Identifier*>(expr.ident.get())) {
+    if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
         if (!ident->is_valid())
             return;
 
         const auto* struct_type =
-            dynamic_cast<StructType*>(syms->get_type(ident->get_ident()).get());
+            dyn_cast<StructType>(syms->get_type(ident->get_ident()).get());
         if (struct_type == nullptr) {
             diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
                       ident->to_string(), expr.ident->node_type->basic_name());

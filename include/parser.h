@@ -48,7 +48,7 @@ class Parser {
     void next_token();
     bool consume(TokenKind kind);
     bool kind(TokenKind kind);
-    bool assert(TokenKind kind);
+    bool tok_assert(TokenKind kind);
     bool sync(TokenKind kind, SyncFlags flags = static_cast<SyncFlags>(0));
     bool sync(std::vector<TokenKind> const& kinds,
               SyncFlags flags = static_cast<SyncFlags>(0));
