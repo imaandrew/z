@@ -549,94 +549,11 @@ void TypeResolver::resolve(std::shared_ptr<Type>& type) {
 }
 
 void TypeResolver::resolve(ASTNode* node) {
-    if (auto* block = dynamic_cast<Block*>(node)) {
-        for (auto& stmt : block->stmts) {
-            resolve(stmt.get());
-        }
-        resolve(node->node_type);
-        return;
-    }
-
     if (node == nullptr)
         return;
 
-    if (node->has_type())
-        resolve(node->node_type);
-
-    if (auto* expr = dynamic_cast<PrefixExpr*>(node)) {
-        resolve(expr->expr.get());
-    } else if (auto* expr = dynamic_cast<PostfixExpr*>(node)) {
-        resolve(expr->expr.get());
-    } else if (auto* expr = dynamic_cast<BinaryExpr*>(node)) {
-        resolve(expr->lhs.get());
-        resolve(expr->rhs.get());
-    } else if (auto* expr = dynamic_cast<TernaryExpr*>(node)) {
-        resolve(expr->lhs.get());
-        resolve(expr->mhs.get());
-        resolve(expr->rhs.get());
-    } else if (auto* expr = dynamic_cast<CallExpr*>(node)) {
-        for (auto& arg : expr->args) {
-            resolve(arg.get());
-        }
-    } else if (auto* expr = dynamic_cast<ArrayExpr*>(node)) {
-        resolve(expr->ident.get());
-        resolve(expr->val.get());
-    } else if (auto* expr = dynamic_cast<ArrayInitExpr*>(node)) {
-        for (auto& val : expr->vals) {
-            resolve(val.get());
-        }
-    } else if (auto* expr = dynamic_cast<StructExprField*>(node)) {
-        resolve(expr->ident.get());
-        resolve(expr->val.get());
-    } else if (auto* expr = dynamic_cast<StructInitExpr*>(node)) {
-        resolve(expr->ident.get());
-        for (auto& field : expr->fields) {
-            resolve(field.get());
-        }
-    } else if (auto* decl = dynamic_cast<FuncDecl*>(node)) {
-        resolve(decl->name.get());
-        if (decl->impl_type)
-            resolve(decl->impl_type->get());
-        resolve(decl->body.get());
-    } else if (auto* stmt = dynamic_cast<BreakStmt*>(node)) {
-        if (stmt->expr)
-            resolve(stmt->expr.get());
-    } else if (auto* expr = dynamic_cast<ForExpr*>(node)) {
-        resolve(expr->ident.get());
-        resolve(expr->expr.get());
-        resolve(expr->block.get());
-    } else if (auto* stmt = dynamic_cast<LetStmt*>(node)) {
-        resolve(stmt->ident.get());
-        if (stmt->type)
-            resolve(stmt->type);
-        if (stmt->val)
-            resolve(stmt->val.get());
-    } else if (auto* stmt = dynamic_cast<ReturnStmt*>(node)) {
-        if (stmt->expr)
-            resolve(stmt->expr.get());
-    } else if (auto* expr = dynamic_cast<ElseExpr*>(node)) {
-        if (expr->if_expr)
-            resolve(expr->if_expr.get());
-        else
-            resolve(expr->block.get());
-    } else if (auto* expr = dynamic_cast<IfExpr*>(node)) {
-        resolve(expr->expr.get());
-        resolve(expr->block.get());
-        if (expr->else_expr)
-            resolve(expr->else_expr.get());
-    } else if (auto* expr = dynamic_cast<LoopExpr*>(node)) {
-        resolve(expr->expr.get());
-        resolve(expr->block.get());
-    } else if (auto* expr = dynamic_cast<WhileExpr*>(node)) {
-        resolve(expr->expr.get());
-        resolve(expr->block.get());
-    } else if (auto* decl = dynamic_cast<ConstDecl*>(node)) {
-        resolve(decl->ident.get());
-        resolve(decl->val.get());
-    } else if (auto* decl = dynamic_cast<StaticDecl*>(node)) {
-        resolve(decl->ident.get());
-        resolve(decl->val.get());
-    }
+    ResolutionVisitor res(*this);
+    node->accept(res);
 }
 
 // NOLINTEND(bugprone-unchecked-optional-access)
