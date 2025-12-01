@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <utility>
 
+namespace z {
+
 enum class TokenKind : std::uint8_t {
     Eof,
     Unknown,
@@ -220,3 +222,4 @@ public:
         return kind == this->kind;
     }
 };
+} // namespace z

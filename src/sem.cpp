@@ -8,20 +8,22 @@
 #include <unordered_set>
 #include <utility>
 
-void SemChecker::visit(Identifier& ident) {
+namespace z {
+
+void SemChecker::visit(ast::Identifier& ident) {
     if (!ident.has_type()) {
         diag.emit(ident.tok.get_span(), DiagnosticKind::UndefinedIdentifier,
                   ident.to_string());
     }
 }
 
-void SemChecker::visit(IntExpr& /*expr*/) {}
+void SemChecker::visit(ast::IntExpr& /*expr*/) {}
 
-void SemChecker::visit(FloatExpr& /*expr*/) {}
+void SemChecker::visit(ast::FloatExpr& /*expr*/) {}
 
-void SemChecker::visit(BoolExpr& /*expr*/) {}
+void SemChecker::visit(ast::BoolExpr& /*expr*/) {}
 
-void SemChecker::visit(PrefixExpr& expr) {
+void SemChecker::visit(ast::PrefixExpr& expr) {
     expr.expr->accept(*this);
 
     if (!expr.expr->has_type())
@@ -65,7 +67,7 @@ void SemChecker::visit(PrefixExpr& expr) {
     }
 }
 
-void SemChecker::visit(PostfixExpr& expr) {
+void SemChecker::visit(ast::PostfixExpr& expr) {
     expr.expr->accept(*this);
 
     if (!expr.expr->has_type())
@@ -88,7 +90,7 @@ void SemChecker::visit(PostfixExpr& expr) {
     }
 }
 
-void SemChecker::visit(BinaryExpr& expr) {
+void SemChecker::visit(ast::BinaryExpr& expr) {
     expr.lhs->accept(*this);
     expr.rhs->accept(*this);
 
@@ -214,7 +216,7 @@ void SemChecker::visit(BinaryExpr& expr) {
     }
 }
 
-void SemChecker::visit(TernaryExpr& expr) {
+void SemChecker::visit(ast::TernaryExpr& expr) {
     expr.lhs->accept(*this);
     expr.mhs->accept(*this);
     expr.rhs->accept(*this);
@@ -236,13 +238,13 @@ void SemChecker::visit(TernaryExpr& expr) {
     }
 }
 
-void SemChecker::visit(CallExpr& expr) {
+void SemChecker::visit(ast::CallExpr& expr) {
     expr.ident->accept(*this);
     if (!expr.ident->has_type())
         return;
 
-    if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
-        auto* func = dyn_cast<FunctionType>(expr.ident->node_type.get());
+    if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
+        auto* func = dyn_cast<type::FunctionType>(expr.ident->node_type.get());
         if (func == nullptr) {
             diag.emit(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
                       ident->to_string());
@@ -268,12 +270,12 @@ void SemChecker::visit(CallExpr& expr) {
     }
 }
 
-void SemChecker::visit(ArrayExpr& expr) {
+void SemChecker::visit(ast::ArrayExpr& expr) {
     expr.ident->accept(*this);
     expr.val->accept(*this);
 
     if (expr.ident->has_type()) {
-        if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
+        if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
             const auto var = syms->get_var(ident->get_ident());
             if (!var) {
                 diag.emit(expr.ident->get_span(),
@@ -301,14 +303,15 @@ void SemChecker::visit(ArrayExpr& expr) {
     }
 }
 
-void SemChecker::visit(FieldExpr& expr) {
+void SemChecker::visit(ast::FieldExpr& expr) {
     if (!expr.container->node_type->is_struct()) {
         diag.emit(expr.container->get_span(), DiagnosticKind::TypeHasNoFields,
                   expr.container->node_type->basic_name());
         return;
     }
 
-    auto* struct_var = dyn_cast<StructType>(expr.container->node_type.get());
+    auto* struct_var =
+        dyn_cast<type::StructType>(expr.container->node_type.get());
     if (struct_var == nullptr) {
         return;
     }
@@ -320,7 +323,7 @@ void SemChecker::visit(FieldExpr& expr) {
     }
 }
 
-void SemChecker::visit(ArrayInitExpr& expr) {
+void SemChecker::visit(ast::ArrayInitExpr& expr) {
     for (auto& val : expr.vals) {
         val->accept(*this);
     }
@@ -342,7 +345,7 @@ void SemChecker::visit(ArrayInitExpr& expr) {
     }
 }
 
-void SemChecker::visit(StructExprField& expr) {
+void SemChecker::visit(ast::StructExprField& expr) {
     if (!expr.ident->node_type->is_assignment_compatible(
             expr.val->node_type.get())) {
         diag.emit(expr.get_span(), DiagnosticKind::TypeMismatch,
@@ -351,18 +354,18 @@ void SemChecker::visit(StructExprField& expr) {
     }
 }
 
-void SemChecker::visit(StructInitExpr& expr) {
+void SemChecker::visit(ast::StructInitExpr& expr) {
     expr.ident->accept(*this);
     for (auto& field : expr.fields) {
         field->accept(*this);
     }
 
-    if (const auto* ident = dyn_cast<Identifier>(expr.ident.get())) {
+    if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
         if (!ident->is_valid())
             return;
 
-        const auto* struct_type =
-            dyn_cast<StructType>(syms->get_type(ident->get_ident()).get());
+        const auto* struct_type = dyn_cast<type::StructType>(
+            syms->get_type(ident->get_ident()).get());
         if (struct_type == nullptr) {
             diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
                       ident->to_string(), expr.ident->node_type->basic_name());
@@ -399,7 +402,7 @@ void SemChecker::visit(StructInitExpr& expr) {
     }
 }
 
-void SemChecker::visit(Block& block) {
+void SemChecker::visit(ast::Block& block) {
     syms->enter_scope(block.get_scope_ctxt());
     for (auto& stmt : block.stmts) {
         stmt->accept(*this);
@@ -407,9 +410,9 @@ void SemChecker::visit(Block& block) {
     syms->exit_scope();
 }
 
-void SemChecker::visit(Param& /*param*/) {}
+void SemChecker::visit(ast::Param& /*param*/) {}
 
-void SemChecker::visit(FuncDecl& func) {
+void SemChecker::visit(ast::FuncDecl& func) {
     if (func.impl_type)
         func.impl_type->get()->accept(*this);
 
@@ -426,7 +429,7 @@ void SemChecker::visit(FuncDecl& func) {
     }
 }
 
-void SemChecker::visit(BreakStmt& stmt) {
+void SemChecker::visit(ast::BreakStmt& stmt) {
     if (stmt.expr) {
         stmt.expr->accept(*this);
         if (stmt.expr->has_type() &&
@@ -445,9 +448,9 @@ void SemChecker::visit(BreakStmt& stmt) {
     }
 }
 
-void SemChecker::visit(ContinueStmt& /*stmt*/) {}
+void SemChecker::visit(ast::ContinueStmt& /*stmt*/) {}
 
-void SemChecker::visit(ForExpr& expr) {
+void SemChecker::visit(ast::ForExpr& expr) {
     // expr.ident->accept(*this);
     expr.expr->accept(*this);
     if (expr.expr->has_type() && !expr.expr->node_type->is_iterable()) {
@@ -458,7 +461,7 @@ void SemChecker::visit(ForExpr& expr) {
     expr.block->accept(*this);
 }
 
-void SemChecker::visit(LetStmt& stmt) {
+void SemChecker::visit(ast::LetStmt& stmt) {
     // stmt.ident->accept(*this);
     if (stmt.type) {
         stmt.val->accept(*this);
@@ -473,12 +476,12 @@ void SemChecker::visit(LetStmt& stmt) {
     }
 }
 
-void SemChecker::visit(ReturnStmt& stmt) {
+void SemChecker::visit(ast::ReturnStmt& stmt) {
     if (stmt.expr)
         stmt.expr->accept(*this);
 }
 
-void SemChecker::visit(IfExpr& expr) {
+void SemChecker::visit(ast::IfExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() && !expr.expr->node_type->is_logical()) {
         diag.emit(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
@@ -500,14 +503,14 @@ void SemChecker::visit(IfExpr& expr) {
     }
 }
 
-void SemChecker::visit(ElseExpr& expr) {
+void SemChecker::visit(ast::ElseExpr& expr) {
     if (expr.if_expr)
         expr.if_expr->accept(*this);
     else if (expr.block)
         expr.block->accept(*this);
 }
 
-void SemChecker::visit(LoopExpr& expr) {
+void SemChecker::visit(ast::LoopExpr& expr) {
     if (expr.expr) {
         expr.expr->accept(*this);
         if (expr.expr->has_type() && !expr.expr->node_type->is_integral()) {
@@ -519,7 +522,7 @@ void SemChecker::visit(LoopExpr& expr) {
     expr.block->accept(*this);
 }
 
-void SemChecker::visit(WhileExpr& expr) {
+void SemChecker::visit(ast::WhileExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() && !expr.expr->node_type->is_logical()) {
         diag.emit(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
@@ -529,22 +532,23 @@ void SemChecker::visit(WhileExpr& expr) {
     expr.block->accept(*this);
 }
 
-void SemChecker::visit(StringExpr& /*expr*/) {}
+void SemChecker::visit(ast::StringExpr& /*expr*/) {}
 
-void SemChecker::visit(StructField& /*field*/) {}
+void SemChecker::visit(ast::StructField& /*field*/) {}
 
-void SemChecker::visit(StructDecl& /*decl*/) {}
+void SemChecker::visit(ast::StructDecl& /*decl*/) {}
 
-void SemChecker::visit(EnumField& /*field*/) {}
+void SemChecker::visit(ast::EnumField& /*field*/) {}
 
-void SemChecker::visit(EnumDecl& /*decl*/) {}
+void SemChecker::visit(ast::EnumDecl& /*decl*/) {}
 
-void SemChecker::visit(ConstDecl& /*decl*/) {}
+void SemChecker::visit(ast::ConstDecl& /*decl*/) {}
 
-void SemChecker::visit(StaticDecl& /*decl*/) {}
+void SemChecker::visit(ast::StaticDecl& /*decl*/) {}
 
-void SemChecker::check_expr_assignable(Expr& expr) {
+void SemChecker::check_expr_assignable(ast::Expr& expr) {
     if (!expr.is_assignable()) {
         diag.emit(expr.get_span(), DiagnosticKind::ExprNotAssignable);
     }
 }
+} // namespace z

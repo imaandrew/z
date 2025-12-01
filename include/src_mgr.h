@@ -13,6 +13,8 @@
 #include <utility>
 #include <vector>
 
+namespace z {
+
 struct Span {
     std::uint32_t index;
     std::uint16_t len;
@@ -160,3 +162,4 @@ public:
         return LinePos(line + 1, span.index - line_start + 1);
     }
 };
+} // namespace z

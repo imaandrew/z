@@ -6,6 +6,7 @@
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -15,6 +16,8 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+
+namespace z::ast {
 
 enum class BinOpPrecedence : std::uint8_t {
     Unknown,
@@ -149,7 +152,7 @@ public:
 };
 
 struct ASTNode {
-    std::shared_ptr<Type> node_type = nullptr;
+    std::shared_ptr<type::Type> node_type = nullptr;
     Span span;
     const ASTKind kind;
     bool valid = true;
@@ -567,12 +570,12 @@ struct Block final : Stmt {
 
 struct Param final : Expr {
     std::unique_ptr<Identifier> name;
-    std::shared_ptr<Type> type;
+    std::shared_ptr<type::Type> type;
 
     static constexpr ASTKind Kind = ASTKind::Param;
 
     Param(Span span, std::unique_ptr<Identifier> name,
-          std::shared_ptr<Type> type)
+          std::shared_ptr<type::Type> type)
         : Expr(Kind, span), name(std::move(name)), type(std::move(type)) {};
 
     void dump(SourceManager* source, int indent,
@@ -603,7 +606,7 @@ struct FuncDecl final : Decl {
     std::unique_ptr<Identifier> name;
     std::optional<std::shared_ptr<Identifier>> impl_type;
     std::vector<std::unique_ptr<Param>> params;
-    std::shared_ptr<Type> ret;
+    std::shared_ptr<type::Type> ret;
     std::unique_ptr<Block> body;
 
     static constexpr ASTKind Kind = ASTKind::FuncDecl;
@@ -611,7 +614,7 @@ struct FuncDecl final : Decl {
     FuncDecl(Span span, std::unique_ptr<Identifier> name,
              std::optional<std::shared_ptr<Identifier>> impl_type,
              std::vector<std::unique_ptr<Param>> params,
-             std::shared_ptr<Type> ret, std::unique_ptr<Block> body)
+             std::shared_ptr<type::Type> ret, std::unique_ptr<Block> body)
         : Decl(Kind, span), name(std::move(name)),
           impl_type(std::move(impl_type)), params(std::move(params)),
           ret(std::move(ret)), body(std::move(body)) {};
@@ -635,19 +638,19 @@ struct FuncDecl final : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     void declare_type(SymbolTable* syms) override {
-        auto param_types = std::vector<std::shared_ptr<Type>>();
+        auto param_types = std::vector<std::shared_ptr<type::Type>>();
         for (const auto& param : params) {
             param_types.push_back(param->type);
         }
 
         valid = syms->declare_func(
             get_abs_name(), name->tok,
-            std::make_shared<FunctionType>(param_types, ret));
+            std::make_shared<type::FunctionType>(param_types, ret));
     }
 
     void resolve_sym(SymbolTable* syms) override {
         auto* func_type =
-            cast<FunctionType>(syms->get_func(get_abs_name()).get());
+            cast<type::FunctionType>(syms->get_func(get_abs_name()).get());
 
         for (size_t i = 0; i < params.size(); i++) {
             if (params[i]->type->is_unknown()) {
@@ -731,7 +734,7 @@ struct ForExpr final : Expr {
 
 struct LetStmt final : Stmt {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<Type> type;
+    std::shared_ptr<type::Type> type;
     std::shared_ptr<Expr> val;
     std::optional<Span> eq;
 
@@ -746,7 +749,8 @@ struct LetStmt final : Stmt {
           eq(eq) {};
 
     LetStmt(Span span, std::unique_ptr<Identifier> ident,
-            std::shared_ptr<Type> type, std::shared_ptr<Expr> val, Span eq)
+            std::shared_ptr<type::Type> type, std::shared_ptr<Expr> val,
+            Span eq)
         : Stmt(Kind, span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)), eq(eq) {};
 
@@ -904,12 +908,12 @@ struct StringExpr final : Expr {
 
 struct StructField final : ASTNode {
     std::shared_ptr<Identifier> ident;
-    std::shared_ptr<Type> type;
+    std::shared_ptr<type::Type> type;
 
     static constexpr ASTKind Kind = ASTKind::StructField;
 
     StructField(Span span, std::shared_ptr<Identifier> ident,
-                std::shared_ptr<Type> type)
+                std::shared_ptr<type::Type> type)
         : ASTNode(Kind, span), ident(std::move(ident)),
           type(std::move(type)) {};
 
@@ -951,12 +955,13 @@ struct StructDecl final : Decl {
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->get_ident();
 
-        if (!syms->declare_type(ident, std::make_shared<StructType>(ident))) {
+        if (!syms->declare_type(ident,
+                                std::make_shared<type::StructType>(ident))) {
             valid = false;
             return;
         }
 
-        auto* struct_type = cast<StructType>(syms->get_type(name).get());
+        auto* struct_type = cast<type::StructType>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
             const bool is_unique = struct_type->define_field(
@@ -975,7 +980,7 @@ struct StructDecl final : Decl {
             return;
 
         auto* struct_type =
-            cast<StructType>(syms->get_type(ident->get_ident()).get());
+            cast<type::StructType>(syms->get_type(ident->get_ident()).get());
 
         for (const auto& field : fields) {
             if (field->type->is_unknown()) {
@@ -992,14 +997,14 @@ struct StructDecl final : Decl {
 
 struct EnumField final : ASTNode {
     std::unique_ptr<Identifier> ident;
-    std::vector<std::shared_ptr<Type>> types;
+    std::vector<std::shared_ptr<type::Type>> types;
 
     static constexpr ASTKind Kind = ASTKind::EnumField;
 
     EnumField(Span span, std::unique_ptr<Identifier> ident)
         : ASTNode(Kind, span), ident(std::move(ident)) {};
     EnumField(Span span, std::unique_ptr<Identifier> ident,
-              std::vector<std::shared_ptr<Type>> types)
+              std::vector<std::shared_ptr<type::Type>> types)
         : ASTNode(Kind, span), ident(std::move(ident)),
           types(std::move(types)) {};
 
@@ -1044,13 +1049,13 @@ struct EnumDecl final : Decl {
         const auto name = ident->get_ident();
 
         const bool is_unique =
-            syms->declare_type(ident, std::make_shared<EnumType>(ident));
+            syms->declare_type(ident, std::make_shared<type::EnumType>(ident));
         if (!is_unique) {
             valid = false;
             return;
         }
 
-        auto* enum_type = cast<EnumType>(syms->get_type(name).get());
+        auto* enum_type = cast<type::EnumType>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
             if (!enum_type->define_field(field->ident->get_ident(),
@@ -1077,13 +1082,13 @@ struct EnumDecl final : Decl {
 
 struct ConstDecl final : Decl {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<Type> type;
+    std::shared_ptr<type::Type> type;
     std::unique_ptr<Expr> val;
 
     static constexpr ASTKind Kind = ASTKind::ConstDecl;
 
     ConstDecl(Span span, std::unique_ptr<Identifier> ident,
-              std::shared_ptr<Type> type, std::unique_ptr<Expr> val)
+              std::shared_ptr<type::Type> type, std::unique_ptr<Expr> val)
         : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
@@ -1119,13 +1124,13 @@ struct ConstDecl final : Decl {
 
 struct StaticDecl final : Decl {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<Type> type;
+    std::shared_ptr<type::Type> type;
     std::unique_ptr<Expr> val;
 
     static constexpr ASTKind Kind = ASTKind::StaticDecl;
 
     StaticDecl(Span span, std::unique_ptr<Identifier> ident,
-               std::shared_ptr<Type> type, std::unique_ptr<Expr> val)
+               std::shared_ptr<type::Type> type, std::unique_ptr<Expr> val)
         : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)),
           val(std::move(val)) {};
 
@@ -1158,3 +1163,4 @@ struct StaticDecl final : Decl {
         }
     }
 };
+} // namespace z::ast

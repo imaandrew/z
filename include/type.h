@@ -13,10 +13,14 @@
 #include <utility>
 #include <vector>
 
-using TypeID = std::uint32_t;
-
+namespace z::ast {
 struct Expr;
 struct Identifier;
+} // namespace z::ast
+
+namespace z::type {
+
+using TypeID = std::uint32_t;
 
 enum class TypeKind : std::uint8_t {
     Integer,
@@ -277,13 +281,13 @@ public:
 
 class ArrayType final : public Type {
     std::shared_ptr<Type> type;
-    std::shared_ptr<Expr> size;
+    std::shared_ptr<ast::Expr> size;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Array;
 
     explicit ArrayType(std::shared_ptr<Type> type);
-    ArrayType(std::shared_ptr<Type> type, std::shared_ptr<Expr> size);
+    ArrayType(std::shared_ptr<Type> type, std::shared_ptr<ast::Expr> size);
     ~ArrayType() override;
 
     ArrayType(const ArrayType&) = delete;
@@ -325,12 +329,12 @@ public:
 };
 
 class UnknownType final : public Type {
-    std::unique_ptr<Identifier> ident;
+    std::unique_ptr<ast::Identifier> ident;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Unknown;
 
-    explicit UnknownType(std::unique_ptr<Identifier> ident);
+    explicit UnknownType(std::unique_ptr<ast::Identifier> ident);
     ~UnknownType() override;
 
     UnknownType(const UnknownType&) = delete;
@@ -339,7 +343,9 @@ public:
     UnknownType& operator=(UnknownType&&) = delete;
 
     [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] const Identifier* get_ident() const { return ident.get(); }
+    [[nodiscard]] const ast::Identifier* get_ident() const {
+        return ident.get();
+    }
 
     bool is_assignment_compatible(const Type* /*other*/) const override {
         return false;
@@ -419,7 +425,7 @@ class StructType final : public Type {
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
 
-    explicit StructType(const std::unique_ptr<Identifier>& ident);
+    explicit StructType(const std::unique_ptr<ast::Identifier>& ident);
 
     [[nodiscard]] bool is_struct() const override { return true; }
 
@@ -473,7 +479,7 @@ class EnumType final : public Type {
 public:
     static constexpr TypeKind Kind = TypeKind::Enum;
 
-    explicit EnumType(const std::unique_ptr<Identifier>& ident);
+    explicit EnumType(const std::unique_ptr<ast::Identifier>& ident);
 
     bool define_field(std::string_view field,
                       std::vector<std::shared_ptr<Type>>& types) {
@@ -618,3 +624,4 @@ public:
         }
     }
 };
+} // namespace z::type

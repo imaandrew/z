@@ -4,6 +4,8 @@
 #include "token.h"
 #include <cstddef>
 
+namespace z {
+
 class Lexer {
     SourceManager* source;
     size_t start = 0;
@@ -20,3 +22,4 @@ public:
     explicit Lexer(SourceManager* source) : source(source) {};
     Token lex_token();
 };
+} // namespace z

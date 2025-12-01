@@ -11,10 +11,12 @@
 #include <utility>
 #include <vector>
 
-using StmtResult = Result<std::unique_ptr<Stmt>>;
-using ExprResult = Result<std::unique_ptr<Expr>>;
-using DeclResult = Result<std::unique_ptr<Decl>>;
-using TypeResult = Result<std::unique_ptr<Type>>;
+namespace z {
+
+using StmtResult = Result<std::unique_ptr<ast::Stmt>>;
+using ExprResult = Result<std::unique_ptr<ast::Expr>>;
+using DeclResult = Result<std::unique_ptr<ast::Decl>>;
+using TypeResult = Result<std::unique_ptr<type::Type>>;
 
 inline StmtResult StmtError() { return StmtResult(); }
 inline ExprResult ExprError() { return ExprResult(); }
@@ -56,23 +58,24 @@ class Parser {
     void recover_stmt();
     [[nodiscard]] bool can_be_expr() const;
     DeclResult parse_struct_decl();
-    Result<std::unique_ptr<StructField>> parse_struct_field();
+    Result<std::unique_ptr<ast::StructField>> parse_struct_field();
     DeclResult parse_enum_decl();
-    Result<std::unique_ptr<EnumField>> parse_enum_field();
+    Result<std::unique_ptr<ast::EnumField>> parse_enum_field();
     DeclResult parse_const_decl();
     DeclResult parse_static_decl();
     DeclResult parse_func_decl();
-    Result<std::vector<std::unique_ptr<Param>>> parse_func_params();
-    Result<std::unique_ptr<Param>> parse_param_decl();
-    Result<std::unique_ptr<Block>> parse_block(bool implicit_return = true);
+    Result<std::vector<std::unique_ptr<ast::Param>>> parse_func_params();
+    Result<std::unique_ptr<ast::Param>> parse_param_decl();
+    Result<std::unique_ptr<ast::Block>>
+    parse_block(bool implicit_return = true);
     StmtResult parse_stmt();
     ExprResult prime_parse_expr(int precedence = 0,
                                 std::optional<TokenKind> ignore = std::nullopt);
     ExprResult parse_expr(int precedence = 0,
                           std::optional<TokenKind> ignore = std::nullopt);
-    Result<std::unique_ptr<StructExprField>> parse_struct_expr_field();
-    std::unique_ptr<Identifier> parse_ident_unchecked();
-    [[nodiscard]] std::unique_ptr<Expr> parse_num() const;
+    Result<std::unique_ptr<ast::StructExprField>> parse_struct_expr_field();
+    std::unique_ptr<ast::Identifier> parse_ident_unchecked();
+    [[nodiscard]] std::unique_ptr<ast::Expr> parse_num() const;
     ExprResult parse_for_expr();
     ExprResult parse_if_expr();
     ExprResult parse_loop_expr();
@@ -83,5 +86,6 @@ class Parser {
 public:
     Parser(const Lexer& lexer, SourceManager* source)
         : lexer(lexer), diag(source), source(source) {};
-    std::vector<std::unique_ptr<Decl>> parse();
+    std::vector<std::unique_ptr<ast::Decl>> parse();
 };
+} // namespace z

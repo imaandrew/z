@@ -6,6 +6,8 @@
 #include <string_view>
 #include <unordered_map>
 
+namespace z {
+
 namespace {
 TokenKind get_keyword(const std::string& keyword) {
     static std::unordered_map<std::string_view, TokenKind> keywords = {
@@ -294,3 +296,4 @@ Token Lexer::lex_token() {
 
     return make_token(TokenKind::Unknown);
 }
+} // namespace z

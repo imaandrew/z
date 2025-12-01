@@ -1,13 +1,16 @@
 #pragma once
 
+#include "diagnostics.h"
 #include "scope.h"
 #include "src_mgr.h"
 #include "token.h"
 #include "type.h"
-#include <diagnostics.h>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
+
+namespace z {
 
 class SymbolTable {
     std::unique_ptr<ScopeContext> global_scope;
@@ -24,18 +27,22 @@ public:
 
     void exit_scope() { scopes.pop_back(); }
 
-    bool declare_var(const std::unique_ptr<Identifier>& name,
-                     std::shared_ptr<Type> type);
+    bool declare_var(const std::unique_ptr<ast::Identifier>& name,
+                     std::shared_ptr<type::Type> type);
     bool declare_func(const std::string& name, const Token& tok,
-                      std::shared_ptr<FunctionType> type);
-    bool declare_type(const std::unique_ptr<Identifier>& name,
-                      std::shared_ptr<Type> type);
-    [[nodiscard]] std::shared_ptr<Type> get_var(std::string_view name) const;
-    [[nodiscard]] std::shared_ptr<Type>
+                      std::shared_ptr<type::FunctionType> type);
+    bool declare_type(const std::unique_ptr<ast::Identifier>& name,
+                      std::shared_ptr<type::Type> type);
+    [[nodiscard]] std::shared_ptr<type::Type>
+    get_var(std::string_view name) const;
+    [[nodiscard]] std::shared_ptr<type::Type>
     get_global_var(std::string_view name) const;
-    [[nodiscard]] std::shared_ptr<Type> get_func(const std::string& name) const;
-    [[nodiscard]] std::shared_ptr<Type> get_type(std::string_view name) const;
-    void update_type(std::string_view name, std::shared_ptr<Type>& type);
-    bool resolve_unk_type(std::shared_ptr<Type>& type) const;
+    [[nodiscard]] std::shared_ptr<type::Type>
+    get_func(const std::string& name) const;
+    [[nodiscard]] std::shared_ptr<type::Type>
+    get_type(std::string_view name) const;
+    void update_type(std::string_view name, std::shared_ptr<type::Type>& type);
+    bool resolve_unk_type(std::shared_ptr<type::Type>& type) const;
     ScopeContext* get_current_scope() { return scopes.back(); }
 };
+} // namespace z

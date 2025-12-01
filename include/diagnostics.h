@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+namespace z {
+
 template <class T> class Result {
     std::optional<T> val;
 
@@ -133,9 +135,14 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
 
 class DiagnosticData {
 public:
+    DiagnosticData() = default;
     virtual ~DiagnosticData() = default;
+    DiagnosticData(const DiagnosticData&) = delete;
+    DiagnosticData& operator=(const DiagnosticData&) = delete;
+    DiagnosticData(DiagnosticData&&) = delete;
+    DiagnosticData& operator=(DiagnosticData&&) = delete;
     [[nodiscard]] virtual std::string format_message() const = 0;
-    virtual void add_note(Span /*span*/, std::string /*note*/) {}
+    virtual void add_note(Span /*span*/, const std::string& /*note*/) {}
     [[nodiscard]] virtual std::vector<std::pair<Span, std::string>>
     get_notes() const {
         return {};
@@ -160,8 +167,8 @@ public:
     explicit MultiLocationDiagnosticData(std::string msg)
         : message(std::move(msg)) {}
 
-    void add_note(Span span, std::string note) override {
-        notes.emplace_back(span, std::move(note));
+    void add_note(Span span, const std::string& note) override {
+        notes.emplace_back(span, note);
     }
 
     [[nodiscard]] std::string format_message() const override {
@@ -182,8 +189,8 @@ struct Diagnostic {
                std::unique_ptr<DiagnosticData> data)
         : kind(kind), primary_location(loc), data(std::move(data)) {};
 
-    void add_note(Span span, std::string note) const {
-        data->add_note(span, std::move(note));
+    void add_note(Span span, const std::string& note) const {
+        data->add_note(span, note);
     }
 };
 
@@ -211,8 +218,8 @@ class DiagnosticsEngine {
 public:
     explicit DiagnosticsEngine(SourceManager* source) : source(source) {};
 
+    // NOLINTBEGIN(cppcoreguidelines-missing-std-forward)
     template <typename... Args>
-    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
     void emit(const Span& span, const DiagnosticKind kind,
               Args&&... args) const {
         print_diagnostic(Diagnostic(
@@ -222,14 +229,14 @@ public:
     }
 
     template <typename... Args>
-    Diagnostic
-    // NOLINTNEXTLINE(cppcoreguidelines-missing-std-forward)
-    emit_with_notes(const Span& span, DiagnosticKind kind,
-                    Args&&... args) const {
+    Diagnostic emit_with_notes(const Span& span, DiagnosticKind kind,
+                               Args&&... args) const {
         auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
             get_diagnostic_string(kind), std::make_format_args(args...)));
         return Diagnostic(kind, span, std::move(data));
     }
+    // NOLINTEND(cppcoreguidelines-missing-std-forward)
 
     void emit(const Diagnostic& diag) const { print_diagnostic(diag); }
 };
+} // namespace z

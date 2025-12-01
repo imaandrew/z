@@ -4,10 +4,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
-bool ScopeContext::declare_var(const std::unique_ptr<Identifier>& name,
-                               std::shared_ptr<Type> type) {
+namespace z {
+
+bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
+                               std::shared_ptr<type::Type> type) {
     const bool is_unique =
         vars.insert({name->get_ident(),
                      TypeWithSpan(std::move(type), name->tok.get_span())})
@@ -17,7 +20,7 @@ bool ScopeContext::declare_var(const std::unique_ptr<Identifier>& name,
 }
 
 bool ScopeContext::declare_func(const std::string& name, const Token& tok,
-                                std::shared_ptr<FunctionType> type) {
+                                std::shared_ptr<type::FunctionType> type) {
     const bool is_unique =
         funcs.insert({name, TypeWithSpan(std::move(type), tok.get_span())})
             .second;
@@ -25,8 +28,8 @@ bool ScopeContext::declare_func(const std::string& name, const Token& tok,
     return is_unique;
 }
 
-bool ScopeContext::declare_type(const std::unique_ptr<Identifier>& name,
-                                std::shared_ptr<Type> type) {
+bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
+                                std::shared_ptr<type::Type> type) {
     const bool is_unique =
         user_defined_types
             .insert({name->get_ident(),
@@ -61,3 +64,4 @@ ScopeContext::get_type(std::string_view name) const {
 
     return std::nullopt;
 }
+} // namespace z
