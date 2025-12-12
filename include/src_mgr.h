@@ -66,8 +66,8 @@ class SourceManager {
         : input(std::move(input)), path(path) {
         calculate_line_indices();
     };
-    explicit SourceManager(std::vector<char> input)
-        : input(std::move(input)), path(std::nullopt) {
+    explicit SourceManager(const std::string& input)
+        : input(input.begin(), input.end()), path(std::nullopt) {
         calculate_line_indices();
     };
 
@@ -81,8 +81,8 @@ class SourceManager {
     }
 
 public:
-    static std::optional<SourceManager> Create(std::vector<char> input) {
-        return SourceManager(std::move(input));
+    static SourceManager Create(const std::string& input) {
+        return SourceManager(input);
     }
 
     static std::optional<SourceManager> Create(const char* path_) {
