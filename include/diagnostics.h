@@ -72,6 +72,7 @@ enum class DiagnosticKind : std::uint8_t {
     UnknownField,
     DuplicateFieldInitialization,
     FieldNotInitialized,
+    MoreThanOneChar,
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -124,7 +125,9 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::DuplicateFieldInitialization,
              "field `{0}` already initialized"},
             {DiagnosticKind::FieldNotInitialized,
-             "required field `{0}` not initialized"}};
+             "required field `{0}` not initialized"},
+            {DiagnosticKind::MoreThanOneChar,
+             "char literal may contain at most one character"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;

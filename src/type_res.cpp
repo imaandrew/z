@@ -479,6 +479,10 @@ void TypeResolver::visit(ast::StringExpr& expr) {
     expr.node_type = std::make_unique<type::StringType>();
 }
 
+void TypeResolver::visit(ast::CharExpr& expr) {
+    expr.node_type = std::make_unique<type::CharType>();
+}
+
 void TypeResolver::visit(ast::StructField& /* field */) {}
 
 void TypeResolver::visit(ast::StructDecl& decl) {

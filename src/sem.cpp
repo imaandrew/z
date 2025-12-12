@@ -534,6 +534,12 @@ void SemChecker::visit(ast::WhileExpr& expr) {
 
 void SemChecker::visit(ast::StringExpr& /*expr*/) {}
 
+void SemChecker::visit(ast::CharExpr& expr) {
+    if (expr.get_span().len > 1) {
+        diag.emit(expr.get_span(), DiagnosticKind::MoreThanOneChar);
+    }
+}
+
 void SemChecker::visit(ast::StructField& /*field*/) {}
 
 void SemChecker::visit(ast::StructDecl& /*decl*/) {}

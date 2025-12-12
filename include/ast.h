@@ -65,6 +65,7 @@ struct ElseExpr;
 struct LoopExpr;
 struct WhileExpr;
 struct StringExpr;
+struct CharExpr;
 struct StructField;
 struct StructDecl;
 struct EnumField;
@@ -100,6 +101,7 @@ enum class ASTKind : std::uint8_t {
     LoopExpr,
     WhileExpr,
     StringExpr,
+    CharExpr,
     StructField,
     StructDecl,
     EnumField,
@@ -143,6 +145,7 @@ public:
     virtual void visit(LoopExpr&) = 0;
     virtual void visit(WhileExpr&) = 0;
     virtual void visit(StringExpr&) = 0;
+    virtual void visit(CharExpr&) = 0;
     virtual void visit(StructField&) = 0;
     virtual void visit(StructDecl&) = 0;
     virtual void visit(EnumField&) = 0;
@@ -899,6 +902,23 @@ struct StringExpr final : Expr {
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "String '"
+               << source->get_string(span) << '\'';
+        dump_type(stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+};
+
+struct CharExpr final : Expr {
+    Span span;
+
+    static constexpr ASTKind Kind = ASTKind::CharExpr;
+
+    explicit CharExpr(Span span) : Expr(Kind, span), span(span) {};
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "Char '"
                << source->get_string(span) << '\'';
         dump_type(stream);
     }

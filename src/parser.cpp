@@ -569,6 +569,10 @@ ExprResult Parser::parse_expr(const int precedence,
         next_token();
         break;
     }
+    case TokenKind::Char:
+        lhs = std::make_unique<ast::CharExpr>(tok.get_span());
+        next_token();
+        break;
     case TokenKind::PlusPlus:
     case TokenKind::MinusMinus:
     case TokenKind::LogicalNot:

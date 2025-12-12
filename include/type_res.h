@@ -56,6 +56,7 @@ public:
     void visit(ast::LoopExpr& expr) override;
     void visit(ast::WhileExpr& expr) override;
     void visit(ast::StringExpr& expr) override;
+    void visit(ast::CharExpr& expr) override;
     void visit(ast::StructField& field) override;
     void visit(ast::StructDecl& decl) override;
     void visit(ast::EnumField& field) override;
@@ -82,6 +83,7 @@ public:
     void visit(ast::FloatExpr& expr) override { resolve_node(expr); }
     void visit(ast::BoolExpr& expr) override { resolve_node(expr); }
     void visit(ast::StringExpr& expr) override { resolve_node(expr); }
+    void visit(ast::CharExpr& expr) override { resolve_node(expr); }
     void visit(ast::Identifier& expr) override { resolve_node(expr); }
 
     void visit(ast::PrefixExpr& expr) override {

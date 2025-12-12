@@ -48,6 +48,7 @@ public:
     void visit(ast::LoopExpr& expr) override;
     void visit(ast::WhileExpr& expr) override;
     void visit(ast::StringExpr& expr) override;
+    void visit(ast::CharExpr& expr) override;
     void visit(ast::StructField& field) override;
     void visit(ast::StructDecl& decl) override;
     void visit(ast::EnumField& field) override;
