@@ -229,7 +229,8 @@ Result<std::unique_ptr<ast::EnumField>> Parser::parse_enum_field() {
 
     if (kind(TokenKind::LParen)) {
         std::vector<std::shared_ptr<type::Type>> types;
-        while (!consume(TokenKind::RParen)) {
+        next_token();
+        while (!tok.is(TokenKind::RParen)) {
             auto type = parse_type();
 
             if (!type.is_valid()) {
@@ -238,11 +239,15 @@ Result<std::unique_ptr<ast::EnumField>> Parser::parse_enum_field() {
 
             types.push_back(type.take());
 
-            if (!tok.is(TokenKind::RParen) && !tok_assert(TokenKind::Comma)) {
-                return Result<std::unique_ptr<ast::EnumField>>();
+            if (!tok.is(TokenKind::RParen)) {
+                if (!tok_assert(TokenKind::Comma))
+                    return Result<std::unique_ptr<ast::EnumField>>();
+
+                next_token();
             }
         }
 
+        next_token();
         span += prev_tok.get_span();
         return Result(std::make_unique<ast::EnumField>(span, std::move(ident),
                                                        std::move(types)));
@@ -377,8 +382,10 @@ Result<std::vector<std::unique_ptr<ast::Param>>> Parser::parse_func_params() {
 
         params.push_back(param_decl.take());
 
-        if (!tok.is(TokenKind::RParen) && !tok_assert(TokenKind::Comma)) {
-            return Result<std::vector<std::unique_ptr<ast::Param>>>();
+        if (!tok.is(TokenKind::RParen)) {
+            if (!tok_assert(TokenKind::Comma))
+                return Result<std::vector<std::unique_ptr<ast::Param>>>();
+            next_token();
         }
     }
 
@@ -485,17 +492,23 @@ StmtResult Parser::parse_stmt() {
             if (!type.is_valid())
                 return StmtError();
 
-            auto eq = tok.get_span();
-            if (!tok_assert(TokenKind::Eq))
-                return StmtError();
+            if (tok.is(TokenKind::Eq)) {
+                auto eq = tok.get_span();
+                if (!tok_assert(TokenKind::Eq))
+                    return StmtError();
 
-            auto expr = prime_parse_expr();
-            if (!expr.is_valid())
-                return StmtError();
+                auto expr = prime_parse_expr();
+                if (!expr.is_valid())
+                    return StmtError();
 
-            span += prev_tok.get_span();
-            stmt = std::make_unique<ast::LetStmt>(span, std::move(ident),
-                                                  type.take(), expr.take(), eq);
+                span += prev_tok.get_span();
+                stmt = std::make_unique<ast::LetStmt>(
+                    span, std::move(ident), type.take(), expr.take(), eq);
+            } else {
+                span += prev_tok.get_span();
+                stmt = std::make_unique<ast::LetStmt>(span, std::move(ident),
+                                                      type.take());
+            }
         } else if (tok.is(TokenKind::Eq)) {
             auto expr = prime_parse_expr();
             if (!expr.is_valid())
@@ -599,10 +612,10 @@ ExprResult Parser::parse_expr(const int precedence,
         next_token();
         break;
     }
-    case TokenKind::LBrace: {
+    case TokenKind::LBracket: {
         std::vector<std::unique_ptr<ast::Expr>> vals;
 
-        while (!kind(TokenKind::RBrace)) {
+        while (!kind(TokenKind::RBracket)) {
             auto expr = parse_expr();
             if (!expr.is_valid())
                 return ExprError();
@@ -610,7 +623,7 @@ ExprResult Parser::parse_expr(const int precedence,
             vals.push_back(expr.take());
 
             if (!tok.is(TokenKind::Comma)) {
-                if (!tok_assert(TokenKind::RBrace))
+                if (!tok_assert(TokenKind::RBracket))
                     return ExprError();
                 break;
             }
@@ -619,6 +632,15 @@ ExprResult Parser::parse_expr(const int precedence,
         span += tok.get_span();
         next_token();
         lhs = std::make_unique<ast::ArrayInitExpr>(span, std::move(vals));
+        break;
+    }
+    case TokenKind::LBrace: {
+        auto block = parse_block();
+        if (!block.is_valid())
+            return ExprError();
+
+        span += prev_tok.get_span();
+        lhs = block.take();
         break;
     }
     case TokenKind::KwFor:
@@ -946,8 +968,13 @@ ExprResult Parser::parse_loop_expr() {
         return ExprError();
 
     span += block.get()->span;
+    if (expr.is_valid()) {
+        return ExprResult(
+            std::make_unique<ast::LoopExpr>(span, expr.take(), block.take()));
+    }
+
     return ExprResult(
-        std::make_unique<ast::LoopExpr>(span, expr.take(), block.take()));
+        std::make_unique<ast::LoopExpr>(span, nullptr, block.take()));
 }
 
 ExprResult Parser::parse_while_expr() {
@@ -962,7 +989,7 @@ ExprResult Parser::parse_while_expr() {
     if (!block.is_valid())
         return ExprError();
 
-    span += block.take()->span;
+    span += block.get()->span;
     return ExprResult(
         std::make_unique<ast::WhileExpr>(span, expr.take(), block.take()));
 }

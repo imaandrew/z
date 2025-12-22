@@ -463,16 +463,17 @@ void SemChecker::visit(ast::ForExpr& expr) {
 
 void SemChecker::visit(ast::LetStmt& stmt) {
     // stmt.ident->accept(*this);
-    if (stmt.type) {
+    if (stmt.val) {
         stmt.val->accept(*this);
+    }
+
+    if (stmt.type && stmt.val) {
         if (stmt.val->has_type() &&
             !stmt.type->is_assignment_compatible(stmt.val->node_type.get())) {
             diag.emit(stmt.val->get_span(), DiagnosticKind::InvalidAssignment,
                       stmt.val->node_type->basic_name(),
                       stmt.type->basic_name());
         }
-    } else if (stmt.val) {
-        stmt.val->accept(*this);
     }
 }
 

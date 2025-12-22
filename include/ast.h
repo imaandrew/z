@@ -548,14 +548,14 @@ struct StructInitExpr final : Expr {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
-struct Block final : Stmt {
+struct Block final : Expr {
     std::vector<std::unique_ptr<Stmt>> stmts;
     ScopeContext ctxt;
 
     static constexpr ASTKind Kind = ASTKind::Block;
 
     Block(Span span, std::vector<std::unique_ptr<Stmt>> stmts)
-        : Stmt(Kind, span), stmts(std::move(stmts)) {};
+        : Expr(Kind, span), stmts(std::move(stmts)) {};
 
     ScopeContext* get_scope_ctxt() { return &ctxt; }
 
@@ -745,6 +745,10 @@ struct LetStmt final : Stmt {
 
     LetStmt(Span span, std::unique_ptr<Identifier> ident)
         : Stmt(Kind, span), ident(std::move(ident)) {};
+
+    LetStmt(Span span, std::unique_ptr<Identifier> ident,
+            std::shared_ptr<type::Type> type)
+        : Stmt(Kind, span), ident(std::move(ident)), type(std::move(type)) {};
 
     LetStmt(Span span, std::unique_ptr<Identifier> ident,
             std::shared_ptr<Expr> val, Span eq)
