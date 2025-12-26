@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <generator>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -181,6 +182,8 @@ struct ASTNode {
     virtual void dump(SourceManager* source, int indent = 0,
                       std::ostream& stream = std::cout) const = 0;
 
+    virtual std::generator<ASTNode*> children() { co_return; }
+
     void dump_type(std::ostream& stream = std::cout) const {
         stream << " - type: ";
         if (node_type)
@@ -336,6 +339,8 @@ struct PrefixExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield expr.get(); }
 };
 
 struct PostfixExpr final : Expr {
@@ -357,6 +362,8 @@ struct PostfixExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield expr.get(); }
 };
 
 struct BinaryExpr final : Expr {
@@ -381,6 +388,11 @@ struct BinaryExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield lhs.get();
+        co_yield rhs.get();
+    }
 };
 
 struct TernaryExpr final : Expr {
@@ -408,6 +420,12 @@ struct TernaryExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield lhs.get();
+        co_yield mhs.get();
+        co_yield rhs.get();
+    }
 };
 
 // NOLINTEND(readability-identifier-length)
@@ -433,6 +451,12 @@ struct CallExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        for (const auto& arg : args)
+            co_yield arg.get();
+    }
 };
 
 struct ArrayExpr final : Expr {
@@ -440,9 +464,6 @@ struct ArrayExpr final : Expr {
     std::unique_ptr<Expr> val;
 
     static constexpr ASTKind Kind = ASTKind::ArrayExpr;
-
-    ArrayExpr(Span span, std::unique_ptr<Expr> ident)
-        : Expr(Kind, span), ident(std::move(ident)) {};
 
     ArrayExpr(Span span, std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
         : Expr(Kind, span), ident(std::move(ident)), val(std::move(val)) {};
@@ -452,11 +473,15 @@ struct ArrayExpr final : Expr {
         stream << std::string(indent, ' ') << "ArrayExpr";
         dump_type(stream);
         ident->dump(source, indent + 2, stream);
-        if (val)
-            val->dump(source, indent + 2, stream);
+        val->dump(source, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        co_yield val.get();
+    }
 
     [[nodiscard]] bool is_assignable() const override { return true; }
 };
@@ -482,6 +507,11 @@ struct FieldExpr final : Expr {
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
+    std::generator<ASTNode*> children() override {
+        co_yield container.get();
+        co_yield field.get();
+    }
+
     [[nodiscard]] bool is_assignable() const override { return true; }
 };
 
@@ -503,6 +533,11 @@ struct ArrayInitExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        for (const auto& val : vals)
+            co_yield val.get();
+    }
 };
 
 struct StructExprField final : Expr {
@@ -525,6 +560,11 @@ struct StructExprField final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        co_yield val.get();
+    }
 };
 
 struct StructInitExpr final : Expr {
@@ -549,6 +589,12 @@ struct StructInitExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        for (const auto& field : fields)
+            co_yield field.get();
+    }
 };
 
 struct TupleExpr final : Expr {
@@ -571,6 +617,11 @@ struct TupleExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield first.get();
+        co_yield second.get();
+    }
 };
 
 struct Block final : Expr {
@@ -594,6 +645,11 @@ struct Block final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        for (const auto& stmt : stmts)
+            co_yield stmt.get();
+    }
 };
 
 struct Param final : Expr {
@@ -616,6 +672,8 @@ struct Param final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield name.get(); }
 };
 
 struct Decl : ASTNode {
@@ -664,6 +722,18 @@ struct FuncDecl final : Decl {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield name.get();
+
+        if (impl_type)
+            co_yield name.get();
+
+        for (const auto& param : params)
+            co_yield param.get();
+
+        co_yield body.get();
+    }
 
     void declare_type(SymbolTable* syms) override {
         auto param_types = std::vector<std::shared_ptr<type::Type>>();
@@ -719,6 +789,8 @@ struct BreakStmt final : Stmt {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield expr.get(); }
 };
 
 struct ContinueStmt final : Stmt {
@@ -758,6 +830,12 @@ struct ForExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        co_yield expr.get();
+        co_yield block.get();
+    }
 };
 
 struct LetStmt final : Stmt {
@@ -801,6 +879,12 @@ struct LetStmt final : Stmt {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        if (val)
+            co_yield val.get();
+    }
 };
 
 struct ReturnStmt final : Stmt {
@@ -821,6 +905,11 @@ struct ReturnStmt final : Stmt {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        if (expr)
+            co_yield expr.get();
+    }
 };
 
 struct ElseExpr final : Expr {
@@ -847,6 +936,13 @@ struct ElseExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        if (if_expr)
+            co_yield if_expr.get();
+        else if (block)
+            co_yield block.get();
+    }
 };
 
 struct IfExpr final : Expr {
@@ -875,6 +971,13 @@ struct IfExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield expr.get();
+        co_yield block.get();
+        if (else_expr)
+            co_yield else_expr.get();
+    }
 };
 
 struct LoopExpr final : Expr {
@@ -898,6 +1001,12 @@ struct LoopExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        if (expr)
+            co_yield expr.get();
+        co_yield block.get();
+    }
 };
 
 struct WhileExpr final : Expr {
@@ -919,6 +1028,11 @@ struct WhileExpr final : Expr {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield expr.get();
+        co_yield block.get();
+    }
 };
 
 struct StringExpr final : Expr {
@@ -977,6 +1091,8 @@ struct StructField final : ASTNode {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield ident.get(); }
 };
 
 struct StructDecl final : Decl {
@@ -1000,6 +1116,12 @@ struct StructDecl final : Decl {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        for (const auto& field : fields)
+            co_yield field.get();
+    }
 
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->get_ident();
@@ -1070,6 +1192,8 @@ struct EnumField final : ASTNode {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield ident.get(); }
 };
 
 struct EnumDecl final : Decl {
@@ -1093,6 +1217,12 @@ struct EnumDecl final : Decl {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        for (const auto& field : fields)
+            co_yield field.get();
+    }
 
     void declare_type(SymbolTable* syms) override {
         const auto name = ident->get_ident();
@@ -1155,6 +1285,11 @@ struct ConstDecl final : Decl {
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        co_yield val.get();
+    }
+
     void declare_type(SymbolTable* syms) override {
         valid = syms->declare_var(ident, type);
     }
@@ -1196,6 +1331,11 @@ struct StaticDecl final : Decl {
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        co_yield val.get();
+    }
 
     void declare_type(SymbolTable* syms) override {
         valid = syms->declare_var(ident, type);

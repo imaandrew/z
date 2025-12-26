@@ -337,7 +337,7 @@ void TypeResolver::visit(ast::FuncDecl& func) {
     func.body->accept(*this);
 
     if (!func.body->has_type()) {
-        resolve(&func);
+        resolve_subtree(&func);
         return;
     }
 
@@ -346,7 +346,7 @@ void TypeResolver::visit(ast::FuncDecl& func) {
     func.node_type = syms->get_func(func.get_abs_name());
     func.name->node_type = syms->get_func(func.get_abs_name());
 
-    resolve(&func);
+    resolve_subtree(&func);
 
     infctxt.emplace();
 }
@@ -527,7 +527,7 @@ void TypeResolver::visit(ast::ConstDecl& decl) {
 
     decl.node_type = std::make_shared<type::VoidType>();
 
-    resolve(&decl);
+    resolve_subtree(&decl);
     infctxt.emplace();
 }
 
@@ -541,7 +541,7 @@ void TypeResolver::visit(ast::StaticDecl& decl) {
 
     decl.node_type = std::make_shared<type::VoidType>();
 
-    resolve(&decl);
+    resolve_subtree(&decl);
     infctxt.emplace();
 }
 
@@ -564,12 +564,15 @@ void TypeResolver::resolve(std::shared_ptr<type::Type>& type) {
     }
 }
 
-void TypeResolver::resolve(ast::ASTNode* node) {
+void TypeResolver::resolve_subtree(ast::ASTNode* node) {
     if (node == nullptr)
         return;
 
-    ResolutionVisitor res(*this);
-    node->accept(res);
+    if (node->has_type())
+        resolve(node->node_type);
+
+    for (auto* child : node->children())
+        resolve_subtree(child);
 }
 
 // NOLINTEND(bugprone-unchecked-optional-access)

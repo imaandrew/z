@@ -720,23 +720,19 @@ ExprResult Parser::parse_expr(const int precedence,
                                                   std::move(args));
             break;
         }
-        case TokenKind::LBracket:
-            if (kind(TokenKind::RBracket)) {
-                span += tok.get_span();
-                lhs = std::make_unique<ast::ArrayExpr>(span, std::move(lhs));
-            } else {
-                auto expr = parse_expr();
-                if (!expr.is_valid())
-                    return ExprError();
+        case TokenKind::LBracket: {
+            auto expr = prime_parse_expr(0, ignore);
+            if (!expr.is_valid())
+                return ExprError();
 
-                span += tok.get_span();
-                lhs = std::make_unique<ast::ArrayExpr>(span, std::move(lhs),
-                                                       expr.take());
-                if (!tok_assert(TokenKind::RBracket))
-                    return ExprError();
-            }
+            span += tok.get_span();
+            lhs = std::make_unique<ast::ArrayExpr>(span, std::move(lhs),
+                                                   expr.take());
+            if (!tok_assert(TokenKind::RBracket))
+                return ExprError();
             next_token();
             break;
+        }
         case TokenKind::LBrace: {
             std::vector<std::unique_ptr<ast::StructExprField>> vals;
 
