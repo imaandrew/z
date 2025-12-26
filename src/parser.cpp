@@ -822,12 +822,18 @@ std::unique_ptr<ast::Identifier> Parser::parse_ident_unchecked() {
 }
 
 std::unique_ptr<ast::Expr> Parser::parse_num() const {
-    const auto val = source->get_string(tok.get_span());
+    const auto str = source->get_string(tok.get_span());
+    std::string val;
+
+    for (const auto& c : str) {
+        if (c != '_')
+            val += c;
+    }
 
     for (size_t i = 0; i < val.length(); i++) {
         if (val[i] == '.') {
             double num = NAN;
-            if (std::from_chars(val.begin(), val.end(), num).ec ==
+            if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
                 std::errc::result_out_of_range) {
                 diag.emit(tok.get_span(), DiagnosticKind::FloatOutOfRange);
                 auto res = std::make_unique<ast::FloatExpr>(tok, num);
@@ -861,7 +867,7 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
 
     unsigned long long num = 0;
     if (base != 10) {
-        if (std::from_chars(&val[2], val.end(), num, base).ec ==
+        if (std::from_chars(&val[2], val.end().base(), num, base).ec ==
             std::errc::result_out_of_range) {
             diag.emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
             auto res = std::make_unique<ast::IntExpr>(tok, num);
@@ -869,7 +875,7 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
             return res;
         }
     } else {
-        if (std::from_chars(val.begin(), val.end(), num).ec ==
+        if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
             std::errc::result_out_of_range) {
             diag.emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
             auto res = std::make_unique<ast::IntExpr>(tok, num);
