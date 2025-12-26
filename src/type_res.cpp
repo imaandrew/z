@@ -287,6 +287,14 @@ void TypeResolver::visit(ast::StructInitExpr& expr) {
     }
 }
 
+void TypeResolver::visit(ast::TupleExpr& expr) {
+    expr.first->accept(*this);
+    expr.second->accept(*this);
+
+    expr.node_type = std::make_unique<type::TupleType>(expr.first->node_type,
+                                                       expr.second->node_type);
+}
+
 void TypeResolver::visit(ast::Block& block) {
     syms->enter_scope(block.get_scope_ctxt());
     auto scope_type = infctxt->new_type(type::InferType::Block);

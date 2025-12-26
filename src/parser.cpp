@@ -606,6 +606,17 @@ ExprResult Parser::parse_expr(const int precedence,
             return ExprError();
 
         lhs = expr.take();
+        if (tok.is(TokenKind::Comma)) {
+            auto second = prime_parse_expr(0, ignore);
+            if (!second.is_valid())
+                return ExprError();
+
+            span += tok.get_span();
+
+            lhs = std::make_unique<ast::TupleExpr>(span, std::move(lhs),
+                                                   second.take());
+        }
+
         if (!tok_assert(TokenKind::RParen))
             return ExprError();
 

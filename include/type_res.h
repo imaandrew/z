@@ -43,6 +43,7 @@ public:
     void visit(ast::ArrayInitExpr& expr) override;
     void visit(ast::StructExprField& expr) override;
     void visit(ast::StructInitExpr& expr) override;
+    void visit(ast::TupleExpr& expr) override;
     void visit(ast::Block& block) override;
     void visit(ast::Param& param) override;
     void visit(ast::FuncDecl& func) override;
@@ -166,6 +167,12 @@ public:
             if (field)
                 field->accept(*this);
         }
+    }
+
+    void visit(ast::TupleExpr& expr) override {
+        expr.first->accept(*this);
+        expr.second->accept(*this);
+        resolve_node(expr);
     }
 
     void visit(ast::Block& block) override {

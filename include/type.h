@@ -35,6 +35,7 @@ enum class TypeKind : std::uint8_t {
     Struct,
     Enum,
     EnumVariant,
+    Tuple,
     Void,
     Invalid,
     Inferred
@@ -530,6 +531,36 @@ public:
 
     [[nodiscard]] std::string basic_name() const override {
         return parent_enum;
+    }
+};
+
+class TupleType final : public Type {
+    std::shared_ptr<Type> first;
+    std::shared_ptr<Type> second;
+
+public:
+    static constexpr TypeKind Kind = TypeKind::Tuple;
+
+    TupleType(std::shared_ptr<Type> first, std::shared_ptr<Type> second)
+        : Type(Kind), first(std::move(first)), second(std::move(second)) {};
+
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_tuple = cast<const TupleType>(other);
+            return first->is_assignment_compatible(other_tuple->first.get()) &&
+                   second->is_assignment_compatible(other_tuple->second.get());
+        }
+
+        return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << basic_name();
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return std::format("({}, {})", first->basic_name(),
+                           second->basic_name());
     }
 };
 

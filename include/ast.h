@@ -51,6 +51,7 @@ struct FieldExpr;
 struct ArrayInitExpr;
 struct StructExprField;
 struct StructInitExpr;
+struct TupleExpr;
 struct Identifier;
 struct Block;
 struct Param;
@@ -88,6 +89,7 @@ enum class ASTKind : std::uint8_t {
     ArrayInitExpr,
     StructExprField,
     StructInitExpr,
+    TupleExpr,
     Block,
     Param,
     FuncDecl,
@@ -131,6 +133,7 @@ public:
     virtual void visit(ArrayInitExpr&) = 0;
     virtual void visit(StructExprField&) = 0;
     virtual void visit(StructInitExpr&) = 0;
+    virtual void visit(TupleExpr&) = 0;
     virtual void visit(Identifier&) = 0;
     virtual void visit(Block&) = 0;
     virtual void visit(Param&) = 0;
@@ -543,6 +546,28 @@ struct StructInitExpr final : Expr {
         for (const auto& field : fields) {
             field->dump(source, indent + 2, stream);
         }
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+};
+
+struct TupleExpr final : Expr {
+    std::unique_ptr<Expr> first;
+    std::unique_ptr<Expr> second;
+
+    static constexpr ASTKind Kind = ASTKind::TupleExpr;
+
+    TupleExpr(Span span, std::unique_ptr<Expr> first,
+              std::unique_ptr<Expr> second)
+        : Expr(Kind, span), first(std::move(first)),
+          second(std::move(second)) {};
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "TupleExpr";
+        dump_type(stream);
+        first->dump(source, indent + 2, stream);
+        second->dump(source, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }

@@ -402,6 +402,11 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
     }
 }
 
+void SemChecker::visit(ast::TupleExpr& expr) {
+    expr.first->accept(*this);
+    expr.second->accept(*this);
+}
+
 void SemChecker::visit(ast::Block& block) {
     syms->enter_scope(block.get_scope_ctxt());
     for (auto& stmt : block.stmts) {
