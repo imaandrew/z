@@ -85,7 +85,8 @@ public:
         return SourceManager(input);
     }
 
-    static std::optional<SourceManager> Create(const char* path_) {
+    static std::optional<SourceManager>
+    CreateFromPath(const std::string& path_) {
         auto path = std::filesystem::path(path_);
         if (!std::filesystem::exists(path)) {
             std::cerr << std::format("error: no such file or directory: '{}'\n",

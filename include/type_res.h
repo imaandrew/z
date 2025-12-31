@@ -24,7 +24,7 @@ public:
     TypeResolver(SymbolTable* syms, SourceManager* src)
         : syms(syms), diag(src), cc(types, syms), cs(diag) {};
 
-    void resolve(ast::SourceFileDecl* file);
+    void resolve(ast::SourceFileDecl* file, bool dump_constraints = false);
     void resolve_subtree(ast::ASTNode* node);
 };
 

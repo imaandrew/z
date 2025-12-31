@@ -1,5 +1,6 @@
 #include "type_res.h"
 #include "ast.h"
+#include "constraint.h"
 #include <memory>
 
 namespace z::type {
@@ -14,10 +15,17 @@ void TypeResolver::resolve_decls(const ast::SourceFileDecl* file) const {
     }
 }
 
-void TypeResolver::resolve(ast::SourceFileDecl* file) {
+void TypeResolver::resolve(ast::SourceFileDecl* file, bool dump_constraints) {
     resolve_decls(file);
 
     auto constraints = cc.collect(file);
+
+    if (dump_constraints) {
+        for (const auto& c : constraints) {
+            if (const auto* eq = std::get_if<EqualityConstraint>(&c))
+                std::cout << eq->to_string() << '\n';
+        }
+    }
 
     cs.register_vars(types);
 
