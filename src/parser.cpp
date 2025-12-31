@@ -79,8 +79,9 @@ ast::BinOpPrecedence get_op_precedence(const TokenKind kind) {
 }
 } // namespace
 
-std::vector<std::unique_ptr<ast::Decl>> Parser::parse() {
+std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
     next_token();
+    auto span = tok.get_span();
 
     std::vector<std::unique_ptr<ast::Decl>> decls;
 
@@ -116,7 +117,8 @@ std::vector<std::unique_ptr<ast::Decl>> Parser::parse() {
         }
     }
 
-    return decls;
+    span += tok.get_span();
+    return std::make_unique<ast::SourceFileDecl>(span, std::move(decls));
 }
 
 DeclResult Parser::parse_struct_decl() {

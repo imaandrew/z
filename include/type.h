@@ -11,6 +11,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace z::ast {
@@ -38,7 +39,8 @@ enum class TypeKind : std::uint8_t {
     Tuple,
     Void,
     Invalid,
-    Inferred
+    Inferred,
+    Type
 };
 
 class Type {
@@ -282,13 +284,15 @@ public:
 
 class ArrayType final : public Type {
     std::shared_ptr<Type> type;
-    std::shared_ptr<ast::Expr> size;
+    std::variant<std::shared_ptr<ast::Expr>, std::uint64_t> size;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Array;
 
     explicit ArrayType(std::shared_ptr<Type> type);
     ArrayType(std::shared_ptr<Type> type, std::shared_ptr<ast::Expr> size);
+    ArrayType(std::shared_ptr<Type> type, std::uint64_t size)
+        : Type(Kind), type(std::move(type)), size(size) {};
     ~ArrayType() override;
 
     ArrayType(const ArrayType&) = delete;
@@ -379,6 +383,10 @@ public:
 
     [[nodiscard]] std::shared_ptr<Type> get_return_val() const {
         return return_val;
+    }
+
+    [[nodiscard]] const std::vector<std::shared_ptr<Type>>& get_params() const {
+        return params;
     }
 
     [[nodiscard]] std::vector<std::shared_ptr<Type>>& get_params() {
@@ -641,18 +649,58 @@ public:
     }
 
     void dump(std::ostream& stream = std::cout) const override {
-        stream << "InferrableType";
+        std::string i;
+
+        switch (infer_type) {
+        case InferType::IntLiteral:
+            i = "integer";
+            break;
+        case InferType::FloatLiteral:
+            i = "float";
+            break;
+        case InferType::Block:
+            i = "block";
+            break;
+        case InferType::Var:
+            i = "var";
+            break;
+        }
+        stream << "InferrableType { id: " << id << ", infer_type: " << i
+               << " }";
     }
 
     [[nodiscard]] std::string basic_name() const override {
-        switch (infer_type) {
-        case InferType::IntLiteral:
-            return "integer";
-        case InferType::FloatLiteral:
-            return "float";
-        default:
-            return "unknown";
+        return std::format("?{}", id);
+    }
+};
+
+class TypeType final : public Type {
+    std::shared_ptr<Type> internal_type;
+
+public:
+    static constexpr TypeKind Kind = TypeKind::Type;
+
+    explicit TypeType(std::shared_ptr<Type> type)
+        : Type(Kind), internal_type(std::move(type)) {}
+
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_type = cast<const TypeType>(other);
+            return internal_type->is_assignment_compatible(
+                other_type->internal_type.get());
         }
+
+        return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "TypeType { ";
+        internal_type->dump(stream);
+        stream << " }";
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return std::format("type({})", internal_type->basic_name());
     }
 };
 } // namespace z::type

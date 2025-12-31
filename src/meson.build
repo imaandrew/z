@@ -1,4 +1,6 @@
 sources = files(
+  'constraint_gen.cpp',
+  'constraint_solve.cpp',
   'lexer.cpp',
   'parser.cpp',
   'scope.cpp',

@@ -86,6 +86,6 @@ class Parser {
 public:
     Parser(const Lexer& lexer, SourceManager* source)
         : lexer(lexer), diag(source), source(source) {};
-    std::vector<std::unique_ptr<ast::Decl>> parse();
+    std::unique_ptr<ast::SourceFileDecl> parse();
 };
 } // namespace z

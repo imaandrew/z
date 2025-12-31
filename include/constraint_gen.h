@@ -1,25 +1,53 @@
 #pragma once
 
 #include "ast.h"
-#include "diagnostics.h"
-#include "src_mgr.h"
+#include "constraint.h"
 #include "sym_table.h"
-#include "type.h"
+#include <utility>
+#include <vector>
 
-namespace z {
-
-class SemChecker : public ast::ASTVisitor {
+namespace z::type {
+class ConstraintGenerator : public ast::ASTVisitor {
+    std::vector<std::shared_ptr<InferredType>>& type_vars;
+    std::vector<Constraint> constraints;
     SymbolTable* syms;
-    DiagnosticsEngine diag;
+    std::uint32_t type_id = 0;
+    std::vector<std::shared_ptr<type::Type>> block_type_stack;
+
+    std::shared_ptr<Type> new_type(InferType type) {
+        auto v = std::make_shared<InferredType>(type_id++, type);
+        type_vars.emplace_back(v);
+        return v;
+    }
+
+    std::shared_ptr<Type> new_var() { return new_type(InferType::Var); }
+
+    void emit(Constraint c) { constraints.push_back(std::move(c)); }
+
+    void eq(std::shared_ptr<Type> lhs, std::shared_ptr<Type> rhs) {
+        emit(EqualityConstraint{.lhs = std::move(lhs), .rhs = std::move(rhs)});
+    }
+
+    void push_block_type(std::shared_ptr<type::Type> type) {
+        block_type_stack.push_back(std::move(type));
+    }
+
+    void pop_block_type() { block_type_stack.pop_back(); }
+
+    std::shared_ptr<type::Type>& peek_block_type() {
+        return block_type_stack.back();
+    }
 
 public:
-    SemChecker(SymbolTable* syms, SourceManager* src)
-        : syms(syms), diag(src) {};
-    ~SemChecker() override = default;
-    SemChecker(const SemChecker& other) = delete;
-    SemChecker(SemChecker&& other) = delete;
-    SemChecker& operator=(const SemChecker& other) = delete;
-    SemChecker& operator=(SemChecker&& other) = delete;
+    explicit ConstraintGenerator(
+        std::vector<std::shared_ptr<InferredType>>& type_vars,
+        SymbolTable* syms)
+        : type_vars(type_vars), syms(syms) {}
+
+    std::vector<Constraint> collect(ast::Decl* root) {
+        root->accept(*this);
+        return constraints;
+    }
 
     void visit(ast::Identifier& ident) override;
     void visit(ast::IntExpr& expr) override;
@@ -58,6 +86,6 @@ public:
     void visit(ast::ConstDecl& decl) override;
     void visit(ast::StaticDecl& decl) override;
 
-    void check_expr_assignable(ast::Expr& expr);
+    void resolve_type_name(std::shared_ptr<type::Type>& type);
 };
-} // namespace z
+} // namespace z::type

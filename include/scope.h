@@ -26,6 +26,7 @@ class ScopeContext {
     std::unordered_map<std::string, TypeWithSpan> funcs;
     std::unordered_map<std::string_view, TypeWithSpan> user_defined_types;
 
+public:
     bool declare_var(const std::unique_ptr<ast::Identifier>& name,
                      std::shared_ptr<type::Type> type);
     bool declare_func(const std::string& name, const Token& tok,
@@ -36,10 +37,6 @@ class ScopeContext {
     std::optional<TypeWithSpan> get_func(const std::string& name) const;
     std::optional<TypeWithSpan> get_type(std::string_view name) const;
 
-    friend class SymbolTable;
-    friend class TypeResolver;
-
-public:
     bool set_type(std::shared_ptr<type::Type> type) {
         if (scope_type) {
             return false;

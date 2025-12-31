@@ -56,6 +56,7 @@ struct TupleExpr;
 struct Identifier;
 struct Block;
 struct Param;
+struct SourceFileDecl;
 struct FuncDecl;
 struct BreakStmt;
 struct ContinueStmt;
@@ -93,6 +94,7 @@ enum class ASTKind : std::uint8_t {
     TupleExpr,
     Block,
     Param,
+    SourceFileDecl,
     FuncDecl,
     BreakStmt,
     ContinueStmt,
@@ -138,6 +140,7 @@ public:
     virtual void visit(Identifier&) = 0;
     virtual void visit(Block&) = 0;
     virtual void visit(Param&) = 0;
+    virtual void visit(SourceFileDecl&) = 0;
     virtual void visit(FuncDecl&) = 0;
     virtual void visit(BreakStmt&) = 0;
     virtual void visit(ContinueStmt&) = 0;
@@ -686,6 +689,34 @@ struct Decl : ASTNode {
 
     virtual void declare_type(SymbolTable* syms) = 0;
     virtual void resolve_sym(SymbolTable* syms) = 0;
+};
+
+struct SourceFileDecl : Decl {
+    std::vector<std::unique_ptr<Decl>> decls;
+
+    static constexpr ASTKind Kind = ASTKind::SourceFileDecl;
+
+    SourceFileDecl(Span span, std::vector<std::unique_ptr<Decl>> decls)
+        : Decl(Kind, span), decls(std::move(decls)) {}
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "SourceFileDecl";
+        dump_type(stream);
+        for (const auto& decl : decls) {
+            decl->dump(source, indent + 2, stream);
+        }
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        for (const auto& decl : decls)
+            co_yield decl.get();
+    }
+
+    void declare_type(SymbolTable* /*syms*/) override {}
+    void resolve_sym(SymbolTable* /*syms*/) override {}
 };
 
 struct FuncDecl final : Decl {

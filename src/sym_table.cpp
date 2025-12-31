@@ -13,6 +13,10 @@ namespace z {
 
 bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
                               std::shared_ptr<type::Type> type) {
+    // _ variable name "discards" value
+    if (name->to_string() == "_")
+        return true;
+
     const bool is_unique = scopes.back()->declare_var(name, std::move(type));
 
     if (!is_unique) {

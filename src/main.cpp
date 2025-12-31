@@ -21,26 +21,16 @@ int main(int argc, char** argv) {
     auto source_mgr = sm.value();
     auto lexer = Lexer(&source_mgr);
     auto parser = Parser(lexer, &source_mgr);
-    auto decls = parser.parse();
-    for (const auto& decl : decls) {
-        // decl->dump(0);
-    }
+    auto file = parser.parse();
+    // file->dump(&source_mgr, 0, std::cout);
 
     auto syms = SymbolTable(&source_mgr);
-    auto type_res = TypeResolver(&syms, &source_mgr);
+    auto type_res = type::TypeResolver(&syms, &source_mgr);
     auto sem = SemChecker(&syms, &source_mgr);
 
-    type_res.fill_top_level_syms(decls);
+    type_res.resolve(file.get());
 
-    for (const auto& decl : decls) {
-        decl->accept(type_res);
-    }
+    file->dump(&source_mgr, 0, std::cout);
 
-    for (const auto& decl : decls) {
-        decl->dump(&source_mgr);
-    }
-
-    for (const auto& decl : decls) {
-        decl->accept(sem);
-    }
+    file->accept(sem);
 }
