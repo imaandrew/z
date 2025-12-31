@@ -1,1 +1,4 @@
 build/
+subprojects/argparse-*
+subprojects/packagecache
+subprojects/.wraplock
