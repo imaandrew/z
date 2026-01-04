@@ -36,17 +36,17 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
     return is_unique;
 }
 
-bool SymbolTable::declare_func(const std::string& name, const Token& tok,
+bool SymbolTable::declare_func(const std::unique_ptr<ast::Identifier>& name,
                                std::shared_ptr<type::FunctionType> type) {
-    const bool is_unique =
-        scopes.back()->declare_func(name, tok, std::move(type));
+    const bool is_unique = scopes.back()->declare_func(name, std::move(type));
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(tok.get_span(),
-                                         DiagnosticKind::RedeclaredFunc, name);
+        auto data = diag.emit_with_notes(name->tok.get_span(),
+                                         DiagnosticKind::RedeclaredFunc,
+                                         name->to_string());
 
         for (const auto* scope : scopes) {
-            if (auto type = scope->get_func(name)) {
+            if (auto type = scope->get_func(name->get_ident())) {
                 data.add_note(type->span, "first defined here");
                 break;
             }
@@ -99,8 +99,7 @@ SymbolTable::get_global_var(std::string_view name) const {
     return nullptr;
 }
 
-std::shared_ptr<type::Type>
-SymbolTable::get_func(const std::string& name) const {
+std::shared_ptr<type::Type> SymbolTable::get_func(std::string_view name) const {
     for (auto* scope : std::ranges::reverse_view(scopes)) {
         if (auto type = scope->get_func(name)) {
             return type->type;

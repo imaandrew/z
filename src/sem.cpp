@@ -423,9 +423,6 @@ void SemChecker::visit(ast::SourceFileDecl& file) {
 }
 
 void SemChecker::visit(ast::FuncDecl& func) {
-    if (func.impl_type)
-        func.impl_type->get()->accept(*this);
-
     /* for (auto& param : func.params) {
         param->accept(*this);
     } */

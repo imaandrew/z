@@ -18,7 +18,8 @@ TokenKind get_keyword(const std::string& keyword) {
         {"for", TokenKind::KwFor},       {"if", TokenKind::KwIf},
         {"in", TokenKind::KwIn},         {"let", TokenKind::KwLet},
         {"loop", TokenKind::KwLoop},     {"return", TokenKind::KwReturn},
-        {"static", TokenKind::KwStatic}, {"struct", TokenKind::KwStruct},
+        {"self", TokenKind::KwSelf},     {"static", TokenKind::KwStatic},
+        {"struct", TokenKind::KwStruct}, {"trait", TokenKind::KwTrait},
         {"true", TokenKind::KwTrue},     {"while", TokenKind::KwWhile}};
 
     if (const auto kind = keywords.find(keyword); kind != keywords.end()) {

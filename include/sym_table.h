@@ -3,10 +3,8 @@
 #include "diagnostics.h"
 #include "scope.h"
 #include "src_mgr.h"
-#include "token.h"
 #include "type.h"
 #include <memory>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -29,7 +27,7 @@ public:
 
     bool declare_var(const std::unique_ptr<ast::Identifier>& name,
                      std::shared_ptr<type::Type> type);
-    bool declare_func(const std::string& name, const Token& tok,
+    bool declare_func(const std::unique_ptr<ast::Identifier>& name,
                       std::shared_ptr<type::FunctionType> type);
     bool declare_type(const std::unique_ptr<ast::Identifier>& name,
                       std::shared_ptr<type::Type> type);
@@ -38,7 +36,7 @@ public:
     [[nodiscard]] std::shared_ptr<type::Type>
     get_global_var(std::string_view name) const;
     [[nodiscard]] std::shared_ptr<type::Type>
-    get_func(const std::string& name) const;
+    get_func(std::string_view name) const;
     [[nodiscard]] std::shared_ptr<type::Type>
     get_type(std::string_view name) const;
     void update_type(std::string_view name, std::shared_ptr<type::Type>& type);

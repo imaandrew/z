@@ -430,6 +430,7 @@ public:
 class StructType final : public Type {
     std::string name;
     std::unordered_map<std::string_view, std::shared_ptr<Type>> fields;
+    std::unordered_map<std::string_view, std::shared_ptr<FunctionType>> funcs;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
@@ -462,6 +463,18 @@ public:
 
     bool has_field(std::string_view field) const {
         return fields.contains(field);
+    }
+
+    bool define_func(std::string_view name,
+                     std::shared_ptr<FunctionType> type) {
+        return funcs.insert({name, std::move(type)}).second;
+    }
+
+    std::shared_ptr<FunctionType> get_func_type(std::string_view func) const {
+        if (!funcs.contains(func))
+            return nullptr;
+
+        return funcs.at(func);
     }
 
     bool is_assignment_compatible(const Type* other) const override {

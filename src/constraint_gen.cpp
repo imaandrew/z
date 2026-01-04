@@ -250,11 +250,6 @@ void ConstraintGenerator::visit(ast::SourceFileDecl& file) {
 }
 
 void ConstraintGenerator::visit(ast::FuncDecl& func) {
-    if (func.impl_type) {
-        // func.impl_type->get()->node_type =
-        // syms->get_type(func.impl_type->get()->get_ident());
-    }
-
     for (auto& param : func.params) {
         param->accept(*this);
         resolve_type_name(param->type);
@@ -384,8 +379,17 @@ void ConstraintGenerator::visit(ast::StructDecl& decl) {
     decl.node_type = syms->get_type(decl.ident->get_ident());
     decl.ident->node_type = std::make_shared<TypeType>(decl.node_type);
 
+    const auto* struct_type = cast<StructType>(decl.node_type.get());
+
     for (auto& field : decl.fields) {
         field->accept(*this);
+    }
+
+    for (auto& func : decl.funcs) {
+        func->accept(*this);
+        auto* func_decl = cast<ast::FuncDecl>(func.get());
+        func->node_type = struct_type->get_func_type(func_decl->get_abs_name());
+        func_decl->name->node_type = func->node_type;
     }
 }
 

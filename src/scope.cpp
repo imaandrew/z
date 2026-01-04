@@ -3,7 +3,6 @@
 #include "type.h"
 #include <memory>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <utility>
 
@@ -19,10 +18,12 @@ bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
     return is_unique;
 }
 
-bool ScopeContext::declare_func(const std::string& name, const Token& tok,
+bool ScopeContext::declare_func(const std::unique_ptr<ast::Identifier>& name,
                                 std::shared_ptr<type::FunctionType> type) {
     const bool is_unique =
-        funcs.insert({name, TypeWithSpan(std::move(type), tok.get_span())})
+        funcs
+            .insert({name->get_ident(),
+                     TypeWithSpan(std::move(type), name->tok.get_span())})
             .second;
 
     return is_unique;
@@ -49,7 +50,7 @@ ScopeContext::get_var(std::string_view name) const {
 }
 
 std::optional<ScopeContext::TypeWithSpan>
-ScopeContext::get_func(const std::string& name) const {
+ScopeContext::get_func(std::string_view name) const {
     if (const auto func = funcs.find(name); func != funcs.end())
         return func->second;
 

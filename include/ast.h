@@ -721,7 +721,6 @@ struct SourceFileDecl : Decl {
 
 struct FuncDecl final : Decl {
     std::unique_ptr<Identifier> name;
-    std::optional<std::shared_ptr<Identifier>> impl_type;
     std::vector<std::unique_ptr<Param>> params;
     std::shared_ptr<type::Type> ret;
     std::unique_ptr<Block> body;
@@ -729,26 +728,18 @@ struct FuncDecl final : Decl {
     static constexpr ASTKind Kind = ASTKind::FuncDecl;
 
     FuncDecl(Span span, std::unique_ptr<Identifier> name,
-             std::optional<std::shared_ptr<Identifier>> impl_type,
              std::vector<std::unique_ptr<Param>> params,
              std::shared_ptr<type::Type> ret, std::unique_ptr<Block> body)
-        : Decl(Kind, span), name(std::move(name)),
-          impl_type(std::move(impl_type)), params(std::move(params)),
+        : Decl(Kind, span), name(std::move(name)), params(std::move(params)),
           ret(std::move(ret)), body(std::move(body)) {};
 
-    [[nodiscard]] std::string get_abs_name() const {
-        if (impl_type)
-            return impl_type->get()->to_string() + "::" + name->to_string();
-        return name->to_string();
-    }
+    [[nodiscard]] std::string get_abs_name() const { return name->to_string(); }
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FuncDecl";
         dump_type(stream);
         name->dump(source, indent + 2, stream);
-        if (impl_type && impl_type.has_value())
-            impl_type.value()->dump(source, indent + 2, stream);
         body->dump(source, indent + 2, stream);
     }
 
@@ -756,9 +747,6 @@ struct FuncDecl final : Decl {
 
     std::generator<ASTNode*> children() override {
         co_yield name.get();
-
-        if (impl_type)
-            co_yield name.get();
 
         for (const auto& param : params)
             co_yield param.get();
@@ -773,8 +761,7 @@ struct FuncDecl final : Decl {
         }
 
         valid = syms->declare_func(
-            get_abs_name(), name->tok,
-            std::make_shared<type::FunctionType>(param_types, ret));
+            name, std::make_shared<type::FunctionType>(param_types, ret));
     }
 
     void resolve_sym(SymbolTable* syms) override {
@@ -1129,13 +1116,15 @@ struct StructField final : ASTNode {
 struct StructDecl final : Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<StructField>> fields;
+    std::vector<std::unique_ptr<Decl>> funcs;
 
     static constexpr ASTKind Kind = ASTKind::StructDecl;
 
     StructDecl(Span span, std::unique_ptr<Identifier> ident,
-               std::vector<std::unique_ptr<StructField>> fields)
-        : Decl(Kind, span), ident(std::move(ident)),
-          fields(std::move(fields)) {};
+               std::vector<std::unique_ptr<StructField>> fields,
+               std::vector<std::unique_ptr<Decl>> funcs)
+        : Decl(Kind, span), ident(std::move(ident)), fields(std::move(fields)),
+          funcs(std::move(funcs)) {};
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -1144,6 +1133,8 @@ struct StructDecl final : Decl {
         ident->dump(source, indent + 2, stream);
         for (const auto& field : fields)
             field->dump(source, indent + 2, stream);
+        for (const auto& func : funcs)
+            func->dump(source, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1152,6 +1143,9 @@ struct StructDecl final : Decl {
         co_yield ident.get();
         for (const auto& field : fields)
             co_yield field.get();
+
+        for (const auto& func : funcs)
+            co_yield func.get();
     }
 
     void declare_type(SymbolTable* syms) override {
@@ -1175,6 +1169,26 @@ struct StructDecl final : Decl {
                 valid = false;
             }
         }
+
+        for (const auto& func : funcs) {
+            auto* func_decl = cast<FuncDecl>(func.get());
+            auto param_types = std::vector<std::shared_ptr<type::Type>>();
+            for (const auto& param : func_decl->params) {
+                param_types.push_back(param->type);
+            }
+
+            const bool is_unique =
+                struct_type->define_func(func_decl->name->get_ident(),
+                                         std::make_shared<type::FunctionType>(
+                                             param_types, func_decl->ret));
+            if (!is_unique) {
+                syms->diag.emit(func_decl->name->tok.get_span(),
+                                DiagnosticKind::DuplicateField,
+                                ident->to_string(),
+                                func_decl->name->to_string());
+                valid = false;
+            }
+        }
     }
 
     void resolve_sym(SymbolTable* syms) override {
@@ -1189,6 +1203,30 @@ struct StructDecl final : Decl {
                 if (syms->resolve_unk_type(field->type)) {
                     struct_type->replace_field_type(field->ident->get_ident(),
                                                     field->type);
+                } else {
+                    valid = false;
+                }
+            }
+        }
+
+        for (const auto& func : funcs) {
+            auto* func_decl = cast<FuncDecl>(func.get());
+            auto* func_type =
+                struct_type->get_func_type(func_decl->name->get_ident()).get();
+
+            for (size_t i = 0; i < func_decl->params.size(); i++) {
+                if (func_decl->params[i]->type->is_unknown()) {
+                    if (syms->resolve_unk_type(func_decl->params[i]->type)) {
+                        func_type->get_params()[i] = func_decl->params[i]->type;
+                    } else {
+                        valid = false;
+                    }
+                }
+            }
+
+            if (func_decl->ret->is_unknown()) {
+                if (syms->resolve_unk_type(func_decl->ret)) {
+                    func_type->set_return_val(func_decl->ret);
                 } else {
                     valid = false;
                 }

@@ -129,16 +129,26 @@ DeclResult Parser::parse_struct_decl() {
         return DeclError();
     }
 
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (!consume(TokenKind::LBrace)) {
         return DeclError();
     }
 
     std::vector<std::unique_ptr<ast::StructField>> fields;
+    std::vector<std::unique_ptr<ast::Decl>> funcs;
+
     next_token();
     while (!tok.is(TokenKind::RBrace)) {
+        if (tok.is(TokenKind::KwFn)) {
+            auto fn = parse_func_decl();
+            if (!fn.is_valid())
+                return DeclError();
+
+            funcs.push_back(fn.take());
+            continue;
+        }
+
         auto struct_field = parse_struct_field();
 
         if (!struct_field.is_valid()) {
@@ -147,7 +157,7 @@ DeclResult Parser::parse_struct_decl() {
 
         fields.push_back(struct_field.take());
 
-        if (!tok.is(TokenKind::RBrace)) {
+        if (!tok.is(TokenKind::RBrace) && !tok.is(TokenKind::KwFn)) {
             tok_assert(TokenKind::Comma);
             next_token();
         }
@@ -156,8 +166,8 @@ DeclResult Parser::parse_struct_decl() {
     span += tok.get_span();
     next_token();
 
-    return DeclResult(std::make_unique<ast::StructDecl>(span, std::move(ident),
-                                                        std::move(fields)));
+    return DeclResult(std::make_unique<ast::StructDecl>(
+        span, std::move(ident), std::move(fields), std::move(funcs)));
 }
 
 Result<std::unique_ptr<ast::StructField>> Parser::parse_struct_field() {
@@ -165,8 +175,7 @@ Result<std::unique_ptr<ast::StructField>> Parser::parse_struct_field() {
         return Result<std::unique_ptr<ast::StructField>>();
     }
     Span span = tok.get_span();
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (!consume(TokenKind::Colon)) {
         return Result<std::unique_ptr<ast::StructField>>();
@@ -190,8 +199,7 @@ DeclResult Parser::parse_enum_decl() {
         return DeclError();
     }
 
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (!consume(TokenKind::LBrace)) {
         return DeclError();
@@ -226,8 +234,7 @@ Result<std::unique_ptr<ast::EnumField>> Parser::parse_enum_field() {
     }
 
     Span span = tok.get_span();
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (kind(TokenKind::LParen)) {
         std::vector<std::shared_ptr<type::Type>> types;
@@ -265,8 +272,7 @@ DeclResult Parser::parse_const_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (!consume(TokenKind::Colon))
         return DeclError();
@@ -297,8 +303,7 @@ DeclResult Parser::parse_static_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (!consume(TokenKind::Colon))
         return DeclError();
@@ -329,23 +334,8 @@ DeclResult Parser::parse_func_decl() {
     if (!consume(TokenKind::Identifier))
         return DeclError();
 
-    const Token t = tok;
-    std::unique_ptr<ast::Identifier> func_ident;
-
-    std::optional<std::unique_ptr<ast::Identifier>> impl_type;
-    if (kind(TokenKind::ColonColon)) {
-        if (!consume(TokenKind::Identifier))
-            return DeclError();
-
-        impl_type = std::make_unique<ast::Identifier>(
-            t, source->get_string(t.get_span()));
-        func_ident = std::make_unique<ast::Identifier>(
-            tok, source->get_string(tok.get_span()));
-        next_token();
-    } else {
-        func_ident = std::make_unique<ast::Identifier>(
-            t, source->get_string(t.get_span()));
-    }
+    auto func_ident = parse_ident_unchecked();
+    next_token();
 
     auto params = parse_func_params();
     if (!params.is_valid())
@@ -368,8 +358,8 @@ DeclResult Parser::parse_func_decl() {
 
     span += prev_tok.get_span();
     return DeclResult(std::make_unique<ast::FuncDecl>(
-        span, std::move(func_ident), std::move(impl_type), params.take(),
-        std::move(ret), block.take()));
+        span, std::move(func_ident), params.take(), std::move(ret),
+        block.take()));
 }
 
 Result<std::vector<std::unique_ptr<ast::Param>>> Parser::parse_func_params() {
@@ -401,8 +391,7 @@ Result<std::unique_ptr<ast::Param>> Parser::parse_param_decl() {
         return Result<std::unique_ptr<ast::Param>>();
 
     Span span = tok.get_span();
-    auto name = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto name = parse_ident_unchecked();
 
     if (!consume(TokenKind::Colon))
         return Result<std::unique_ptr<ast::Param>>();
@@ -903,8 +892,7 @@ ExprResult Parser::parse_for_expr() {
     if (!consume(TokenKind::Identifier))
         return ExprError();
 
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (!consume(TokenKind::KwIn))
         return ExprError();
