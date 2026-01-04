@@ -3,6 +3,9 @@
 #include "ast.h"
 #include "constraint.h"
 #include "sym_table.h"
+#include "type.h"
+#include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 

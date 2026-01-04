@@ -1,7 +1,9 @@
 #include "type_res.h"
 #include "ast.h"
 #include "constraint.h"
+#include <iostream>
 #include <memory>
+#include <variant>
 
 namespace z::type {
 

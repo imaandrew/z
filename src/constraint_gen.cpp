@@ -1,7 +1,10 @@
 #include "constraint_gen.h"
 #include "ast.h"
+#include "token.h"
 #include "type.h"
 #include <cstddef>
+#include <memory>
+#include <utility>
 
 namespace z::type {
 void ConstraintGenerator::visit(ast::Identifier& ident) {

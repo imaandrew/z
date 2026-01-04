@@ -6,6 +6,7 @@
 #include "diagnostics.h"
 #include "src_mgr.h"
 #include "sym_table.h"
+#include "type.h"
 #include <memory>
 #include <vector>
 

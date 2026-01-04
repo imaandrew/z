@@ -5,6 +5,8 @@
 #include "sym_table.h"
 #include "type_res.h"
 #include <argparse/argparse.hpp>
+#include <exception>
+#include <iostream>
 
 using namespace z;
 
@@ -12,17 +14,17 @@ int main(int argc, char** argv) {
     bool dump_constraints = false;
 
     auto z = argparse::ArgumentParser("z");
-    z.add_argument("INPUT").help("input file");
-    z.add_argument("--dump-ast-untyped")
-        .help("print parsed AST before type resolution")
-        .flag();
-    z.add_argument("--dump-ast").help("print typed AST").flag();
-    z.add_argument("--dump-type-constraints")
-        .help("print type constraints")
-        .flag()
-        .store_into(dump_constraints);
 
     try {
+        z.add_argument("INPUT").help("input file");
+        z.add_argument("--dump-ast-untyped")
+            .help("print parsed AST before type resolution")
+            .flag();
+        z.add_argument("--dump-ast").help("print typed AST").flag();
+        z.add_argument("--dump-type-constraints")
+            .help("print type constraints")
+            .flag()
+            .store_into(dump_constraints);
         z.parse_args(argc, argv);
     } catch (const std::exception& err) {
         std::cerr << err.what() << '\n';

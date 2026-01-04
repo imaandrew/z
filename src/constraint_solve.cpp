@@ -1,4 +1,12 @@
 #include "constraint_solve.h"
+#include "constraint.h"
+#include "type.h"
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace z::type {
 TypeID ConstraintSolver::find(TypeID x) {
@@ -52,14 +60,14 @@ bool ConstraintSolver::unify_with_variable(std::shared_ptr<Type>& lhs,
     auto* lhs_var = dyn_cast<InferredType>(lhs.get());
     auto* rhs_var = dyn_cast<InferredType>(rhs.get());
 
-    if (lhs_var && rhs_var) {
+    if ((lhs_var != nullptr) && (rhs_var != nullptr)) {
         auto merged = pick_more_specific(lhs_var, rhs_var);
         union_types(lhs_var->get_id(), rhs_var->get_id(), merged);
         return true;
     }
 
-    auto* var = lhs_var ? lhs_var : rhs_var;
-    auto& concrete = lhs_var ? rhs : lhs;
+    auto* var = (lhs_var != nullptr) ? lhs_var : rhs_var;
+    auto& concrete = (lhs_var != nullptr) ? rhs : lhs;
 
     if (!can_instantiate(var, concrete.get()))
         return false;

@@ -3,6 +3,7 @@
 #include "constraint.h"
 #include "diagnostics.h"
 #include "type.h"
+#include <memory>
 #include <vector>
 
 namespace z::type {
