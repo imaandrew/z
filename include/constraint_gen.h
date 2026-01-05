@@ -88,6 +88,9 @@ public:
     void visit(ast::EnumDecl& decl) override;
     void visit(ast::ConstDecl& decl) override;
     void visit(ast::StaticDecl& decl) override;
+    void visit(ast::TraitDecl& decl) override;
+    void visit(ast::TypeAliasDecl& decl) override;
+    void visit(ast::TraitFuncDecl& decl) override;
 
     void resolve_type_name(std::shared_ptr<type::Type>& type);
 };

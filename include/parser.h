@@ -63,12 +63,16 @@ class Parser {
     Result<std::unique_ptr<ast::EnumField>> parse_enum_field();
     DeclResult parse_const_decl();
     DeclResult parse_static_decl();
+    DeclResult parse_trait_decl();
+    DeclResult parse_type_alias_decl();
+    DeclResult parse_trait_func_decl();
     DeclResult parse_func_decl();
     Result<std::vector<std::unique_ptr<ast::Param>>> parse_func_params();
     Result<std::unique_ptr<ast::Param>> parse_param_decl();
     Result<std::unique_ptr<ast::Block>>
     parse_block(bool implicit_return = true);
     StmtResult parse_stmt();
+    StmtResult parse_let_stmt();
     ExprResult prime_parse_expr(int precedence = 0,
                                 std::optional<TokenKind> ignore = std::nullopt);
     ExprResult parse_expr(int precedence = 0,

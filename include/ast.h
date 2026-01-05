@@ -75,6 +75,9 @@ struct EnumField;
 struct EnumDecl;
 struct ConstDecl;
 struct StaticDecl;
+struct TraitDecl;
+struct TypeAliasDecl;
+struct TraitFuncDecl;
 
 enum class ASTKind : std::uint8_t {
     Identifier,
@@ -112,7 +115,10 @@ enum class ASTKind : std::uint8_t {
     EnumField,
     EnumDecl,
     ConstDecl,
-    StaticDecl
+    StaticDecl,
+    TraitDecl,
+    TypeAliasDecl,
+    TraitFuncDecl,
 };
 
 class ASTVisitor {
@@ -159,6 +165,9 @@ public:
     virtual void visit(EnumDecl&) = 0;
     virtual void visit(ConstDecl&) = 0;
     virtual void visit(StaticDecl&) = 0;
+    virtual void visit(TraitDecl&) = 0;
+    virtual void visit(TypeAliasDecl&) = 0;
+    virtual void visit(TraitFuncDecl&) = 0;
 };
 
 struct ASTNode {
@@ -1230,6 +1239,185 @@ struct StructDecl final : Decl {
                 } else {
                     valid = false;
                 }
+            }
+        }
+    }
+};
+
+struct TraitDecl final : Decl {
+    std::unique_ptr<Identifier> ident;
+    std::vector<std::unique_ptr<Decl>> consts;
+    std::vector<std::unique_ptr<Decl>> types;
+    std::vector<std::unique_ptr<Decl>> funcs;
+
+    ScopeContext ctxt;
+
+    static constexpr ASTKind Kind = ASTKind::TraitDecl;
+
+    TraitDecl(Span span, std::unique_ptr<Identifier> ident,
+              std::vector<std::unique_ptr<Decl>> consts,
+              std::vector<std::unique_ptr<Decl>> types,
+              std::vector<std::unique_ptr<Decl>> funcs)
+        : Decl(Kind, span), ident(std::move(ident)), consts(std::move(consts)),
+          types(std::move(types)), funcs(std::move(funcs)) {}
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "TraitDecl";
+        dump_type(stream);
+        ident->dump(source, indent + 2, stream);
+        for (const auto& c : consts)
+            c->dump(source, indent + 2, stream);
+        for (const auto& type : types)
+            type->dump(source, indent + 2, stream);
+        for (const auto& func : funcs)
+            func->dump(source, indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        for (const auto& c : consts)
+            co_yield c.get();
+
+        for (const auto& type : types)
+            co_yield type.get();
+
+        for (const auto& func : funcs)
+            co_yield func.get();
+    }
+
+    void declare_type(SymbolTable* syms) override {
+        syms->enter_scope(&ctxt);
+
+        for (const auto& c : consts)
+            c->declare_type(syms);
+
+        for (const auto& type : types)
+            type->declare_type(syms);
+
+        for (const auto& func : funcs)
+            func->declare_type(syms);
+
+        syms->exit_scope();
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        syms->enter_scope(&ctxt);
+
+        for (const auto& c : consts)
+            c->resolve_sym(syms);
+
+        for (const auto& type : types)
+            type->resolve_sym(syms);
+
+        for (const auto& func : funcs)
+            func->resolve_sym(syms);
+
+        syms->exit_scope();
+    }
+};
+
+struct TypeAliasDecl final : Decl {
+    std::unique_ptr<Identifier> ident;
+    std::shared_ptr<type::Type> type;
+
+    static constexpr ASTKind Kind = ASTKind::TypeAliasDecl;
+
+    TypeAliasDecl(Span span, std::unique_ptr<Identifier> ident,
+                  std::shared_ptr<type::Type> type)
+        : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)) {}
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "TypeAliasDecl";
+        dump_type(stream);
+        ident->dump(source, indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override { co_yield ident.get(); }
+
+    void declare_type(SymbolTable* syms) override {
+        valid = syms->declare_type(ident, type);
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        if (type->is_unknown()) {
+            if (!syms->resolve_unk_type(type))
+                valid = false;
+        }
+    }
+};
+
+struct TraitFuncDecl final : Decl {
+    std::unique_ptr<Identifier> name;
+    std::vector<std::unique_ptr<Param>> params;
+    std::shared_ptr<type::Type> ret;
+    std::unique_ptr<Block> body;
+
+    static constexpr ASTKind Kind = ASTKind::FuncDecl;
+
+    TraitFuncDecl(Span span, std::unique_ptr<Identifier> name,
+                  std::vector<std::unique_ptr<Param>> params,
+                  std::shared_ptr<type::Type> ret, std::unique_ptr<Block> body)
+        : Decl(Kind, span), name(std::move(name)), params(std::move(params)),
+          ret(std::move(ret)), body(std::move(body)) {};
+
+    [[nodiscard]] std::string get_abs_name() const { return name->to_string(); }
+
+    void dump(SourceManager* source, const int indent,
+              std::ostream& stream) const override {
+        stream << std::string(indent, ' ') << "TraitFuncDecl";
+        dump_type(stream);
+        name->dump(source, indent + 2, stream);
+        if (body)
+            body->dump(source, indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield name.get();
+
+        for (const auto& param : params)
+            co_yield param.get();
+
+        if (body)
+            co_yield body.get();
+    }
+
+    void declare_type(SymbolTable* syms) override {
+        auto param_types = std::vector<std::shared_ptr<type::Type>>();
+        for (const auto& param : params) {
+            param_types.push_back(param->type);
+        }
+
+        valid = syms->declare_func(
+            name, std::make_shared<type::FunctionType>(param_types, ret));
+    }
+
+    void resolve_sym(SymbolTable* syms) override {
+        auto* func_type =
+            cast<type::FunctionType>(syms->get_func(get_abs_name()).get());
+
+        for (size_t i = 0; i < params.size(); i++) {
+            if (params[i]->type->is_unknown()) {
+                if (syms->resolve_unk_type(params[i]->type)) {
+                    func_type->get_params()[i] = params[i]->type;
+                } else {
+                    valid = false;
+                }
+            }
+        }
+
+        if (ret->is_unknown()) {
+            if (syms->resolve_unk_type(ret)) {
+                func_type->set_return_val(ret);
+            } else {
+                valid = false;
             }
         }
     }

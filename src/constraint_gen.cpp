@@ -429,6 +429,48 @@ void ConstraintGenerator::visit(ast::StaticDecl& decl) {
     eq(decl.val->node_type, decl.type);
 }
 
+void ConstraintGenerator::visit(ast::TraitDecl& decl) {
+    syms->enter_scope(&decl.ctxt);
+
+    for (const auto& c : decl.consts)
+        c->accept(*this);
+
+    for (const auto& type : decl.types)
+        type->accept(*this);
+
+    for (const auto& func : decl.funcs)
+        func->accept(*this);
+
+    syms->exit_scope();
+
+    decl.node_type = std::make_shared<VoidType>();
+    decl.ident->node_type =
+        std::make_shared<TraitType>(decl.ident->to_string());
+}
+void ConstraintGenerator::visit(ast::TypeAliasDecl& decl) {
+    resolve_type_name(decl.type);
+    decl.ident->node_type = decl.type;
+    decl.node_type = std::make_shared<VoidType>();
+}
+void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
+    for (auto& param : decl.params) {
+        param->accept(*this);
+        resolve_type_name(param->type);
+        if (decl.body)
+            decl.body->get_scope_ctxt()->declare_var(param->name, param->type);
+    }
+
+    resolve_type_name(decl.ret);
+
+    if (decl.body) {
+        decl.body->accept(*this);
+        eq(decl.body->node_type, decl.ret);
+    }
+
+    decl.node_type = syms->get_func(decl.get_abs_name());
+    decl.name->node_type = syms->get_func(decl.get_abs_name());
+}
+
 void ConstraintGenerator::resolve_type_name(std::shared_ptr<type::Type>& type) {
     if (!syms->resolve_unk_type(type)) {
         type = std::make_shared<type::InvalidType>();

@@ -40,7 +40,8 @@ enum class TypeKind : std::uint8_t {
     Void,
     Invalid,
     Inferred,
-    Type
+    Type,
+    Trait
 };
 
 class Type {
@@ -714,6 +715,32 @@ public:
 
     [[nodiscard]] std::string basic_name() const override {
         return std::format("type({})", internal_type->basic_name());
+    }
+};
+
+class TraitType final : public Type {
+    std::string name;
+
+public:
+    static constexpr TypeKind Kind = TypeKind::Trait;
+
+    explicit TraitType(std::string name) : Type(Kind), name(std::move(name)) {}
+
+    bool is_assignment_compatible(const Type* other) const override {
+        if (Type::is_assignment_compatible(other)) {
+            const auto* other_type = cast<const TraitType>(other);
+            return name == other_type->name;
+        }
+
+        return false;
+    }
+
+    void dump(std::ostream& stream = std::cout) const override {
+        stream << "TraitType { name: " << name << " }";
+    }
+
+    [[nodiscard]] std::string basic_name() const override {
+        return std::format("trait({})", name);
     }
 };
 } // namespace z::type

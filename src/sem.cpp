@@ -560,6 +560,10 @@ void SemChecker::visit(ast::ConstDecl& /*decl*/) {}
 
 void SemChecker::visit(ast::StaticDecl& /*decl*/) {}
 
+void SemChecker::visit(ast::TraitDecl& decl) {}
+void SemChecker::visit(ast::TypeAliasDecl& decl) {}
+void SemChecker::visit(ast::TraitFuncDecl& decl) {}
+
 void SemChecker::check_expr_assignable(ast::Expr& expr) {
     if (!expr.is_assignable()) {
         diag.emit(expr.get_span(), DiagnosticKind::ExprNotAssignable);

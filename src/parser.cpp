@@ -101,6 +101,12 @@ std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
         case TokenKind::KwStatic:
             decl = parse_static_decl();
             break;
+        case TokenKind::KwTrait:
+            decl = parse_trait_decl();
+            break;
+        case TokenKind::KwLet:
+            decl = parse_type_alias_decl();
+            break;
         case TokenKind::KwFn:
             decl = parse_func_decl();
             break;
@@ -328,6 +334,120 @@ DeclResult Parser::parse_static_decl() {
         span, std::move(ident), type.take(), expr.take()));
 }
 
+DeclResult Parser::parse_trait_decl() {
+    tok_assert(TokenKind::KwTrait);
+    Span span = tok.get_span();
+
+    if (!consume(TokenKind::Identifier))
+        return DeclError();
+
+    auto ident = parse_ident_unchecked();
+
+    if (!consume(TokenKind::LBrace))
+        return DeclError();
+
+    next_token();
+
+    std::vector<std::unique_ptr<ast::Decl>> consts;
+    std::vector<std::unique_ptr<ast::Decl>> types;
+    std::vector<std::unique_ptr<ast::Decl>> funcs;
+    while (!tok.is(TokenKind::RBrace)) {
+        if (tok.is(TokenKind::KwConst)) {
+            auto c = parse_const_decl();
+            if (!c.is_valid())
+                return DeclError();
+            consts.push_back(c.take());
+        } else if (tok.is(TokenKind::KwLet)) {
+            auto t = parse_type_alias_decl();
+            if (!t.is_valid())
+                return DeclError();
+            types.push_back(t.take());
+        } else if (tok.is(TokenKind::KwFn)) {
+            auto f = parse_trait_func_decl();
+            if (!f.is_valid())
+                return DeclError();
+            funcs.push_back(f.take());
+        } else {
+            return DeclError();
+        }
+    }
+
+    span += tok.get_span();
+    next_token();
+    return DeclResult(std::make_unique<ast::TraitDecl>(
+        span, std::move(ident), std::move(consts), std::move(types),
+        std::move(funcs)));
+}
+
+DeclResult Parser::parse_type_alias_decl() {
+    tok_assert(TokenKind::KwLet);
+    Span span = tok.get_span();
+
+    if (!consume(TokenKind::Identifier))
+        return DeclError();
+
+    auto ident = parse_ident_unchecked();
+    if (!ident->is_valid())
+        return DeclError();
+
+    if (!consume(TokenKind::Eq))
+        return DeclError();
+
+    auto type = prime_parse_type();
+    if (!type.is_valid())
+        return DeclError();
+
+    span += tok.get_span();
+    if (tok_assert(TokenKind::Semi))
+        next_token();
+
+    return DeclResult(std::make_unique<ast::TypeAliasDecl>(
+        span, std::move(ident), type.take()));
+}
+
+DeclResult Parser::parse_trait_func_decl() {
+    tok_assert(TokenKind::KwFn);
+    Span span = tok.get_span();
+
+    if (!consume(TokenKind::Identifier))
+        return DeclError();
+
+    auto func_ident = parse_ident_unchecked();
+    next_token();
+
+    auto params = parse_func_params();
+    if (!params.is_valid())
+        return DeclError();
+
+    std::unique_ptr<type::Type> ret;
+    if (tok.is(TokenKind::Arrow)) {
+        auto type = prime_parse_type();
+        if (!type.is_valid())
+            return DeclError();
+
+        ret = type.take();
+    } else {
+        ret = std::make_unique<type::VoidType>();
+    }
+
+    if (tok.is(TokenKind::LBrace)) {
+        auto block = parse_block();
+        if (!block.is_valid())
+            return DeclError();
+
+        span += prev_tok.get_span();
+        return DeclResult(std::make_unique<ast::TraitFuncDecl>(
+            span, std::move(func_ident), params.take(), std::move(ret),
+            block.take()));
+    }
+
+    tok_assert(TokenKind::Semi);
+    span += tok.get_span();
+    next_token();
+    return DeclResult(std::make_unique<ast::TraitFuncDecl>(
+        span, std::move(func_ident), params.take(), std::move(ret), nullptr));
+}
+
 DeclResult Parser::parse_func_decl() {
     tok_assert(TokenKind::KwFn);
     Span span = tok.get_span();
@@ -473,46 +593,10 @@ StmtResult Parser::parse_stmt() {
         stmt = std::make_unique<ast::ContinueStmt>(span, tok);
         next_token();
     } else if (tok.is(TokenKind::KwLet)) {
-        if (!consume(TokenKind::Identifier))
+        auto let = parse_let_stmt();
+        if (!let.is_valid())
             return StmtError();
-
-        auto ident = std::make_unique<ast::Identifier>(
-            tok, source->get_string(tok.get_span()));
-
-        if (kind(TokenKind::Colon)) {
-            auto type = prime_parse_type();
-            if (!type.is_valid())
-                return StmtError();
-
-            if (tok.is(TokenKind::Eq)) {
-                auto eq = tok.get_span();
-                if (!tok_assert(TokenKind::Eq))
-                    return StmtError();
-
-                auto expr = prime_parse_expr();
-                if (!expr.is_valid())
-                    return StmtError();
-
-                span += prev_tok.get_span();
-                stmt = std::make_unique<ast::LetStmt>(
-                    span, std::move(ident), type.take(), expr.take(), eq);
-            } else {
-                span += prev_tok.get_span();
-                stmt = std::make_unique<ast::LetStmt>(span, std::move(ident),
-                                                      type.take());
-            }
-        } else if (tok.is(TokenKind::Eq)) {
-            auto expr = prime_parse_expr();
-            if (!expr.is_valid())
-                return StmtError();
-
-            span += prev_tok.get_span();
-            stmt = std::make_unique<ast::LetStmt>(span, std::move(ident),
-                                                  expr.take(), tok.get_span());
-        } else {
-            span += prev_tok.get_span();
-            stmt = std::make_unique<ast::LetStmt>(span, std::move(ident));
-        }
+        stmt = let.take();
     } else if (tok.is(TokenKind::KwReturn)) {
         next_token();
 
@@ -539,6 +623,54 @@ StmtResult Parser::parse_stmt() {
     }
 
     return Result(std::move(stmt));
+}
+
+StmtResult Parser::parse_let_stmt() {
+    tok_assert(TokenKind::KwLet);
+    Span span = tok.get_span();
+
+    if (!consume(TokenKind::Identifier))
+        return StmtError();
+
+    auto ident = std::make_unique<ast::Identifier>(
+        tok, source->get_string(tok.get_span()));
+
+    if (kind(TokenKind::Colon)) {
+        auto type = prime_parse_type();
+        if (!type.is_valid())
+            return StmtError();
+
+        if (tok.is(TokenKind::Eq)) {
+            auto eq = tok.get_span();
+            if (!tok_assert(TokenKind::Eq))
+                return StmtError();
+
+            auto expr = prime_parse_expr();
+            if (!expr.is_valid())
+                return StmtError();
+
+            span += prev_tok.get_span();
+            return StmtResult(std::make_unique<ast::LetStmt>(
+                span, std::move(ident), type.take(), expr.take(), eq));
+        }
+
+        span += prev_tok.get_span();
+        return StmtResult(std::make_unique<ast::LetStmt>(span, std::move(ident),
+                                                         type.take()));
+    }
+
+    if (tok.is(TokenKind::Eq)) {
+        auto expr = prime_parse_expr();
+        if (!expr.is_valid())
+            return StmtError();
+
+        span += prev_tok.get_span();
+        return StmtResult(std::make_unique<ast::LetStmt>(
+            span, std::move(ident), expr.take(), tok.get_span()));
+    }
+
+    span += prev_tok.get_span();
+    return StmtResult(std::make_unique<ast::LetStmt>(span, std::move(ident)));
 }
 
 ExprResult Parser::prime_parse_expr(const int precedence,
