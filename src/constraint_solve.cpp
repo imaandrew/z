@@ -35,14 +35,14 @@ bool ConstraintSolver::solve_equality(EqualityConstraint& c) {
     auto lhs = canonicalize(c.lhs);
     auto rhs = canonicalize(c.rhs);
 
-    if (lhs.get() == rhs.get())
+    if (*lhs.get() == *rhs.get())
+        return true;
+
+    if (lhs->is_explicit() && rhs->is_explicit())
         return true;
 
     if (!types_compatible(lhs.get(), rhs.get()))
         return false;
-
-    if (lhs->is_explicit() && rhs->is_explicit())
-        return true;
 
     return unify_with_variable(lhs, rhs);
 }
@@ -100,7 +100,32 @@ ConstraintSolver::pick_more_specific(const InferredType* a,
 }
 
 bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
-    return a->is_assignment_compatible(b);
+    const auto* a_inf = dyn_cast<InferredType>(a);
+    const auto* b_inf = dyn_cast<InferredType>(b);
+    assert(!a_inf || !b_inf);
+
+    if (a_inf && b_inf) {
+        const auto a_type = a_inf->get_infer_type();
+        const auto b_type = b_inf->get_infer_type();
+
+        if (a_type == InferType::Var || b_type == InferType::Var ||
+            a_type == InferType::Block || b_type == InferType::Block)
+            return true;
+
+        return a_type == b_type;
+    }
+
+    if (a_inf) {
+        const auto a_type = a_inf->get_infer_type();
+        return (a_type == InferType::IntLiteral && b->is_integral()) ||
+               (a_type == InferType::FloatLiteral && b->is_float()) ||
+               a_type == InferType::Var || a_type == InferType::Block;
+    }
+
+    const auto b_type = b_inf->get_infer_type();
+    return (b_type == InferType::IntLiteral && b->is_integral()) ||
+           (b_type == InferType::FloatLiteral && b->is_float()) ||
+           b_type == InferType::Var || b_type == InferType::Block;
 }
 
 void ConstraintSolver::register_vars(

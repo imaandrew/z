@@ -119,7 +119,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
                 operator_to_string(expr.op.get_kind()), r_type->basic_name());
         }
 
-        if (!l_type->is_assignment_compatible(r_type)) {
+        if (*l_type != *r_type) {
             diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
                       r_type->basic_name(), l_type->basic_name());
         }
@@ -145,7 +145,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
                 operator_to_string(expr.op.get_kind()), r_type->basic_name());
         }
 
-        if (!l_type->is_assignment_compatible(r_type)) {
+        if (*l_type != *r_type) {
             diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
                       r_type->basic_name(), l_type->basic_name());
         }
@@ -154,7 +154,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     case TokenKind::Eq:
         check_expr_assignable(*expr.lhs);
 
-        if (!l_type->is_assignment_compatible(r_type)) {
+        if (*l_type != *r_type) {
             diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
                       r_type->basic_name(), l_type->basic_name());
         }
@@ -183,7 +183,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     case TokenKind::Shr:
     case TokenKind::Percent:
         if (!l_type->is_integral() || !r_type->is_integral() ||
-            !l_type->is_arithmetic_compatible(r_type)) {
+            *l_type != *r_type) {
             diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
                       operator_to_string(expr.op.get_kind()),
                       l_type->basic_name(), r_type->basic_name());
@@ -194,7 +194,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     case TokenKind::Star:
     case TokenKind::Slash:
         if (!l_type->is_numeric() || !r_type->is_numeric() ||
-            !l_type->is_arithmetic_compatible(r_type)) {
+            *l_type != *r_type) {
             diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
                       operator_to_string(expr.op.get_kind()),
                       l_type->basic_name(), r_type->basic_name());
@@ -229,8 +229,7 @@ void SemChecker::visit(ast::TernaryExpr& expr) {
     if (!expr.mhs->has_type() || !expr.rhs->has_type())
         return;
 
-    if (!expr.mhs->node_type->is_assignment_compatible(
-            expr.rhs->node_type.get())) {
+    if (*expr.mhs->node_type != *expr.rhs->node_type.get()) {
         diag.emit(expr.op2.get_span(), DiagnosticKind::InvalidOperands,
                   operator_to_string(expr.op2.get_kind()),
                   expr.mhs->node_type->basic_name(),
@@ -257,8 +256,7 @@ void SemChecker::visit(ast::CallExpr& expr) {
         }
 
         for (size_t i = 0; i < params.size(); i++) {
-            if (!params[i]->is_assignment_compatible(
-                    expr.args[i]->node_type.get())) {
+            if (*params[i] != *expr.args[i]->node_type.get()) {
                 diag.emit(expr.args[i]->get_span(),
                           DiagnosticKind::TypeMismatch, params[i]->basic_name(),
                           expr.args[i]->node_type->basic_name());
@@ -337,8 +335,7 @@ void SemChecker::visit(ast::ArrayInitExpr& expr) {
     }
 
     for (auto& val : expr.vals) {
-        if (val->has_type() &&
-            !valid_type->is_assignment_compatible(val->node_type.get())) {
+        if (val->has_type() && *valid_type != *val->node_type.get()) {
             diag.emit(val->get_span(), DiagnosticKind::TypeMismatch,
                       valid_type->basic_name(), val->node_type->basic_name());
         }
@@ -346,8 +343,7 @@ void SemChecker::visit(ast::ArrayInitExpr& expr) {
 }
 
 void SemChecker::visit(ast::StructExprField& expr) {
-    if (!expr.ident->node_type->is_assignment_compatible(
-            expr.val->node_type.get())) {
+    if (*expr.ident->node_type != *expr.val->node_type.get()) {
         diag.emit(expr.get_span(), DiagnosticKind::TypeMismatch,
                   expr.ident->node_type->basic_name(),
                   expr.val->node_type->basic_name());
@@ -429,7 +425,7 @@ void SemChecker::visit(ast::FuncDecl& func) {
 
     func.body->accept(*this);
 
-    if (!func.ret->is_assignment_compatible(func.body->node_type.get())) {
+    if (*func.ret != *func.body->node_type.get()) {
         diag.emit(func.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
                   func.get_abs_name(), func.ret->basic_name(),
                   func.body->node_type->basic_name());
@@ -439,9 +435,8 @@ void SemChecker::visit(ast::FuncDecl& func) {
 void SemChecker::visit(ast::BreakStmt& stmt) {
     if (stmt.expr) {
         stmt.expr->accept(*this);
-        if (stmt.expr->has_type() &&
-            !syms->get_current_scope()->get_type()->is_assignment_compatible(
-                stmt.expr->node_type.get())) {
+        if (stmt.expr->has_type() && *syms->get_current_scope()->get_type() !=
+                                         *stmt.expr->node_type.get()) {
             diag.emit(stmt.expr->get_span(), DiagnosticKind::TypeMismatch,
                       syms->get_current_scope()->get_type()->basic_name(),
                       stmt.expr->node_type->basic_name());
@@ -475,8 +470,7 @@ void SemChecker::visit(ast::LetStmt& stmt) {
     }
 
     if (stmt.type && stmt.val) {
-        if (stmt.val->has_type() &&
-            !stmt.type->is_assignment_compatible(stmt.val->node_type.get())) {
+        if (stmt.val->has_type() && *stmt.type != *stmt.val->node_type.get()) {
             diag.emit(stmt.val->get_span(), DiagnosticKind::InvalidAssignment,
                       stmt.val->node_type->basic_name(),
                       stmt.type->basic_name());
@@ -501,8 +495,7 @@ void SemChecker::visit(ast::IfExpr& expr) {
     if (expr.else_expr) {
         expr.else_expr->accept(*this);
 
-        if (!expr.block->node_type->is_assignment_compatible(
-                expr.else_expr->node_type.get())) {
+        if (*expr.block->node_type != *expr.else_expr->node_type.get()) {
             diag.emit(expr.else_expr->get_span(),
                       DiagnosticKind::ElseExprTypeMismatch,
                       expr.block->node_type->basic_name(),

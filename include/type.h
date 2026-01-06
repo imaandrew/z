@@ -58,20 +58,11 @@ public:
 
     [[nodiscard]] TypeKind get_kind() const { return kind; }
 
-    [[nodiscard]] virtual bool is_arithmetic_compatible(Type* /*other*/) const {
-        return false;
-    }
-
-    [[nodiscard]] virtual bool
-    is_assignment_compatible(const Type* other) const {
-        return get_kind() == other->get_kind();
-    }
+    virtual bool operator==(const Type& other) const {
+        return kind == other.kind;
+    };
 
     [[nodiscard]] virtual bool is_logical() const { return false; }
-
-    [[nodiscard]] virtual bool is_comparable(Type* other) const {
-        return get_kind() == other->get_kind();
-    }
 
     [[nodiscard]] virtual bool is_integral() const { return false; }
     [[nodiscard]] virtual bool is_float() const { return false; }
@@ -133,11 +124,9 @@ public:
 
     [[nodiscard]] bool is_signed() const { return _signed; }
 
-    bool is_arithmetic_compatible(Type* other) const override {
-        if (get_kind() == other->get_kind()) {
-            const auto* other_int = cast<IntegerType>(other);
-            return this->bit_width == other_int->bit_width &&
-                   this->_signed == other_int->_signed;
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<IntegerType>(&other)) {
+            return bit_width == other_->bit_width && _signed == other_->_signed;
         }
 
         return false;
@@ -146,16 +135,6 @@ public:
     [[nodiscard]] bool is_integral() const override { return true; }
 
     [[nodiscard]] bool is_numeric() const override { return true; }
-
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_int = cast<const IntegerType>(other);
-            return this->bit_width == other_int->bit_width &&
-                   this->_signed == other_int->_signed;
-        }
-
-        return false;
-    }
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "IntegerType { bit_width: " << bit_width
@@ -178,10 +157,9 @@ public:
 
     [[nodiscard]] int get_width() const { return bit_width; }
 
-    bool is_arithmetic_compatible(Type* other) const override {
-        if (Type::is_arithmetic_compatible(other)) {
-            const auto* other_float = cast<FloatType>(other);
-            return this->bit_width == other_float->bit_width;
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<FloatType>(&other)) {
+            return bit_width == other_->bit_width;
         }
 
         return false;
@@ -190,15 +168,6 @@ public:
     [[nodiscard]] bool is_float() const override { return true; }
 
     [[nodiscard]] bool is_numeric() const override { return true; }
-
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_float = cast<const FloatType>(other);
-            return this->bit_width == other_float->bit_width;
-        }
-
-        return false;
-    }
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "FloatType { bit_width: " << bit_width << " }";
@@ -263,11 +232,9 @@ public:
 
     [[nodiscard]] bool is_logical() const override { return true; }
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* ptr = cast<const PointerType>(other);
-            return type->is_assignment_compatible(ptr->type.get());
-        }
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<PointerType>(&other))
+            return *type == *other_->type;
 
         return false;
     }
@@ -307,15 +274,18 @@ public:
 
     [[nodiscard]] bool is_iterable() const override { return true; }
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            if (const auto* other_array = cast<const ArrayType>(other);
-                !type->is_assignment_compatible(other_array->type.get())) {
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<ArrayType>(&other)) {
+            if (*type != *other_->type)
                 return false;
-            }
 
-            // TODO: return true if sizes are equal
-            return false;
+            const auto* size1 = std::get_if<std::uint64_t>(&size);
+            const auto* size2 = std::get_if<std::uint64_t>(&other_->size);
+            if (size1 && size2)
+                return *size1 == *size2;
+
+            // TODO: check if sizes are equal for expr size
+            return true;
         }
 
         return false;
@@ -353,9 +323,7 @@ public:
         return ident.get();
     }
 
-    bool is_assignment_compatible(const Type* /*other*/) const override {
-        return false;
-    }
+    bool operator==(const Type& other) const override;
 
     [[nodiscard]] bool is_unknown() const override { return true; }
 
@@ -377,9 +345,26 @@ public:
                           const std::shared_ptr<Type>& return_val)
         : Type(Kind), params(params), return_val(return_val) {};
 
-    bool is_assignment_compatible(const Type* /*other*/) const override {
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<FunctionType>(&other)) {
+            if (params.size() != other_->params.size())
+                return false;
+
+            for (std::size_t i = 0; i < params.size(); i++) {
+                if (*params[i] != *other_->params[i])
+                    return false;
+            }
+
+            if (return_val && other_->return_val)
+                return *return_val == *other_->return_val;
+
+            if (!return_val && !other_->return_val)
+                return true;
+        }
+
         return false;
     }
+
     void set_return_val(const std::shared_ptr<Type>& ret) { return_val = ret; }
 
     [[nodiscard]] std::shared_ptr<Type> get_return_val() const {
@@ -478,13 +463,31 @@ public:
         return funcs.at(func);
     }
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_struct = cast<const StructType>(other);
-            return name == other_struct->basic_name();
+    bool operator==(const Type& other) const override {
+        const auto* other_ = dyn_cast<StructType>(&other);
+        if (!other_)
+            return false;
+
+        if (name != other_->name)
+            return false;
+
+        if (fields.size() != other_->fields.size())
+            return false;
+
+        if (funcs.size() != other_->funcs.size())
+            return false;
+
+        for (const auto& [field, type] : fields) {
+            if (*other_->get_field_type(field) != *type)
+                return false;
         }
 
-        return false;
+        for (const auto& [func, type] : funcs) {
+            if (*other_->get_func_type(func) != *(Type*)type.get())
+                return false;
+        }
+
+        return true;
     }
 
     void dump(std::ostream& stream = std::cout) const override {
@@ -509,13 +512,32 @@ public:
         return fields.insert({field, types}).second;
     }
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_enum = cast<const EnumType>(other);
-            return name == other_enum->basic_name();
+    bool operator==(const Type& other) const override {
+        const auto* other_ = dyn_cast<EnumType>(&other);
+        if (!other_)
+            return false;
+
+        if (name != other_->name)
+            return false;
+
+        if (fields.size() != other_->fields.size())
+            return false;
+
+        for (const auto& [field, types] : fields) {
+            if (!other_->fields.contains(field))
+                return false;
+
+            const auto other_types = fields.at(field);
+            if (types.size() != other_types.size())
+                return false;
+
+            for (std::size_t i = 0; i < types.size(); i++) {
+                if (*types[i] != *other_types[i])
+                    return false;
+            }
         }
 
-        return false;
+        return true;
     }
 
     void dump(std::ostream& stream = std::cout) const override {
@@ -538,11 +560,9 @@ public:
         return parent_enum;
     }
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_enum = cast<const EnumVariantType>(other);
-            return parent_enum == other_enum->get_parent_enum();
-        }
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<EnumVariantType>(&other))
+            return parent_enum == other_->parent_enum;
 
         return false;
     }
@@ -566,11 +586,9 @@ public:
     TupleType(std::shared_ptr<Type> first, std::shared_ptr<Type> second)
         : Type(Kind), first(std::move(first)), second(std::move(second)) {};
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_tuple = cast<const TupleType>(other);
-            return first->is_assignment_compatible(other_tuple->first.get()) &&
-                   second->is_assignment_compatible(other_tuple->second.get());
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<TupleType>(&other)) {
+            return *first == *other_->first && *second == *other_->second;
         }
 
         return false;
@@ -607,9 +625,7 @@ public:
 
     InvalidType() : Type(Kind) {};
 
-    bool is_assignment_compatible(const Type* /*other*/) const override {
-        return false;
-    }
+    bool operator==(const Type& /* other*/) const override { return false; }
 
     void dump(std::ostream& stream = std::cout) const override {
         stream << "InvalidType";
@@ -638,28 +654,11 @@ public:
 
     [[nodiscard]] InferType get_infer_type() const { return infer_type; }
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_type = cast<const InferredType>(other);
-            if (infer_type == InferType::Var ||
-                other_type->infer_type == InferType::Var ||
-                infer_type == InferType::Block ||
-                other_type->infer_type == InferType::Block) {
-                return true;
-            }
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<InferredType>(&other))
+            return id == other_->id && infer_type == other_->infer_type;
 
-            return infer_type == other_type->infer_type;
-        }
-
-        if (other->is_integral() && infer_type == InferType::IntLiteral) {
-            return true;
-        }
-
-        if (other->is_float() && infer_type == InferType::FloatLiteral) {
-            return true;
-        }
-
-        return infer_type == InferType::Var || infer_type == InferType::Block;
+        return false;
     }
 
     void dump(std::ostream& stream = std::cout) const override {
@@ -697,12 +696,9 @@ public:
     explicit TypeType(std::shared_ptr<Type> type)
         : Type(Kind), internal_type(std::move(type)) {}
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_type = cast<const TypeType>(other);
-            return internal_type->is_assignment_compatible(
-                other_type->internal_type.get());
-        }
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<TypeType>(&other))
+            return *internal_type == *other_->internal_type;
 
         return false;
     }
@@ -726,11 +722,9 @@ public:
 
     explicit TraitType(std::string name) : Type(Kind), name(std::move(name)) {}
 
-    bool is_assignment_compatible(const Type* other) const override {
-        if (Type::is_assignment_compatible(other)) {
-            const auto* other_type = cast<const TraitType>(other);
-            return name == other_type->name;
-        }
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<TraitType>(&other))
+            return name == other_->name;
 
         return false;
     }
