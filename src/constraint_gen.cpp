@@ -304,7 +304,7 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
 
     if (stmt.type) {
         resolve_type_name(stmt.type);
-        stmt.ident->node_type = stmt.type;
+        eq(stmt.ident->node_type, stmt.type);
     }
 
     syms->declare_var(stmt.ident, stmt.ident->node_type);

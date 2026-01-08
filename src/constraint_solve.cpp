@@ -102,7 +102,7 @@ ConstraintSolver::pick_more_specific(const InferredType* a,
 bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
     const auto* a_inf = dyn_cast<InferredType>(a);
     const auto* b_inf = dyn_cast<InferredType>(b);
-    assert(!a_inf || !b_inf);
+    assert(a_inf || b_inf);
 
     if (a_inf && b_inf) {
         const auto a_type = a_inf->get_infer_type();
