@@ -376,7 +376,7 @@ DeclResult Parser::parse_trait_decl() {
     next_token();
     return DeclResult(std::make_unique<ast::TraitDecl>(
         span, std::move(ident), std::move(consts), std::move(types),
-        std::move(funcs)));
+        std::move(funcs), syms->new_scope()));
 }
 
 DeclResult Parser::parse_type_alias_decl() {
@@ -570,7 +570,8 @@ Parser::parse_block(const bool implicit_return) {
 
     if (!is_valid)
         return Result<std::unique_ptr<ast::Block>>();
-    return Result(std::make_unique<ast::Block>(span, std::move(stmts)));
+    return Result(std::make_unique<ast::Block>(span, std::move(stmts),
+                                               syms->new_scope()));
 }
 
 StmtResult Parser::parse_stmt() {

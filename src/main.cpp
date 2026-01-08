@@ -40,13 +40,13 @@ int main(int argc, char** argv) {
 
     auto source_mgr = sm.value();
     auto lexer = Lexer(&source_mgr);
-    auto parser = Parser(lexer, &source_mgr);
+    auto syms = SymbolTable(&source_mgr);
+    auto parser = Parser(lexer, &source_mgr, &syms);
     auto file = parser.parse();
 
     if (z["--dump-ast-untyped"] == true)
         file->dump(&source_mgr, 0, std::cout);
 
-    auto syms = SymbolTable(&source_mgr);
     auto type_res = type::TypeResolver(&syms, &source_mgr);
     auto sem = SemChecker(&syms, &source_mgr);
 

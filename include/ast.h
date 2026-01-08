@@ -638,14 +638,14 @@ struct TupleExpr final : Expr {
 
 struct Block final : Expr {
     std::vector<std::unique_ptr<Stmt>> stmts;
-    ScopeContext ctxt;
+    ScopeID scope;
 
     static constexpr ASTKind Kind = ASTKind::Block;
 
-    Block(Span span, std::vector<std::unique_ptr<Stmt>> stmts)
-        : Expr(Kind, span), stmts(std::move(stmts)) {};
+    Block(Span span, std::vector<std::unique_ptr<Stmt>> stmts, ScopeID scope)
+        : Expr(Kind, span), stmts(std::move(stmts)), scope(scope) {};
 
-    ScopeContext* get_scope_ctxt() { return &ctxt; }
+    [[nodiscard]] ScopeID get_scope_id() const { return scope; }
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -1250,16 +1250,16 @@ struct TraitDecl final : Decl {
     std::vector<std::unique_ptr<Decl>> types;
     std::vector<std::unique_ptr<Decl>> funcs;
 
-    ScopeContext ctxt;
+    ScopeID scope;
 
     static constexpr ASTKind Kind = ASTKind::TraitDecl;
 
     TraitDecl(Span span, std::unique_ptr<Identifier> ident,
               std::vector<std::unique_ptr<Decl>> consts,
               std::vector<std::unique_ptr<Decl>> types,
-              std::vector<std::unique_ptr<Decl>> funcs)
+              std::vector<std::unique_ptr<Decl>> funcs, ScopeID scope)
         : Decl(Kind, span), ident(std::move(ident)), consts(std::move(consts)),
-          types(std::move(types)), funcs(std::move(funcs)) {}
+          types(std::move(types)), funcs(std::move(funcs)), scope(scope) {}
 
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
@@ -1289,7 +1289,7 @@ struct TraitDecl final : Decl {
     }
 
     void declare_type(SymbolTable* syms) override {
-        syms->enter_scope(&ctxt);
+        syms->enter_scope(scope);
 
         for (const auto& c : consts)
             c->declare_type(syms);
@@ -1304,7 +1304,7 @@ struct TraitDecl final : Decl {
     }
 
     void resolve_sym(SymbolTable* syms) override {
-        syms->enter_scope(&ctxt);
+        syms->enter_scope(scope);
 
         for (const auto& c : consts)
             c->resolve_sym(syms);

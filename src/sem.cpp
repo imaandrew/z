@@ -404,7 +404,7 @@ void SemChecker::visit(ast::TupleExpr& expr) {
 }
 
 void SemChecker::visit(ast::Block& block) {
-    syms->enter_scope(block.get_scope_ctxt());
+    syms->enter_scope(block.get_scope_id());
     for (auto& stmt : block.stmts) {
         stmt->accept(*this);
     }

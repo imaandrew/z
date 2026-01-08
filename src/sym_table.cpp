@@ -5,7 +5,6 @@
 #include "type.h"
 #include <memory>
 #include <ranges>
-#include <string>
 #include <string_view>
 #include <utility>
 
@@ -17,14 +16,14 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
     if (name->to_string() == "_")
         return true;
 
-    const bool is_unique = scopes.back()->declare_var(name, std::move(type));
+    const bool is_unique = stack.back()->declare_var(name, std::move(type));
 
     if (!is_unique) {
         auto data = diag.emit_with_notes(name->tok.get_span(),
                                          DiagnosticKind::RedeclaredVar,
                                          name->to_string());
 
-        for (const auto* scope : scopes) {
+        for (const auto* scope : stack) {
             if (auto type = scope->get_var(name->get_ident())) {
                 data.add_note(type->span, "first defined here");
                 break;
@@ -38,14 +37,14 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
 
 bool SymbolTable::declare_func(const std::unique_ptr<ast::Identifier>& name,
                                std::shared_ptr<type::FunctionType> type) {
-    const bool is_unique = scopes.back()->declare_func(name, std::move(type));
+    const bool is_unique = stack.back()->declare_func(name, std::move(type));
 
     if (!is_unique) {
         auto data = diag.emit_with_notes(name->tok.get_span(),
                                          DiagnosticKind::RedeclaredFunc,
                                          name->to_string());
 
-        for (const auto* scope : scopes) {
+        for (const auto* scope : stack) {
             if (auto type = scope->get_func(name->get_ident())) {
                 data.add_note(type->span, "first defined here");
                 break;
@@ -59,14 +58,14 @@ bool SymbolTable::declare_func(const std::unique_ptr<ast::Identifier>& name,
 
 bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
                                std::shared_ptr<type::Type> type) {
-    const bool is_unique = scopes.back()->declare_type(name, std::move(type));
+    const bool is_unique = stack.back()->declare_type(name, std::move(type));
 
     if (!is_unique) {
         auto data = diag.emit_with_notes(name->tok.get_span(),
                                          DiagnosticKind::RedeclaredType,
                                          name->to_string());
 
-        for (const auto* scope : scopes) {
+        for (const auto* scope : stack) {
             if (auto type = scope->get_type(name->get_ident())) {
                 data.add_note(type->span, "first defined here");
                 break;
@@ -79,7 +78,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
 }
 
 std::shared_ptr<type::Type> SymbolTable::get_var(std::string_view name) const {
-    for (auto* scope : std::ranges::reverse_view(scopes)) {
+    for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_var(name)) {
             return type->type;
         }
@@ -90,7 +89,7 @@ std::shared_ptr<type::Type> SymbolTable::get_var(std::string_view name) const {
 
 std::shared_ptr<type::Type>
 SymbolTable::get_global_var(std::string_view name) const {
-    if (const auto* scope = scopes.front()) {
+    if (const auto* scope = stack.front()) {
         if (auto type = scope->get_var(name)) {
             return type->type;
         }
@@ -100,7 +99,7 @@ SymbolTable::get_global_var(std::string_view name) const {
 }
 
 std::shared_ptr<type::Type> SymbolTable::get_func(std::string_view name) const {
-    for (auto* scope : std::ranges::reverse_view(scopes)) {
+    for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_func(name)) {
             return type->type;
         }
@@ -110,7 +109,7 @@ std::shared_ptr<type::Type> SymbolTable::get_func(std::string_view name) const {
 }
 
 std::shared_ptr<type::Type> SymbolTable::get_type(std::string_view name) const {
-    for (auto* scope : std::ranges::reverse_view(scopes)) {
+    for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_type(name)) {
             return type->type;
         }
@@ -122,7 +121,7 @@ std::shared_ptr<type::Type> SymbolTable::get_type(std::string_view name) const {
 void SymbolTable::update_type(std::string_view name,
                               std::shared_ptr<type::Type>& new_type) {
 
-    for (auto* scope : std::ranges::reverse_view(scopes)) {
+    for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_type(name)) {
             type->type = new_type;
         }

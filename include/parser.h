@@ -3,6 +3,7 @@
 #include "diagnostics.h"
 #include "lexer.h"
 #include "src_mgr.h"
+#include "sym_table.h"
 #include "token.h"
 #include "type.h"
 #include <cstdint>
@@ -43,6 +44,7 @@ class Parser {
     Lexer lexer;
     DiagnosticsEngine diag;
     SourceManager* source;
+    SymbolTable* syms;
     Token tok{};
     Token prev_tok{};
     bool required_semi = true;
@@ -88,8 +90,8 @@ class Parser {
     TypeResult parse_type();
 
 public:
-    Parser(const Lexer& lexer, SourceManager* source)
-        : lexer(lexer), diag(source), source(source) {};
+    Parser(const Lexer& lexer, SourceManager* source, SymbolTable* syms)
+        : lexer(lexer), diag(source), source(source), syms(syms) {};
     std::unique_ptr<ast::SourceFileDecl> parse();
 };
 } // namespace z

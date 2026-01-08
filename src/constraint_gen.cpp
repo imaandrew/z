@@ -224,7 +224,7 @@ void ConstraintGenerator::visit(ast::TupleExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::Block& block) {
-    syms->enter_scope(block.get_scope_ctxt());
+    syms->enter_scope(block.get_scope_id());
 
     block.node_type = new_type(InferType::Block);
     push_block_type(block.node_type);
@@ -253,10 +253,11 @@ void ConstraintGenerator::visit(ast::SourceFileDecl& file) {
 }
 
 void ConstraintGenerator::visit(ast::FuncDecl& func) {
+    auto& scope = syms->get_scope(func.body->get_scope_id());
     for (auto& param : func.params) {
         param->accept(*this);
         resolve_type_name(param->type);
-        func.body->get_scope_ctxt()->declare_var(param->name, param->type);
+        scope.declare_var(param->name, param->type);
     }
 
     func.body->accept(*this);
@@ -281,8 +282,8 @@ void ConstraintGenerator::visit(ast::ContinueStmt& stmt) {
 
 void ConstraintGenerator::visit(ast::ForExpr& expr) {
     expr.ident->node_type = new_var();
-    expr.block->get_scope_ctxt()->declare_var(expr.ident,
-                                              expr.ident->node_type);
+    syms->get_scope(expr.block->get_scope_id())
+        .declare_var(expr.ident, expr.ident->node_type);
 
     expr.block->accept(*this);
     expr.node_type = new_var();
@@ -430,7 +431,7 @@ void ConstraintGenerator::visit(ast::StaticDecl& decl) {
 }
 
 void ConstraintGenerator::visit(ast::TraitDecl& decl) {
-    syms->enter_scope(&decl.ctxt);
+    syms->enter_scope(decl.scope);
 
     for (const auto& c : decl.consts)
         c->accept(*this);
@@ -457,7 +458,8 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
         param->accept(*this);
         resolve_type_name(param->type);
         if (decl.body)
-            decl.body->get_scope_ctxt()->declare_var(param->name, param->type);
+            syms->get_scope(decl.body->get_scope_id())
+                .declare_var(param->name, param->type);
     }
 
     resolve_type_name(decl.ret);
