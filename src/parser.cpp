@@ -633,8 +633,7 @@ StmtResult Parser::parse_let_stmt() {
     if (!consume(TokenKind::Identifier))
         return StmtError();
 
-    auto ident = std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+    auto ident = parse_ident_unchecked();
 
     if (kind(TokenKind::Colon)) {
         auto type = prime_parse_type();
@@ -698,8 +697,7 @@ ExprResult Parser::parse_expr(const int precedence,
         next_token();
         break;
     case TokenKind::Identifier:
-        lhs = std::make_unique<ast::Identifier>(
-            tok, source->get_string(tok.get_span()));
+        lhs = parse_ident_unchecked();
         next_token();
         break;
     case TokenKind::String: {
@@ -885,9 +883,8 @@ ExprResult Parser::parse_expr(const int precedence,
             if (!consume(TokenKind::Identifier))
                 return ExprError();
 
-            lhs = std::make_unique<ast::FieldExpr>(
-                std::move(lhs), std::make_unique<ast::Identifier>(
-                                    tok, source->get_string(tok.get_span())));
+            lhs = std::make_unique<ast::FieldExpr>(std::move(lhs),
+                                                   parse_ident_unchecked());
             next_token();
             break;
         case TokenKind::PlusEq:
@@ -1174,9 +1171,7 @@ TypeResult Parser::parse_type() {
         } else if (val_str == "char") {
             type = std::make_unique<type::CharType>();
         } else {
-            type = std::make_unique<type::UnknownType>(
-                std::make_unique<ast::Identifier>(
-                    tok, source->get_string(tok.get_span())));
+            type = std::make_unique<type::UnknownType>(parse_ident_unchecked());
         }
 
         while (kind(TokenKind::Star)) {
