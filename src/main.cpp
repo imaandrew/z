@@ -1,9 +1,8 @@
 #include "lexer.h"
 #include "parser.h"
 #include "sem.h"
-#include "src_mgr.h"
-#include "sym_table.h"
 #include "type_res.h"
+#include "zctxt.h"
 #include <argparse/argparse.hpp>
 #include <exception>
 #include <iostream>
@@ -33,28 +32,25 @@ int main(int argc, char** argv) {
     }
 
     auto input = z.get<std::string>("INPUT");
-    auto sm = SourceManager::CreateFromPath(input);
-    if (!sm) {
+    auto c = ZContext::Create(input);
+    if (!c)
         return 1;
-    }
+    auto ctxt = std::move(*c);
 
-    auto source_mgr = sm.value();
-    auto strings = StringPool();
-    auto lexer = Lexer(&source_mgr);
-    auto syms = SymbolTable(&source_mgr);
-    auto parser = Parser(lexer, &source_mgr, &syms, &strings);
+    auto lexer = Lexer(ctxt.src.get());
+    auto parser = Parser(lexer, ctxt);
     auto file = parser.parse();
 
     if (z["--dump-ast-untyped"] == true)
-        file->dump(&source_mgr, 0, std::cout);
+        file->dump(ctxt.src.get(), 0, std::cout);
 
-    auto type_res = type::TypeResolver(&syms, &source_mgr);
-    auto sem = SemChecker(&syms, &source_mgr);
+    auto type_res = type::TypeResolver(ctxt);
+    auto sem = SemChecker(ctxt);
 
     type_res.resolve(file.get(), dump_constraints);
 
     if (z["--dump-ast"] == true)
-        file->dump(&source_mgr, 0, std::cout);
+        file->dump(ctxt.src.get(), 0, std::cout);
 
     file->accept(sem);
 }

@@ -11,8 +11,8 @@ namespace z {
 
 void SemChecker::visit(ast::Identifier& ident) {
     if (!ident.has_type()) {
-        diag.emit(ident.tok.get_span(), DiagnosticKind::UndefinedIdentifier,
-                  ident.to_string());
+        diag->emit(ident.tok.get_span(), DiagnosticKind::UndefinedIdentifier,
+                   ident.to_string());
     }
 }
 
@@ -35,28 +35,28 @@ void SemChecker::visit(ast::PrefixExpr& expr) {
         check_expr_assignable(*expr.expr);
 
         if (!type->is_integral()) {
-            diag.emit(
+            diag->emit(
                 expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
                 operator_to_string(expr.op.get_kind()), type->basic_name());
         }
         break;
     case TokenKind::LogicalNot:
         if (!type->is_logical()) {
-            diag.emit(
+            diag->emit(
                 expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
                 operator_to_string(expr.op.get_kind()), type->basic_name());
         }
         break;
     case TokenKind::Not:
         if (!type->is_integral()) {
-            diag.emit(
+            diag->emit(
                 expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
                 operator_to_string(expr.op.get_kind()), type->basic_name());
         }
         break;
     case TokenKind::Minus:
         if (!type->is_numeric()) {
-            diag.emit(
+            diag->emit(
                 expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
                 operator_to_string(expr.op.get_kind()), type->basic_name());
         }
@@ -78,10 +78,10 @@ void SemChecker::visit(ast::PostfixExpr& expr) {
         check_expr_assignable(*expr.expr);
 
         if (!expr.expr->node_type->is_integral()) {
-            diag.emit(expr.expr->get_span(),
-                      DiagnosticKind::InvalidUnaryOperand,
-                      operator_to_string(expr.op.get_kind()),
-                      expr.expr->node_type->basic_name());
+            diag->emit(expr.expr->get_span(),
+                       DiagnosticKind::InvalidUnaryOperand,
+                       operator_to_string(expr.op.get_kind()),
+                       expr.expr->node_type->basic_name());
         }
         break;
     default:
@@ -107,20 +107,20 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_numeric()) {
-            diag.emit(
+            diag->emit(
                 expr.lhs->get_span(), DiagnosticKind::InvalidBinaryOperand,
                 operator_to_string(expr.op.get_kind()), l_type->basic_name());
         }
 
         if (!r_type->is_numeric()) {
-            diag.emit(
+            diag->emit(
                 expr.rhs->get_span(), DiagnosticKind::InvalidBinaryOperand,
                 operator_to_string(expr.op.get_kind()), r_type->basic_name());
         }
 
         if (*l_type != *r_type) {
-            diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
-                      r_type->basic_name(), l_type->basic_name());
+            diag->emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
+                       r_type->basic_name(), l_type->basic_name());
         }
 
         break;
@@ -133,20 +133,20 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_integral()) {
-            diag.emit(
+            diag->emit(
                 expr.lhs->get_span(), DiagnosticKind::InvalidBinaryOperand,
                 operator_to_string(expr.op.get_kind()), l_type->basic_name());
         }
 
         if (!r_type->is_integral()) {
-            diag.emit(
+            diag->emit(
                 expr.rhs->get_span(), DiagnosticKind::InvalidBinaryOperand,
                 operator_to_string(expr.op.get_kind()), r_type->basic_name());
         }
 
         if (*l_type != *r_type) {
-            diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
-                      r_type->basic_name(), l_type->basic_name());
+            diag->emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
+                       r_type->basic_name(), l_type->basic_name());
         }
 
         break;
@@ -154,8 +154,8 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         check_expr_assignable(*expr.lhs);
 
         if (*l_type != *r_type) {
-            diag.emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
-                      r_type->basic_name(), l_type->basic_name());
+            diag->emit(expr.op.get_span(), DiagnosticKind::InvalidAssignment,
+                       r_type->basic_name(), l_type->basic_name());
         }
         break;
     case TokenKind::Colon:
@@ -168,9 +168,9 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     case TokenKind::Ge:
     case TokenKind::Le:
         if (!l_type->is_logical() || !r_type->is_logical()) {
-            diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                      operator_to_string(expr.op.get_kind()),
-                      l_type->basic_name(), r_type->basic_name());
+            diag->emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
+                       operator_to_string(expr.op.get_kind()),
+                       l_type->basic_name(), r_type->basic_name());
         }
         break;
     case TokenKind::Range:
@@ -183,9 +183,9 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     case TokenKind::Percent:
         if (!l_type->is_integral() || !r_type->is_integral() ||
             *l_type != *r_type) {
-            diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                      operator_to_string(expr.op.get_kind()),
-                      l_type->basic_name(), r_type->basic_name());
+            diag->emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
+                       operator_to_string(expr.op.get_kind()),
+                       l_type->basic_name(), r_type->basic_name());
         }
         break;
     case TokenKind::Plus:
@@ -194,9 +194,9 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     case TokenKind::Slash:
         if (!l_type->is_numeric() || !r_type->is_numeric() ||
             *l_type != *r_type) {
-            diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                      operator_to_string(expr.op.get_kind()),
-                      l_type->basic_name(), r_type->basic_name());
+            diag->emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
+                       operator_to_string(expr.op.get_kind()),
+                       l_type->basic_name(), r_type->basic_name());
         }
 
         break;
@@ -204,8 +204,8 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         break;
     case TokenKind::Dot: {
         if (!l_type->is_struct()) {
-            diag.emit(expr.lhs->get_span(), DiagnosticKind::TypeHasNoFields,
-                      l_type->basic_name());
+            diag->emit(expr.lhs->get_span(), DiagnosticKind::TypeHasNoFields,
+                       l_type->basic_name());
         }
 
         break;
@@ -221,18 +221,18 @@ void SemChecker::visit(ast::TernaryExpr& expr) {
     expr.rhs->accept(*this);
 
     if (expr.lhs->has_type() && expr.lhs->node_type->is_logical()) {
-        diag.emit(expr.lhs->get_span(), DiagnosticKind::TypeMismatch, "bool",
-                  expr.lhs->node_type->basic_name());
+        diag->emit(expr.lhs->get_span(), DiagnosticKind::TypeMismatch, "bool",
+                   expr.lhs->node_type->basic_name());
     }
 
     if (!expr.mhs->has_type() || !expr.rhs->has_type())
         return;
 
     if (*expr.mhs->node_type != *expr.rhs->node_type.get()) {
-        diag.emit(expr.op2.get_span(), DiagnosticKind::InvalidOperands,
-                  operator_to_string(expr.op2.get_kind()),
-                  expr.mhs->node_type->basic_name(),
-                  expr.rhs->node_type->basic_name());
+        diag->emit(expr.op2.get_span(), DiagnosticKind::InvalidOperands,
+                   operator_to_string(expr.op2.get_kind()),
+                   expr.mhs->node_type->basic_name(),
+                   expr.rhs->node_type->basic_name());
     }
 }
 
@@ -244,26 +244,27 @@ void SemChecker::visit(ast::CallExpr& expr) {
     if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
         auto* func = dyn_cast<type::FunctionType>(expr.ident->node_type.get());
         if (!func) {
-            diag.emit(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
-                      ident->to_string());
+            diag->emit(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
+                       ident->to_string());
         }
 
         auto params = func->get_params();
         if (expr.args.size() != params.size()) {
-            diag.emit(expr.get_span(), DiagnosticKind::IncorrectArgQuantity,
-                      params.size(), expr.args.size());
+            diag->emit(expr.get_span(), DiagnosticKind::IncorrectArgQuantity,
+                       params.size(), expr.args.size());
         }
 
         for (size_t i = 0; i < params.size(); i++) {
             if (*params[i] != *expr.args[i]->node_type.get()) {
-                diag.emit(expr.args[i]->get_span(),
-                          DiagnosticKind::TypeMismatch, params[i]->basic_name(),
-                          expr.args[i]->node_type->basic_name());
+                diag->emit(expr.args[i]->get_span(),
+                           DiagnosticKind::TypeMismatch,
+                           params[i]->basic_name(),
+                           expr.args[i]->node_type->basic_name());
             }
         }
     } else {
-        diag.emit(expr.ident->get_span(), DiagnosticKind::TypeMismatch,
-                  "identifier", expr.ident->node_type->basic_name());
+        diag->emit(expr.ident->get_span(), DiagnosticKind::TypeMismatch,
+                   "identifier", expr.ident->node_type->basic_name());
     }
 }
 
@@ -275,19 +276,20 @@ void SemChecker::visit(ast::ArrayExpr& expr) {
         if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
             const auto var = syms->get_var(ident->get_id());
             if (!var) {
-                diag.emit(expr.ident->get_span(),
-                          DiagnosticKind::UndefinedIdentifier,
-                          ident->to_string());
+                diag->emit(expr.ident->get_span(),
+                           DiagnosticKind::UndefinedIdentifier,
+                           ident->to_string());
             }
 
             if (!var->is_array()) {
-                diag.emit(expr.val->get_span(),
-                          DiagnosticKind::TypeCannotBeIndexed,
-                          expr.ident->node_type->basic_name());
+                diag->emit(expr.val->get_span(),
+                           DiagnosticKind::TypeCannotBeIndexed,
+                           expr.ident->node_type->basic_name());
             }
         } else {
-            diag.emit(expr.val->get_span(), DiagnosticKind::TypeCannotBeIndexed,
-                      expr.ident->node_type->basic_name());
+            diag->emit(expr.val->get_span(),
+                       DiagnosticKind::TypeCannotBeIndexed,
+                       expr.ident->node_type->basic_name());
         }
     }
 
@@ -295,15 +297,15 @@ void SemChecker::visit(ast::ArrayExpr& expr) {
         return;
 
     if (!expr.val->node_type->is_integral()) {
-        diag.emit(expr.val->get_span(), DiagnosticKind::InvalidIndexType,
-                  expr.val->node_type->basic_name());
+        diag->emit(expr.val->get_span(), DiagnosticKind::InvalidIndexType,
+                   expr.val->node_type->basic_name());
     }
 }
 
 void SemChecker::visit(ast::FieldExpr& expr) {
     if (!expr.container->node_type->is_struct()) {
-        diag.emit(expr.container->get_span(), DiagnosticKind::TypeHasNoFields,
-                  expr.container->node_type->basic_name());
+        diag->emit(expr.container->get_span(), DiagnosticKind::TypeHasNoFields,
+                   expr.container->node_type->basic_name());
         return;
     }
 
@@ -314,9 +316,9 @@ void SemChecker::visit(ast::FieldExpr& expr) {
     }
 
     if (!struct_var->get_field_type(expr.field->get_id())) {
-        diag.emit(expr.field->get_span(), DiagnosticKind::UnknownField,
-                  expr.container->node_type->basic_name(),
-                  expr.field->to_string());
+        diag->emit(expr.field->get_span(), DiagnosticKind::UnknownField,
+                   expr.container->node_type->basic_name(),
+                   expr.field->to_string());
     }
 }
 
@@ -335,17 +337,17 @@ void SemChecker::visit(ast::ArrayInitExpr& expr) {
 
     for (auto& val : expr.vals) {
         if (val->has_type() && *valid_type != *val->node_type.get()) {
-            diag.emit(val->get_span(), DiagnosticKind::TypeMismatch,
-                      valid_type->basic_name(), val->node_type->basic_name());
+            diag->emit(val->get_span(), DiagnosticKind::TypeMismatch,
+                       valid_type->basic_name(), val->node_type->basic_name());
         }
     }
 }
 
 void SemChecker::visit(ast::StructExprField& expr) {
     if (*expr.ident->node_type != *expr.val->node_type.get()) {
-        diag.emit(expr.get_span(), DiagnosticKind::TypeMismatch,
-                  expr.ident->node_type->basic_name(),
-                  expr.val->node_type->basic_name());
+        diag->emit(expr.get_span(), DiagnosticKind::TypeMismatch,
+                   expr.ident->node_type->basic_name(),
+                   expr.val->node_type->basic_name());
     }
 }
 
@@ -362,8 +364,8 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
         const auto* struct_type =
             dyn_cast<type::StructType>(syms->get_type(ident->get_id()).get());
         if (!struct_type) {
-            diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
-                      ident->to_string(), expr.ident->node_type->basic_name());
+            diag->emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
+                       ident->to_string(), expr.ident->node_type->basic_name());
         }
 
         std::unordered_set<StringID> required_fields;
@@ -374,26 +376,26 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
         for (const auto& field : expr.fields) {
             if (required_fields.erase(field->ident->get_id()) == 0) {
                 if (struct_type->has_field(field->ident->get_id())) {
-                    diag.emit(field->get_span(),
-                              DiagnosticKind::DuplicateFieldInitialization,
-                              field->ident->to_string());
+                    diag->emit(field->get_span(),
+                               DiagnosticKind::DuplicateFieldInitialization,
+                               field->ident->to_string());
                 } else {
-                    diag.emit(field->ident->get_span(),
-                              DiagnosticKind::UnknownField, ident->to_string(),
-                              field->ident->to_string());
+                    diag->emit(field->ident->get_span(),
+                               DiagnosticKind::UnknownField, ident->to_string(),
+                               field->ident->to_string());
                 }
             }
         }
 
         if (!required_fields.empty()) {
             for (const auto& field : required_fields) {
-                diag.emit(expr.get_span(), DiagnosticKind::FieldNotInitialized,
-                          std::format("FIELD: {}", field.raw_id()));
+                diag->emit(expr.get_span(), DiagnosticKind::FieldNotInitialized,
+                           std::format("FIELD: {}", field.raw_id()));
             }
         }
     } else {
-        diag.emit(expr.ident->get_span(), DiagnosticKind::TypeMismatch,
-                  "identifier", expr.ident->node_type->basic_name());
+        diag->emit(expr.ident->get_span(), DiagnosticKind::TypeMismatch,
+                   "identifier", expr.ident->node_type->basic_name());
     }
 }
 
@@ -425,9 +427,9 @@ void SemChecker::visit(ast::FuncDecl& func) {
     func.body->accept(*this);
 
     if (*func.ret != *func.body->node_type.get()) {
-        diag.emit(func.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
-                  func.name->to_string(), func.ret->basic_name(),
-                  func.body->node_type->basic_name());
+        diag->emit(func.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
+                   func.name->to_string(), func.ret->basic_name(),
+                   func.body->node_type->basic_name());
     }
 }
 
@@ -436,15 +438,15 @@ void SemChecker::visit(ast::BreakStmt& stmt) {
         stmt.expr->accept(*this);
         if (stmt.expr->has_type() && *syms->get_current_scope()->get_type() !=
                                          *stmt.expr->node_type.get()) {
-            diag.emit(stmt.expr->get_span(), DiagnosticKind::TypeMismatch,
-                      syms->get_current_scope()->get_type()->basic_name(),
-                      stmt.expr->node_type->basic_name());
+            diag->emit(stmt.expr->get_span(), DiagnosticKind::TypeMismatch,
+                       syms->get_current_scope()->get_type()->basic_name(),
+                       stmt.expr->node_type->basic_name());
         }
     } else {
         if (!syms->get_current_scope()->get_type()->is_void()) {
-            diag.emit(stmt.expr->get_span(), DiagnosticKind::TypeMismatch,
-                      syms->get_current_scope()->get_type()->basic_name(),
-                      "()");
+            diag->emit(stmt.expr->get_span(), DiagnosticKind::TypeMismatch,
+                       syms->get_current_scope()->get_type()->basic_name(),
+                       "()");
         }
     }
 }
@@ -455,8 +457,8 @@ void SemChecker::visit(ast::ForExpr& expr) {
     // expr.ident->accept(*this);
     expr.expr->accept(*this);
     if (expr.expr->has_type() && !expr.expr->node_type->is_iterable()) {
-        diag.emit(expr.expr->get_span(), DiagnosticKind::TypeNotIterable,
-                  expr.expr->node_type->basic_name());
+        diag->emit(expr.expr->get_span(), DiagnosticKind::TypeNotIterable,
+                   expr.expr->node_type->basic_name());
     }
 
     expr.block->accept(*this);
@@ -470,9 +472,9 @@ void SemChecker::visit(ast::LetStmt& stmt) {
 
     if (stmt.type && stmt.val) {
         if (stmt.val->has_type() && *stmt.type != *stmt.val->node_type.get()) {
-            diag.emit(stmt.val->get_span(), DiagnosticKind::InvalidAssignment,
-                      stmt.val->node_type->basic_name(),
-                      stmt.type->basic_name());
+            diag->emit(stmt.val->get_span(), DiagnosticKind::InvalidAssignment,
+                       stmt.val->node_type->basic_name(),
+                       stmt.type->basic_name());
         }
     }
 }
@@ -485,8 +487,8 @@ void SemChecker::visit(ast::ReturnStmt& stmt) {
 void SemChecker::visit(ast::IfExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() && !expr.expr->node_type->is_logical()) {
-        diag.emit(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
-                  expr.expr->node_type->basic_name());
+        diag->emit(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
+                   expr.expr->node_type->basic_name());
     }
 
     expr.block->accept(*this);
@@ -495,10 +497,10 @@ void SemChecker::visit(ast::IfExpr& expr) {
         expr.else_expr->accept(*this);
 
         if (*expr.block->node_type != *expr.else_expr->node_type.get()) {
-            diag.emit(expr.else_expr->get_span(),
-                      DiagnosticKind::ElseExprTypeMismatch,
-                      expr.block->node_type->basic_name(),
-                      expr.else_expr->node_type->basic_name());
+            diag->emit(expr.else_expr->get_span(),
+                       DiagnosticKind::ElseExprTypeMismatch,
+                       expr.block->node_type->basic_name(),
+                       expr.else_expr->node_type->basic_name());
         }
     }
 }
@@ -514,8 +516,8 @@ void SemChecker::visit(ast::LoopExpr& expr) {
     if (expr.expr) {
         expr.expr->accept(*this);
         if (expr.expr->has_type() && !expr.expr->node_type->is_integral()) {
-            diag.emit(expr.expr->get_span(), DiagnosticKind::ExpectedInteger,
-                      expr.expr->node_type->basic_name());
+            diag->emit(expr.expr->get_span(), DiagnosticKind::ExpectedInteger,
+                       expr.expr->node_type->basic_name());
         }
     }
 
@@ -525,8 +527,8 @@ void SemChecker::visit(ast::LoopExpr& expr) {
 void SemChecker::visit(ast::WhileExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() && !expr.expr->node_type->is_logical()) {
-        diag.emit(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
-                  expr.expr->node_type->basic_name());
+        diag->emit(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
+                   expr.expr->node_type->basic_name());
     }
 
     expr.block->accept(*this);
@@ -536,7 +538,7 @@ void SemChecker::visit(ast::StringExpr& /*expr*/) {}
 
 void SemChecker::visit(ast::CharExpr& expr) {
     if (expr.get_span().len > 1) {
-        diag.emit(expr.get_span(), DiagnosticKind::MoreThanOneChar);
+        diag->emit(expr.get_span(), DiagnosticKind::MoreThanOneChar);
     }
 }
 
@@ -558,7 +560,7 @@ void SemChecker::visit(ast::TraitFuncDecl& decl) {}
 
 void SemChecker::check_expr_assignable(ast::Expr& expr) {
     if (!expr.is_assignable()) {
-        diag.emit(expr.get_span(), DiagnosticKind::ExprNotAssignable);
+        diag->emit(expr.get_span(), DiagnosticKind::ExprNotAssignable);
     }
 }
 } // namespace z

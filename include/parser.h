@@ -7,6 +7,7 @@
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
+#include "zctxt.h"
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -43,7 +44,7 @@ inline SyncFlags operator&(const SyncFlags& lhs, const SyncFlags& rhs) {
 
 class Parser {
     Lexer lexer;
-    DiagnosticsEngine diag;
+    DiagnosticsEngine* diag;
     SourceManager* source;
     SymbolTable* syms;
     StringPool* strings;
@@ -92,10 +93,9 @@ class Parser {
     TypeResult parse_type();
 
 public:
-    Parser(const Lexer& lexer, SourceManager* source, SymbolTable* syms,
-           StringPool* strings)
-        : lexer(lexer), diag(source), source(source), syms(syms),
-          strings(strings) {};
+    Parser(const Lexer& lexer, ZContext& ctxt)
+        : lexer(lexer), diag(&ctxt.diag), source(ctxt.src.get()),
+          syms(ctxt.syms.get()), strings(ctxt.strings.get()) {};
     std::unique_ptr<ast::SourceFileDecl> parse();
 };
 } // namespace z

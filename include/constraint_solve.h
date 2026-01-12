@@ -16,7 +16,7 @@ class ConstraintSolver {
     };
 
     std::vector<Entry> entries;
-    DiagnosticsEngine diag;
+    DiagnosticsEngine* diag;
 
     TypeID find(TypeID x);
     void union_types(TypeID x, TypeID y, std::shared_ptr<Type> merged);
@@ -30,7 +30,7 @@ class ConstraintSolver {
     static bool types_compatible(const Type* a, const Type* b);
 
 public:
-    explicit ConstraintSolver(DiagnosticsEngine& diag) : diag(diag) {}
+    explicit ConstraintSolver(DiagnosticsEngine* diag) : diag(diag) {}
 
     void register_vars(std::vector<std::shared_ptr<InferredType>>& types);
     bool solve(std::vector<Constraint>& constraints);

@@ -2,19 +2,19 @@
 
 #include "ast.h"
 #include "diagnostics.h"
-#include "src_mgr.h"
 #include "sym_table.h"
 #include "type.h"
+#include "zctxt.h"
 
 namespace z {
 
 class SemChecker : public ast::ASTVisitor {
     SymbolTable* syms;
-    DiagnosticsEngine diag;
+    DiagnosticsEngine* diag;
 
 public:
-    SemChecker(SymbolTable* syms, SourceManager* src)
-        : syms(syms), diag(src) {};
+    explicit SemChecker(ZContext& ctxt)
+        : syms(ctxt.syms.get()), diag(&ctxt.diag) {};
     ~SemChecker() override = default;
     SemChecker(const SemChecker& other) = delete;
     SemChecker(SemChecker&& other) = delete;

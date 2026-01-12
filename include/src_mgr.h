@@ -81,24 +81,24 @@ class SourceManager {
     }
 
 public:
-    static SourceManager Create(const std::string& input) {
-        return SourceManager(input);
+    static std::unique_ptr<SourceManager> Create(const std::string& input) {
+        return std::unique_ptr<SourceManager>(new SourceManager(input));
     }
 
-    static std::optional<SourceManager>
+    static std::unique_ptr<SourceManager>
     CreateFromPath(const std::string& path_) {
         auto path = std::filesystem::path(path_);
         if (!std::filesystem::exists(path)) {
             std::cerr << std::format("error: no such file or directory: '{}'\n",
                                      path_);
-            return std::nullopt;
+            return nullptr;
         }
 
         auto file = std::ifstream(path, std::ios::ate);
         if (!file.is_open()) {
             std::cerr << std::format("error: could not open file: '{}'\n",
                                      path_);
-            return std::nullopt;
+            return nullptr;
         }
 
         auto size = file.tellg();
@@ -107,10 +107,10 @@ public:
         if (!file.read(input.data(), size)) {
             std::cerr << std::format("error: could not read file: '{}'\n",
                                      path_);
-            return std::nullopt;
+            return nullptr;
         }
 
-        return SourceManager(path, input);
+        return std::unique_ptr<SourceManager>(new SourceManager(path, input));
     }
 
     [[nodiscard]] std::optional<char> get_char(const std::size_t index) {
