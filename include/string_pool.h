@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+namespace z {
 class StringID {
     std::uint32_t id;
     explicit constexpr StringID(std::uint32_t id) : id(id) {}
@@ -14,13 +15,17 @@ public:
     bool operator==(const StringID& other) const { return id == other.id; }
     [[nodiscard]] std::uint32_t raw_id() const { return id; }
 };
+} // namespace z
 
-template <> struct std::hash<StringID> {
-    std::size_t operator()(const StringID& id) const {
-        return std::hash<std::uint32_t>{}(id.raw_id());
+namespace std {
+template <> struct hash<z::StringID> {
+    size_t operator()(const z::StringID& id) const {
+        return hash<uint32_t>{}(id.raw_id());
     }
 };
+} // namespace std
 
+namespace z {
 class StringPool {
     std::unordered_map<std::string_view, StringID> map;
     std::unordered_set<std::string> strings;
@@ -45,3 +50,4 @@ public:
         return id;
     }
 };
+} // namespace z
