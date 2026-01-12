@@ -4,7 +4,6 @@
 #include "token.h"
 #include "type.h"
 #include <cstddef>
-#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -274,7 +273,7 @@ void SemChecker::visit(ast::ArrayExpr& expr) {
 
     if (expr.ident->has_type()) {
         if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
-            const auto var = syms->get_var(ident->get_ident());
+            const auto var = syms->get_var(ident->get_id());
             if (!var) {
                 diag.emit(expr.ident->get_span(),
                           DiagnosticKind::UndefinedIdentifier,
@@ -314,7 +313,7 @@ void SemChecker::visit(ast::FieldExpr& expr) {
         return;
     }
 
-    if (!struct_var->get_field_type(expr.field->get_ident())) {
+    if (!struct_var->get_field_type(expr.field->get_id())) {
         diag.emit(expr.field->get_span(), DiagnosticKind::UnknownField,
                   expr.container->node_type->basic_name(),
                   expr.field->to_string());
@@ -360,21 +359,21 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
         if (!ident->is_valid())
             return;
 
-        const auto* struct_type = dyn_cast<type::StructType>(
-            syms->get_type(ident->get_ident()).get());
+        const auto* struct_type =
+            dyn_cast<type::StructType>(syms->get_type(ident->get_id()).get());
         if (struct_type == nullptr) {
             diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
                       ident->to_string(), expr.ident->node_type->basic_name());
         }
 
-        std::unordered_set<std::string_view> required_fields;
+        std::unordered_set<StringID> required_fields;
         for (const auto& field : struct_type->get_fields()) {
             required_fields.insert(field.first);
         }
 
         for (const auto& field : expr.fields) {
-            if (required_fields.erase(field->ident->get_ident()) == 0) {
-                if (struct_type->has_field(field->ident->get_ident())) {
+            if (required_fields.erase(field->ident->get_id()) == 0) {
+                if (struct_type->has_field(field->ident->get_id())) {
                     diag.emit(field->get_span(),
                               DiagnosticKind::DuplicateFieldInitialization,
                               field->ident->to_string());
@@ -389,7 +388,7 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
         if (!required_fields.empty()) {
             for (const auto& field : required_fields) {
                 diag.emit(expr.get_span(), DiagnosticKind::FieldNotInitialized,
-                          field);
+                          std::format("FIELD: {}", field.raw_id()));
             }
         }
     } else {
@@ -427,7 +426,7 @@ void SemChecker::visit(ast::FuncDecl& func) {
 
     if (*func.ret != *func.body->node_type.get()) {
         diag.emit(func.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
-                  func.get_abs_name(), func.ret->basic_name(),
+                  func.name->to_string(), func.ret->basic_name(),
                   func.body->node_type->basic_name());
     }
 }

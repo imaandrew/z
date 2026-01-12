@@ -3,9 +3,9 @@
 #include "diagnostics.h"
 #include "scope.h"
 #include "src_mgr.h"
+#include "string_pool.h"
 #include "type.h"
 #include <memory>
-#include <string_view>
 #include <vector>
 
 namespace z {
@@ -41,15 +41,12 @@ public:
                       std::shared_ptr<type::FunctionType> type);
     bool declare_type(const std::unique_ptr<ast::Identifier>& name,
                       std::shared_ptr<type::Type> type);
+    [[nodiscard]] std::shared_ptr<type::Type> get_var(StringID name) const;
     [[nodiscard]] std::shared_ptr<type::Type>
-    get_var(std::string_view name) const;
-    [[nodiscard]] std::shared_ptr<type::Type>
-    get_global_var(std::string_view name) const;
-    [[nodiscard]] std::shared_ptr<type::Type>
-    get_func(std::string_view name) const;
-    [[nodiscard]] std::shared_ptr<type::Type>
-    get_type(std::string_view name) const;
-    void update_type(std::string_view name, std::shared_ptr<type::Type>& type);
+    get_global_var(StringID name) const;
+    [[nodiscard]] std::shared_ptr<type::Type> get_func(StringID name) const;
+    [[nodiscard]] std::shared_ptr<type::Type> get_type(StringID name) const;
+    void update_type(StringID name, std::shared_ptr<type::Type>& type);
     bool resolve_unk_type(std::shared_ptr<type::Type>& type) const;
     ScopeContext* get_current_scope() { return stack.back(); }
     ScopeContext& get_scope(ScopeID scope) { return scopes[scope.id]; }

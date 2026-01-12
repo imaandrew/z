@@ -3,7 +3,6 @@
 #include "type.h"
 #include <memory>
 #include <optional>
-#include <string_view>
 #include <utility>
 
 namespace z {
@@ -11,7 +10,7 @@ namespace z {
 bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
                                std::shared_ptr<type::Type> type) {
     const bool is_unique =
-        vars.insert({name->get_ident(),
+        vars.insert({name->get_id(),
                      TypeWithSpan(std::move(type), name->tok.get_span())})
             .second;
 
@@ -22,7 +21,7 @@ bool ScopeContext::declare_func(const std::unique_ptr<ast::Identifier>& name,
                                 std::shared_ptr<type::FunctionType> type) {
     const bool is_unique =
         funcs
-            .insert({name->get_ident(),
+            .insert({name->get_id(),
                      TypeWithSpan(std::move(type), name->tok.get_span())})
             .second;
 
@@ -33,7 +32,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
                                 std::shared_ptr<type::Type> type) {
     const bool is_unique =
         user_defined_types
-            .insert({name->get_ident(),
+            .insert({name->get_id(),
                      TypeWithSpan(std::move(type), name->tok.get_span())})
             .second;
 
@@ -41,7 +40,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
 }
 
 std::optional<ScopeContext::TypeWithSpan>
-ScopeContext::get_var(std::string_view name) const {
+ScopeContext::get_var(StringID name) const {
     if (auto var = vars.find(name); var != vars.end()) {
         return var->second;
     }
@@ -50,7 +49,7 @@ ScopeContext::get_var(std::string_view name) const {
 }
 
 std::optional<ScopeContext::TypeWithSpan>
-ScopeContext::get_func(std::string_view name) const {
+ScopeContext::get_func(StringID name) const {
     if (const auto func = funcs.find(name); func != funcs.end())
         return func->second;
 
@@ -58,7 +57,7 @@ ScopeContext::get_func(std::string_view name) const {
 }
 
 std::optional<ScopeContext::TypeWithSpan>
-ScopeContext::get_type(std::string_view name) const {
+ScopeContext::get_type(StringID name) const {
     if (const auto type = user_defined_types.find(name);
         type != user_defined_types.end())
         return type->second;

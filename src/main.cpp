@@ -39,9 +39,10 @@ int main(int argc, char** argv) {
     }
 
     auto source_mgr = sm.value();
+    auto strings = StringPool();
     auto lexer = Lexer(&source_mgr);
     auto syms = SymbolTable(&source_mgr);
-    auto parser = Parser(lexer, &source_mgr, &syms);
+    auto parser = Parser(lexer, &source_mgr, &syms, &strings);
     auto file = parser.parse();
 
     if (z["--dump-ast-untyped"] == true)

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "src_mgr.h"
+#include "string_pool.h"
 #include "type.h"
 #include <memory>
 #include <optional>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 
@@ -20,9 +20,9 @@ class ScopeContext {
     };
 
     std::shared_ptr<type::Type> scope_type;
-    std::unordered_map<std::string_view, TypeWithSpan> vars;
-    std::unordered_map<std::string_view, TypeWithSpan> funcs;
-    std::unordered_map<std::string_view, TypeWithSpan> user_defined_types;
+    std::unordered_map<StringID, TypeWithSpan> vars;
+    std::unordered_map<StringID, TypeWithSpan> funcs;
+    std::unordered_map<StringID, TypeWithSpan> user_defined_types;
 
 public:
     bool declare_var(const std::unique_ptr<ast::Identifier>& name,
@@ -31,9 +31,9 @@ public:
                       std::shared_ptr<type::FunctionType> type);
     bool declare_type(const std::unique_ptr<ast::Identifier>& name,
                       std::shared_ptr<type::Type> type);
-    std::optional<TypeWithSpan> get_var(std::string_view name) const;
-    std::optional<TypeWithSpan> get_func(std::string_view name) const;
-    std::optional<TypeWithSpan> get_type(std::string_view name) const;
+    std::optional<TypeWithSpan> get_var(StringID name) const;
+    std::optional<TypeWithSpan> get_func(StringID name) const;
+    std::optional<TypeWithSpan> get_type(StringID name) const;
 
     bool set_type(std::shared_ptr<type::Type> type) {
         if (scope_type) {

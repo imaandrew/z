@@ -1,11 +1,11 @@
 #include "sym_table.h"
 #include "ast.h"
 #include "diagnostics.h"
+#include "string_pool.h"
 #include "token.h"
 #include "type.h"
 #include <memory>
 #include <ranges>
-#include <string_view>
 #include <utility>
 
 namespace z {
@@ -13,7 +13,7 @@ namespace z {
 bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
                               std::shared_ptr<type::Type> type) {
     // _ variable name "discards" value
-    if (name->to_string() == "_")
+    if (name->get_id() == StringPool::UNDERSCORE)
         return true;
 
     const bool is_unique = stack.back()->declare_var(name, std::move(type));
@@ -24,7 +24,7 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
                                          name->to_string());
 
         for (const auto* scope : stack) {
-            if (auto type = scope->get_var(name->get_ident())) {
+            if (auto type = scope->get_var(name->get_id())) {
                 data.add_note(type->span, "first defined here");
                 break;
             }
@@ -45,7 +45,7 @@ bool SymbolTable::declare_func(const std::unique_ptr<ast::Identifier>& name,
                                          name->to_string());
 
         for (const auto* scope : stack) {
-            if (auto type = scope->get_func(name->get_ident())) {
+            if (auto type = scope->get_func(name->get_id())) {
                 data.add_note(type->span, "first defined here");
                 break;
             }
@@ -66,7 +66,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
                                          name->to_string());
 
         for (const auto* scope : stack) {
-            if (auto type = scope->get_type(name->get_ident())) {
+            if (auto type = scope->get_type(name->get_id())) {
                 data.add_note(type->span, "first defined here");
                 break;
             }
@@ -77,7 +77,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
     return is_unique;
 }
 
-std::shared_ptr<type::Type> SymbolTable::get_var(std::string_view name) const {
+std::shared_ptr<type::Type> SymbolTable::get_var(StringID name) const {
     for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_var(name)) {
             return type->type;
@@ -87,8 +87,7 @@ std::shared_ptr<type::Type> SymbolTable::get_var(std::string_view name) const {
     return nullptr;
 }
 
-std::shared_ptr<type::Type>
-SymbolTable::get_global_var(std::string_view name) const {
+std::shared_ptr<type::Type> SymbolTable::get_global_var(StringID name) const {
     if (const auto* scope = stack.front()) {
         if (auto type = scope->get_var(name)) {
             return type->type;
@@ -98,7 +97,7 @@ SymbolTable::get_global_var(std::string_view name) const {
     return nullptr;
 }
 
-std::shared_ptr<type::Type> SymbolTable::get_func(std::string_view name) const {
+std::shared_ptr<type::Type> SymbolTable::get_func(StringID name) const {
     for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_func(name)) {
             return type->type;
@@ -108,7 +107,7 @@ std::shared_ptr<type::Type> SymbolTable::get_func(std::string_view name) const {
     return nullptr;
 }
 
-std::shared_ptr<type::Type> SymbolTable::get_type(std::string_view name) const {
+std::shared_ptr<type::Type> SymbolTable::get_type(StringID name) const {
     for (auto* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_type(name)) {
             return type->type;
@@ -118,7 +117,7 @@ std::shared_ptr<type::Type> SymbolTable::get_type(std::string_view name) const {
     return nullptr;
 }
 
-void SymbolTable::update_type(std::string_view name,
+void SymbolTable::update_type(StringID name,
                               std::shared_ptr<type::Type>& new_type) {
 
     for (auto* scope : std::ranges::reverse_view(stack)) {
@@ -130,7 +129,7 @@ void SymbolTable::update_type(std::string_view name,
 
 bool SymbolTable::resolve_unk_type(std::shared_ptr<type::Type>& type) const {
     if (auto* unk_type = dyn_cast<type::UnknownType>(type.get())) {
-        const auto ident = unk_type->to_string();
+        const auto ident = unk_type->get_ident()->get_id();
         if (const auto new_type = get_type(ident)) {
             type = new_type;
             return true;

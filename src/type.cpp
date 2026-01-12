@@ -1,7 +1,6 @@
 #include "type.h"
 #include "ast.h"
 #include <memory>
-#include <string>
 #include <utility>
 
 namespace z::type {
@@ -29,5 +28,4 @@ EnumType::EnumType(const std::unique_ptr<ast::Identifier>& ident)
 StructType::StructType(const std::unique_ptr<ast::Identifier>& ident)
     : Type(Kind), name(ident->to_string()) {};
 
-std::string UnknownType::to_string() const { return ident->to_string(); }
 } // namespace z::type

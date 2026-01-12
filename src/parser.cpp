@@ -947,7 +947,7 @@ Parser::parse_struct_expr_field() {
 
 std::unique_ptr<ast::Identifier> Parser::parse_ident_unchecked() {
     return std::make_unique<ast::Identifier>(
-        tok, source->get_string(tok.get_span()));
+        tok, strings->intern(source->get_string(tok.get_span())));
 }
 
 std::unique_ptr<ast::Expr> Parser::parse_num() const {

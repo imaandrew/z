@@ -1,5 +1,6 @@
 #pragma once
 
+#include "string_pool.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -8,7 +9,6 @@
 #include <memory>
 #include <ostream>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -318,7 +318,6 @@ public:
     UnknownType(UnknownType&&) = delete;
     UnknownType& operator=(UnknownType&&) = delete;
 
-    [[nodiscard]] std::string to_string() const;
     [[nodiscard]] const ast::Identifier* get_ident() const {
         return ident.get();
     }
@@ -415,8 +414,8 @@ public:
 
 class StructType final : public Type {
     std::string name;
-    std::unordered_map<std::string_view, std::shared_ptr<Type>> fields;
-    std::unordered_map<std::string_view, std::shared_ptr<FunctionType>> funcs;
+    std::unordered_map<StringID, std::shared_ptr<Type>> fields;
+    std::unordered_map<StringID, std::shared_ptr<FunctionType>> funcs;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
@@ -425,38 +424,33 @@ public:
 
     [[nodiscard]] bool is_struct() const override { return true; }
 
-    bool define_field(std::string_view field,
-                      const std::shared_ptr<Type>& type) {
+    bool define_field(StringID field, const std::shared_ptr<Type>& type) {
         return fields.insert({field, type}).second;
     }
 
-    void replace_field_type(std::string_view field,
-                            const std::shared_ptr<Type>& type) {
+    void replace_field_type(StringID field, const std::shared_ptr<Type>& type) {
         fields.insert_or_assign(field, type);
     }
 
-    std::shared_ptr<Type> get_field_type(std::string_view field) const {
+    std::shared_ptr<Type> get_field_type(StringID field) const {
         if (!fields.contains(field))
             return nullptr;
 
         return fields.at(field);
     }
 
-    const std::unordered_map<std::string_view, std::shared_ptr<Type>>&
+    const std::unordered_map<StringID, std::shared_ptr<Type>>&
     get_fields() const {
         return fields;
     }
 
-    bool has_field(std::string_view field) const {
-        return fields.contains(field);
-    }
+    bool has_field(StringID field) const { return fields.contains(field); }
 
-    bool define_func(std::string_view name,
-                     std::shared_ptr<FunctionType> type) {
+    bool define_func(StringID name, std::shared_ptr<FunctionType> type) {
         return funcs.insert({name, std::move(type)}).second;
     }
 
-    std::shared_ptr<FunctionType> get_func_type(std::string_view func) const {
+    std::shared_ptr<FunctionType> get_func_type(StringID func) const {
         if (!funcs.contains(func))
             return nullptr;
 
@@ -499,15 +493,14 @@ public:
 
 class EnumType final : public Type {
     std::string name;
-    std::unordered_map<std::string_view, std::vector<std::shared_ptr<Type>>&>
-        fields;
+    std::unordered_map<StringID, std::vector<std::shared_ptr<Type>>&> fields;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Enum;
 
     explicit EnumType(const std::unique_ptr<ast::Identifier>& ident);
 
-    bool define_field(std::string_view field,
+    bool define_field(StringID field,
                       std::vector<std::shared_ptr<Type>>& types) {
         return fields.insert({field, types}).second;
     }

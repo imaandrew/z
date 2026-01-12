@@ -3,6 +3,7 @@
 #include "diagnostics.h"
 #include "scope.h"
 #include "src_mgr.h"
+#include "string_pool.h"
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
@@ -254,11 +255,11 @@ struct Expr : Stmt {
 
 struct Identifier final : Expr {
     Token tok;
-    std::string_view ident;
+    StringID ident;
 
     static constexpr ASTKind Kind = ASTKind::Identifier;
 
-    Identifier(const Token& tok, std::string_view ident)
+    Identifier(const Token& tok, StringID ident)
         : Expr(Kind, tok.get_span()), tok(tok), ident(ident) {};
 
     void dump(SourceManager* source, const int indent,
@@ -268,9 +269,9 @@ struct Identifier final : Expr {
         dump_type(stream);
     }
 
-    [[nodiscard]] std::string to_string() const { return std::string(ident); }
+    [[nodiscard]] std::string to_string() const { return "TODO: FIX THIS"; }
 
-    [[nodiscard]] std::string_view get_ident() const { return ident; }
+    [[nodiscard]] StringID get_id() const { return ident; }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
@@ -742,8 +743,6 @@ struct FuncDecl final : Decl {
         : Decl(Kind, span), name(std::move(name)), params(std::move(params)),
           ret(std::move(ret)), body(std::move(body)) {};
 
-    [[nodiscard]] std::string get_abs_name() const { return name->to_string(); }
-
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FuncDecl";
@@ -775,7 +774,7 @@ struct FuncDecl final : Decl {
 
     void resolve_sym(SymbolTable* syms) override {
         auto* func_type =
-            cast<type::FunctionType>(syms->get_func(get_abs_name()).get());
+            cast<type::FunctionType>(syms->get_func(name->get_id()).get());
 
         for (size_t i = 0; i < params.size(); i++) {
             if (params[i]->type->is_unknown()) {
@@ -1158,7 +1157,7 @@ struct StructDecl final : Decl {
     }
 
     void declare_type(SymbolTable* syms) override {
-        const auto name = ident->get_ident();
+        const auto name = ident->get_id();
 
         if (!syms->declare_type(ident,
                                 std::make_shared<type::StructType>(ident))) {
@@ -1169,8 +1168,8 @@ struct StructDecl final : Decl {
         auto* struct_type = cast<type::StructType>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
-            const bool is_unique = struct_type->define_field(
-                field->ident->get_ident(), field->type);
+            const bool is_unique =
+                struct_type->define_field(field->ident->get_id(), field->type);
             if (!is_unique) {
                 syms->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
@@ -1186,10 +1185,9 @@ struct StructDecl final : Decl {
                 param_types.push_back(param->type);
             }
 
-            const bool is_unique =
-                struct_type->define_func(func_decl->name->get_ident(),
-                                         std::make_shared<type::FunctionType>(
-                                             param_types, func_decl->ret));
+            const bool is_unique = struct_type->define_func(
+                func_decl->name->get_id(), std::make_shared<type::FunctionType>(
+                                               param_types, func_decl->ret));
             if (!is_unique) {
                 syms->diag.emit(func_decl->name->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
@@ -1205,12 +1203,12 @@ struct StructDecl final : Decl {
             return;
 
         auto* struct_type =
-            cast<type::StructType>(syms->get_type(ident->get_ident()).get());
+            cast<type::StructType>(syms->get_type(ident->get_id()).get());
 
         for (const auto& field : fields) {
             if (field->type->is_unknown()) {
                 if (syms->resolve_unk_type(field->type)) {
-                    struct_type->replace_field_type(field->ident->get_ident(),
+                    struct_type->replace_field_type(field->ident->get_id(),
                                                     field->type);
                 } else {
                     valid = false;
@@ -1221,7 +1219,7 @@ struct StructDecl final : Decl {
         for (const auto& func : funcs) {
             auto* func_decl = cast<FuncDecl>(func.get());
             auto* func_type =
-                struct_type->get_func_type(func_decl->name->get_ident()).get();
+                struct_type->get_func_type(func_decl->name->get_id()).get();
 
             for (size_t i = 0; i < func_decl->params.size(); i++) {
                 if (func_decl->params[i]->type->is_unknown()) {
@@ -1366,8 +1364,6 @@ struct TraitFuncDecl final : Decl {
         : Decl(Kind, span), name(std::move(name)), params(std::move(params)),
           ret(std::move(ret)), body(std::move(body)) {};
 
-    [[nodiscard]] std::string get_abs_name() const { return name->to_string(); }
-
     void dump(SourceManager* source, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TraitFuncDecl";
@@ -1401,7 +1397,7 @@ struct TraitFuncDecl final : Decl {
 
     void resolve_sym(SymbolTable* syms) override {
         auto* func_type =
-            cast<type::FunctionType>(syms->get_func(get_abs_name()).get());
+            cast<type::FunctionType>(syms->get_func(name->get_id()).get());
 
         for (size_t i = 0; i < params.size(); i++) {
             if (params[i]->type->is_unknown()) {
@@ -1482,7 +1478,7 @@ struct EnumDecl final : Decl {
     }
 
     void declare_type(SymbolTable* syms) override {
-        const auto name = ident->get_ident();
+        const auto name = ident->get_id();
 
         const bool is_unique =
             syms->declare_type(ident, std::make_shared<type::EnumType>(ident));
@@ -1494,7 +1490,7 @@ struct EnumDecl final : Decl {
         auto* enum_type = cast<type::EnumType>(syms->get_type(name).get());
 
         for (const auto& field : fields) {
-            if (!enum_type->define_field(field->ident->get_ident(),
+            if (!enum_type->define_field(field->ident->get_id(),
                                          field->types)) {
                 syms->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
