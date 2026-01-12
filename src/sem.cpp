@@ -243,7 +243,7 @@ void SemChecker::visit(ast::CallExpr& expr) {
 
     if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
         auto* func = dyn_cast<type::FunctionType>(expr.ident->node_type.get());
-        if (func == nullptr) {
+        if (!func) {
             diag.emit(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
                       ident->to_string());
         }
@@ -309,7 +309,7 @@ void SemChecker::visit(ast::FieldExpr& expr) {
 
     auto* struct_var =
         dyn_cast<type::StructType>(expr.container->node_type.get());
-    if (struct_var == nullptr) {
+    if (!struct_var) {
         return;
     }
 
@@ -329,7 +329,7 @@ void SemChecker::visit(ast::ArrayInitExpr& expr) {
         return;
 
     const auto* valid_type = expr.vals.front()->node_type.get();
-    if (valid_type == nullptr) {
+    if (!valid_type) {
         return;
     }
 
@@ -361,7 +361,7 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
 
         const auto* struct_type =
             dyn_cast<type::StructType>(syms->get_type(ident->get_id()).get());
-        if (struct_type == nullptr) {
+        if (!struct_type) {
             diag.emit(expr.ident->get_span(), DiagnosticKind::NotAStruct,
                       ident->to_string(), expr.ident->node_type->basic_name());
         }

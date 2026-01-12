@@ -28,3 +28,5 @@ Checks: '*,
         -readability-identifier-length,
         -portability-avoid-pragma-once'
 FormatStyle: 'file'
+CheckOptions:
+    readability-implicit-bool-conversion.AllowPointerConditions: true

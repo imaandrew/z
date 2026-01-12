@@ -5,3 +5,4 @@ Language: Cpp
 AccessModifierOffset: -4
 DerivePointerAlignment: false
 PointerAlignment: Left
+InsertNewlineAtEOF: true

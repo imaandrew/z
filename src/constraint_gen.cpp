@@ -112,13 +112,13 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
 
     if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
         auto func = syms->get_func(ident->get_id());
-        if (func == nullptr)
+        if (!func)
             return;
 
         eq(expr.ident->node_type, func);
 
         const auto* func_ptr = dyn_cast<type::FunctionType>(func.get());
-        if (func_ptr == nullptr)
+        if (!func_ptr)
             return;
 
         eq(expr.node_type, func_ptr->get_return_val());
@@ -156,19 +156,19 @@ void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     eq(expr.node_type, expr.field->node_type);
 
     auto* ident = dyn_cast<ast::Identifier>(expr.container.get());
-    if (ident == nullptr)
+    if (!ident)
         return;
 
     auto type = syms->get_type(ident->get_id());
-    if (type == nullptr)
+    if (!type)
         return;
 
     auto* struct_type = dyn_cast<type::StructType>(type.get());
-    if (struct_type == nullptr)
+    if (!struct_type)
         return;
 
     auto field = struct_type->get_field_type(expr.field->get_id());
-    if (field == nullptr)
+    if (!field)
         return;
 
     eq(expr.field->node_type, field);
@@ -190,15 +190,15 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
     expr.ident->node_type = new_type(InferType::Var);
 
     auto* ident = dyn_cast<ast::Identifier>(expr.ident.get());
-    if (ident == nullptr)
+    if (!ident)
         return;
 
     auto type = syms->get_type(ident->get_id());
-    if (type == nullptr)
+    if (!type)
         return;
 
     auto* struct_type = dyn_cast<type::StructType>(type.get());
-    if (struct_type == nullptr)
+    if (!struct_type)
         return;
 
     eq(expr.ident->node_type, std::make_shared<TypeType>(type));
