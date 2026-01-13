@@ -10,13 +10,11 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
-#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace z::ast {
@@ -267,21 +265,14 @@ public:
 
 class ArrayType final : public Type {
     type::TypeRef type;
-    std::variant<std::shared_ptr<ast::Expr>, std::uint64_t> size;
+    std::optional<std::uint64_t> size;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Array;
 
-    explicit ArrayType(type::TypeRef type);
-    ArrayType(type::TypeRef type, std::shared_ptr<ast::Expr> size);
+    explicit ArrayType(type::TypeRef type) : Type(Kind), type(type) {}
     ArrayType(type::TypeRef type, std::uint64_t size)
         : Type(Kind), type(type), size(size) {};
-    ~ArrayType() override;
-
-    ArrayType(const ArrayType&) = delete;
-    ArrayType& operator=(const ArrayType&) = delete;
-    ArrayType(ArrayType&&) = delete;
-    ArrayType& operator=(ArrayType&&) = delete;
 
     [[nodiscard]] type::TypeRef get_type() const { return type; }
 
@@ -294,13 +285,10 @@ public:
             if (type != other_->type)
                 return false;
 
-            const auto* size1 = std::get_if<std::uint64_t>(&size);
-            const auto* size2 = std::get_if<std::uint64_t>(&other_->size);
-            if (size1 && size2)
-                return *size1 == *size2;
+            if (size && other_->size)
+                return size == other_->size;
 
-            // TODO: check if sizes are equal for expr size
-            return true;
+            return !size && !other_->size;
         }
 
         return false;

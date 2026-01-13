@@ -1,5 +1,4 @@
 #include "type.h"
-#include "ast.h"
 #include "type_arena.h"
 #include "type_ref.h"
 #include "zctxt.h"
@@ -8,14 +7,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <utility>
 
 namespace z::type {
-
-ArrayType::ArrayType(TypeRef type) : Type(Kind), type(type) {};
-ArrayType::ArrayType(TypeRef type, std::shared_ptr<ast::Expr> size)
-    : Type(Kind), type(type), size(std::move(size)) {};
-ArrayType::~ArrayType() = default;
 
 TypeArena::TypeArena() {
     types.reserve(16);
@@ -50,9 +43,7 @@ std::string PointerType::basic_name(ZContext* ctxt) const {
 void ArrayType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << "ArrayType { type: ";
     ctxt->ty->get(type)->dump(ctxt, stream);
-    stream << ", size: ";
-    // TODO
-    stream << " }";
+    stream << ", size: " << size.value_or(-1) << " }";
 }
 
 std::string ArrayType::basic_name(ZContext* ctxt) const {

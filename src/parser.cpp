@@ -1184,11 +1184,17 @@ TypeResult Parser::parse_type() {
             return TypeError();
 
         if (tok.is(TokenKind::Semi)) {
-            auto size = prime_parse_expr();
-            if (!size.is_valid())
+            if (!consume(TokenKind::Number))
                 return TypeError();
 
-            type = ty->make<type::ArrayType>(array_type.take(), size.take());
+            auto size = parse_num();
+            next_token();
+
+            if (const auto* num = ast::dyn_cast<ast::IntExpr>(size.get())) {
+                type = ty->make<type::ArrayType>(array_type.take(), num->val);
+            } else {
+                return TypeError();
+            }
         } else {
             type = ty->make<type::ArrayType>(array_type.take());
         }
