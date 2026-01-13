@@ -1,9 +1,9 @@
 #include "constraint_solve.h"
 #include "constraint.h"
 #include "type.h"
+#include "type_ref.h"
 #include <cassert>
 #include <cstddef>
-#include <memory>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -16,8 +16,7 @@ TypeID ConstraintSolver::find(TypeID x) {
     return entries[x].parent;
 }
 
-void ConstraintSolver::union_types(TypeID x, TypeID y,
-                                   std::shared_ptr<Type> merged) {
+void ConstraintSolver::union_types(TypeID x, TypeID y, TypeRef merged) {
     x = find(x);
     y = find(y);
     if (x == y)
@@ -26,39 +25,41 @@ void ConstraintSolver::union_types(TypeID x, TypeID y,
     if (entries[x].rank < entries[y].rank)
         std::swap(x, y);
     entries[y].parent = x;
-    entries[x].type = std::move(merged);
+    entries[x].type = merged;
     if (entries[x].rank == entries[y].rank)
         entries[x].rank++;
 }
 
 bool ConstraintSolver::solve_equality(EqualityConstraint& c) {
-    auto lhs = canonicalize(c.lhs);
-    auto rhs = canonicalize(c.rhs);
+    auto lhs_ref = canonicalize(c.lhs);
+    auto rhs_ref = canonicalize(c.rhs);
 
-    if (*lhs.get() == *rhs.get())
+    auto* lhs = ty->get(lhs_ref);
+    auto* rhs = ty->get(rhs_ref);
+
+    if (*lhs == *rhs)
         return true;
 
     if (lhs->is_explicit() && rhs->is_explicit())
         return true;
 
-    if (!types_compatible(lhs.get(), rhs.get()))
+    if (!types_compatible(lhs, rhs))
         return false;
 
-    return unify_with_variable(lhs, rhs);
+    return unify_with_variable(lhs_ref, rhs_ref, lhs, rhs);
 }
 
-std::shared_ptr<Type>
-ConstraintSolver::canonicalize(std::shared_ptr<Type> type) {
-    if (auto* infer = dyn_cast<InferredType>(type.get())) {
+TypeRef ConstraintSolver::canonicalize(TypeRef type) {
+    if (auto* infer = ty->get_as<InferredType>(type)) {
         return entries[find(infer->get_id())].type;
     }
     return type;
 }
 
-bool ConstraintSolver::unify_with_variable(std::shared_ptr<Type>& lhs,
-                                           std::shared_ptr<Type>& rhs) {
-    auto* lhs_var = dyn_cast<InferredType>(lhs.get());
-    auto* rhs_var = dyn_cast<InferredType>(rhs.get());
+bool ConstraintSolver::unify_with_variable(TypeRef lhs_ref, TypeRef rhs_ref,
+                                           Type* lhs, Type* rhs) {
+    auto* lhs_var = dyn_cast<InferredType>(lhs);
+    auto* rhs_var = dyn_cast<InferredType>(rhs);
 
     if (lhs_var && rhs_var) {
         auto merged = pick_more_specific(lhs_var, rhs_var);
@@ -66,13 +67,15 @@ bool ConstraintSolver::unify_with_variable(std::shared_ptr<Type>& lhs,
         return true;
     }
 
-    auto* var = lhs_var ? lhs_var : rhs_var;
-    auto& concrete = lhs_var ? rhs : lhs;
-
-    if (!can_instantiate(var, concrete.get()))
-        return false;
-
-    entries[find(var->get_id())].type = concrete;
+    if (lhs_var) {
+        if (!can_instantiate(lhs_var, rhs))
+            return false;
+        entries[find(lhs_var->get_id())].type = rhs_ref;
+    } else {
+        if (!can_instantiate(rhs_var, lhs))
+            return false;
+        entries[find(rhs_var->get_id())].type = lhs_ref;
+    }
     return true;
 }
 
@@ -90,9 +93,8 @@ bool ConstraintSolver::can_instantiate(const InferredType* var,
     return false;
 }
 
-std::shared_ptr<Type>
-ConstraintSolver::pick_more_specific(const InferredType* a,
-                                     const InferredType* b) {
+TypeRef ConstraintSolver::pick_more_specific(const InferredType* a,
+                                             const InferredType* b) {
     if (a->get_infer_type() != InferType::Var &&
         a->get_infer_type() != InferType::Block)
         return entries[a->get_id()].type;
@@ -128,13 +130,12 @@ bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
            b_type == InferType::Var || b_type == InferType::Block;
 }
 
-void ConstraintSolver::register_vars(
-    std::vector<std::shared_ptr<InferredType>>& types) {
+void ConstraintSolver::register_vars(std::vector<TypeRef>& types) {
     entries.reserve(types.size());
     for (std::size_t i = 0; i < types.size(); i++) {
-        assert(i == types[i]->get_id());
-        entries.push_back(
-            Entry{.parent = types[i]->get_id(), .type = std::move(types[i])});
+        auto* inf = ty->get_as<InferredType>(types[i]);
+        assert(i == inf->get_id());
+        entries.emplace_back(inf->get_id(), types[i]);
     }
 }
 
@@ -149,20 +150,22 @@ bool ConstraintSolver::solve(std::vector<Constraint>& constraints) {
     return all_ok;
 }
 
-std::shared_ptr<Type> ConstraintSolver::resolve(std::shared_ptr<Type> type) {
-    if (auto* infer = dyn_cast<InferredType>(type.get())) {
+TypeRef ConstraintSolver::resolve(TypeRef type) {
+    if (auto* infer = ty->get_as<InferredType>(type)) {
         auto resolved = entries[find(infer->get_id())].type;
-        if (resolved && resolved->is_explicit())
+        auto* resolved_type = ty->get(resolved);
+
+        if (resolved_type->is_explicit())
             return resolved;
 
-        auto* resolved_infer = dyn_cast<InferredType>(resolved.get());
+        auto* resolved_infer = dyn_cast<InferredType>(resolved_type);
         if (resolved_infer->get_infer_type() == InferType::IntLiteral)
-            return std::make_shared<IntegerType>(32, true);
+            return TypeArena::I32;
         if (resolved_infer->get_infer_type() == InferType::FloatLiteral)
-            return std::make_shared<FloatType>(64);
+            return TypeArena::F64;
         if (resolved_infer->get_infer_type() == InferType::Block)
-            return std::make_shared<VoidType>();
-        return resolved ? resolved : type;
+            return TypeArena::VOID;
+        return resolved.is_valid() ? resolved : type;
     }
     return type;
 }

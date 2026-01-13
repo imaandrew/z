@@ -7,6 +7,8 @@
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
+#include "type_ref.h"
+#include "zctxt.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -172,7 +174,7 @@ public:
 };
 
 struct ASTNode {
-    std::shared_ptr<type::Type> node_type = nullptr;
+    type::TypeRef node_type;
     Span span;
     const ASTKind kind;
     bool valid = true;
@@ -187,20 +189,20 @@ struct ASTNode {
 
     [[nodiscard]] bool is_valid() const { return valid; }
     void mark_invalid() { valid = false; }
-    [[nodiscard]] bool has_type() const { return node_type != nullptr; }
+    [[nodiscard]] bool has_type() const { return node_type.is_valid(); }
     [[nodiscard]] Span get_span() const { return span; }
     [[nodiscard]] ASTKind get_kind() const { return kind; }
     virtual void accept(ASTVisitor& visitor) = 0;
 
-    virtual void dump(SourceManager* source, int indent = 0,
+    virtual void dump(ZContext* ctxt, int indent = 0,
                       std::ostream& stream = std::cout) const = 0;
 
     virtual std::generator<ASTNode*> children() { co_return; }
 
-    void dump_type(std::ostream& stream = std::cout) const {
+    void dump_type(ZContext* ctxt, std::ostream& stream = std::cout) const {
         stream << " - type: ";
-        if (node_type)
-            node_type->dump(stream);
+        if (node_type.is_valid())
+            ctxt->ty->get(node_type)->dump(ctxt);
         else
             stream << "null";
         stream << '\n';
@@ -262,14 +264,16 @@ struct Identifier final : Expr {
     Identifier(const Token& tok, StringID ident)
         : Expr(Kind, tok.get_span()), tok(tok), ident(ident) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "Identifier "
-               << source->get_string(tok.get_span());
-        dump_type(stream);
+               << ctxt->src->get_string(tok.get_span());
+        dump_type(ctxt, stream);
     }
 
-    [[nodiscard]] std::string to_string() const { return "TODO: FIX THIS"; }
+    [[nodiscard]] std::string to_string(StringPool* strings) const {
+        return strings->get_string(ident);
+    }
 
     [[nodiscard]] StringID get_id() const { return ident; }
 
@@ -286,10 +290,10 @@ struct IntExpr final : Expr {
     IntExpr(const Token& tok, const unsigned long long val)
         : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
-    void dump(SourceManager* /* source */, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "IntExpr " << val;
-        dump_type(stream);
+        dump_type(ctxt, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -303,10 +307,10 @@ struct FloatExpr final : Expr {
     FloatExpr(const Token& tok, const double val)
         : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
-    void dump(SourceManager* /* source */, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FloatExpr " << val;
-        dump_type(stream);
+        dump_type(ctxt, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -321,11 +325,11 @@ struct BoolExpr final : Expr {
     BoolExpr(const Token& tok, const bool val)
         : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
-    void dump(SourceManager* /* source */, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "BoolExpr "
                << (val ? "true" : "false");
-        dump_type(stream);
+        dump_type(ctxt, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -335,7 +339,7 @@ struct BoolExpr final : Expr {
 
 struct PrefixExpr final : Expr {
     Token op;
-    std::shared_ptr<Expr> expr;
+    std::unique_ptr<Expr> expr;
 
     static constexpr ASTKind Kind = ASTKind::PrefixExpr;
 
@@ -343,12 +347,12 @@ struct PrefixExpr final : Expr {
         : Expr(Kind, op.get_span() + expr->span), op(op),
           expr(std::move(expr)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "PrefixExpr "
-               << source->get_string(op.get_span());
-        dump_type(stream);
-        expr->dump(source, indent + 2, stream);
+               << ctxt->src->get_string(op.get_span());
+        dump_type(ctxt, stream);
+        expr->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -366,12 +370,12 @@ struct PostfixExpr final : Expr {
         : Expr(Kind, op.get_span() + expr->span), op(op),
           expr(std::move(expr)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "PostfixExpr "
-               << source->get_string(op.get_span());
-        dump_type(stream);
-        expr->dump(source, indent + 2, stream);
+               << ctxt->src->get_string(op.get_span());
+        dump_type(ctxt, stream);
+        expr->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -391,13 +395,13 @@ struct BinaryExpr final : Expr {
         : Expr(Kind, lhs->span + rhs->span), op(op), lhs(std::move(lhs)),
           rhs(std::move(rhs)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "BinaryExpr "
-               << source->get_string(op.get_span());
-        dump_type(stream);
-        lhs->dump(source, indent + 2, stream);
-        rhs->dump(source, indent + 2, stream);
+               << ctxt->src->get_string(op.get_span());
+        dump_type(ctxt, stream);
+        lhs->dump(ctxt, indent + 2, stream);
+        rhs->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -422,14 +426,14 @@ struct TernaryExpr final : Expr {
         : Expr(Kind, lhs->span + rhs->span), op(op), op2(op2),
           lhs(std::move(lhs)), mhs(std::move(mhs)), rhs(std::move(rhs)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TernaryExpr "
-               << source->get_string(op.get_span());
-        dump_type(stream);
-        lhs->dump(source, indent + 2, stream);
-        mhs->dump(source, indent + 2, stream);
-        rhs->dump(source, indent + 2, stream);
+               << ctxt->src->get_string(op.get_span());
+        dump_type(ctxt, stream);
+        lhs->dump(ctxt, indent + 2, stream);
+        mhs->dump(ctxt, indent + 2, stream);
+        rhs->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -453,13 +457,13 @@ struct CallExpr final : Expr {
              std::vector<std::unique_ptr<Expr>> args)
         : Expr(Kind, span), ident(std::move(func)), args(std::move(args)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "CallExpr";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         for (const auto& arg : args) {
-            arg->dump(source, indent + 2, stream);
+            arg->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -481,12 +485,12 @@ struct ArrayExpr final : Expr {
     ArrayExpr(Span span, std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
         : Expr(Kind, span), ident(std::move(ident)), val(std::move(val)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ArrayExpr";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
-        val->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
+        val->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -510,12 +514,12 @@ struct FieldExpr final : Expr {
         : Expr(Kind, container->get_span() + field->get_span()),
           container(std::move(container)), field(std::move(field)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FieldExpr";
-        dump_type(stream);
-        container->dump(source, indent + 2, stream);
-        field->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        container->dump(ctxt, indent + 2, stream);
+        field->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -536,12 +540,12 @@ struct ArrayInitExpr final : Expr {
     ArrayInitExpr(Span span, std::vector<std::unique_ptr<Expr>> vals)
         : Expr(Kind, span), vals(std::move(vals)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ArrayInitExpr";
-        dump_type(stream);
+        dump_type(ctxt, stream);
         for (const auto& val : vals) {
-            val->dump(source, indent + 2, stream);
+            val->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -564,12 +568,12 @@ struct StructExprField final : Expr {
         : Expr(Kind, ident->get_span() + val->get_span()),
           ident(std::move(ident)), val(std::move(val)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "StructExprField";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
-        val->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
+        val->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -591,13 +595,13 @@ struct StructInitExpr final : Expr {
         : Expr(Kind, span), ident(std::move(ident)),
           fields(std::move(fields)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "StructInitExpr";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         for (const auto& field : fields) {
-            field->dump(source, indent + 2, stream);
+            field->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -621,12 +625,12 @@ struct TupleExpr final : Expr {
         : Expr(Kind, span), first(std::move(first)),
           second(std::move(second)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TupleExpr";
-        dump_type(stream);
-        first->dump(source, indent + 2, stream);
-        second->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        first->dump(ctxt, indent + 2, stream);
+        second->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -648,12 +652,12 @@ struct Block final : Expr {
 
     [[nodiscard]] ScopeID get_scope_id() const { return scope; }
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "Block";
-        dump_type(stream);
+        dump_type(ctxt, stream);
         for (const auto& stmt : stmts) {
-            stmt->dump(source, indent + 2, stream);
+            stmt->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -667,20 +671,18 @@ struct Block final : Expr {
 
 struct Param final : Expr {
     std::unique_ptr<Identifier> name;
-    std::shared_ptr<type::Type> type;
+    type::TypeRef type;
 
     static constexpr ASTKind Kind = ASTKind::Param;
 
-    Param(Span span, std::unique_ptr<Identifier> name,
-          std::shared_ptr<type::Type> type)
-        : Expr(Kind, span), name(std::move(name)), type(std::move(type)) {};
+    Param(Span span, std::unique_ptr<Identifier> name, type::TypeRef type)
+        : Expr(Kind, span), name(std::move(name)), type(type) {};
 
-    void dump(SourceManager* source, int indent,
-              std::ostream& stream) const override {
+    void dump(ZContext* ctxt, int indent, std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "Param";
-        dump_type(stream);
-        name->dump(source, indent + 2, stream);
-        type->dump(stream);
+        dump_type(ctxt, stream);
+        name->dump(ctxt, indent + 2, stream);
+        ctxt->ty->get(type)->dump(ctxt, stream);
         stream << '\n';
     }
 
@@ -697,8 +699,8 @@ struct Decl : ASTNode {
     Decl(Decl&&) = delete;
     Decl& operator=(Decl&&) = delete;
 
-    virtual void declare_type(SymbolTable* syms) = 0;
-    virtual void resolve_sym(SymbolTable* syms) = 0;
+    virtual void declare_type(ZContext* ctxt) = 0;
+    virtual void resolve_sym(ZContext* ctxt) = 0;
 };
 
 struct SourceFileDecl : Decl {
@@ -709,12 +711,12 @@ struct SourceFileDecl : Decl {
     SourceFileDecl(Span span, std::vector<std::unique_ptr<Decl>> decls)
         : Decl(Kind, span), decls(std::move(decls)) {}
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "SourceFileDecl";
-        dump_type(stream);
+        dump_type(ctxt, stream);
         for (const auto& decl : decls) {
-            decl->dump(source, indent + 2, stream);
+            decl->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -725,30 +727,30 @@ struct SourceFileDecl : Decl {
             co_yield decl.get();
     }
 
-    void declare_type(SymbolTable* /*syms*/) override {}
-    void resolve_sym(SymbolTable* /*syms*/) override {}
+    void declare_type(ZContext* /*ctxt*/) override {}
+    void resolve_sym(ZContext* /*ctxt*/) override {}
 };
 
 struct FuncDecl final : Decl {
     std::unique_ptr<Identifier> name;
     std::vector<std::unique_ptr<Param>> params;
-    std::shared_ptr<type::Type> ret;
+    type::TypeRef ret;
     std::unique_ptr<Block> body;
 
     static constexpr ASTKind Kind = ASTKind::FuncDecl;
 
     FuncDecl(Span span, std::unique_ptr<Identifier> name,
-             std::vector<std::unique_ptr<Param>> params,
-             std::shared_ptr<type::Type> ret, std::unique_ptr<Block> body)
+             std::vector<std::unique_ptr<Param>> params, type::TypeRef ret,
+             std::unique_ptr<Block> body)
         : Decl(Kind, span), name(std::move(name)), params(std::move(params)),
-          ret(std::move(ret)), body(std::move(body)) {};
+          ret(ret), body(std::move(body)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "FuncDecl";
-        dump_type(stream);
-        name->dump(source, indent + 2, stream);
-        body->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        name->dump(ctxt, indent + 2, stream);
+        body->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -762,23 +764,29 @@ struct FuncDecl final : Decl {
         co_yield body.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        auto param_types = std::vector<std::shared_ptr<type::Type>>();
+    void declare_type(ZContext* ctxt) override {
+        auto param_types = std::vector<type::TypeRef>();
         for (const auto& param : params) {
             param_types.push_back(param->type);
         }
 
-        valid = syms->declare_func(
-            name, std::make_shared<type::FunctionType>(param_types, ret));
+        valid = ctxt->syms->declare_func(
+            name, ctxt->ty->make<type::FunctionType>(param_types, ret));
     }
 
-    void resolve_sym(SymbolTable* syms) override {
-        auto* func_type =
-            cast<type::FunctionType>(syms->get_func(name->get_id()).get());
+    void resolve_sym(ZContext* ctxt) override {
+        if (!is_valid())
+            return;
+
+        auto t = ctxt->syms->get_func(name->get_id());
+        if (!t)
+            return;
+
+        auto* func_type = ctxt->ty->get_as<type::FunctionType>(*t);
 
         for (size_t i = 0; i < params.size(); i++) {
-            if (params[i]->type->is_unknown()) {
-                if (syms->resolve_unk_type(params[i]->type)) {
+            if (ctxt->ty->get(params[i]->type)->is_unknown()) {
+                if (ctxt->resolve_unk_type(params[i]->type)) {
                     func_type->get_params()[i] = params[i]->type;
                 } else {
                     valid = false;
@@ -786,8 +794,8 @@ struct FuncDecl final : Decl {
             }
         }
 
-        if (ret->is_unknown()) {
-            if (syms->resolve_unk_type(ret)) {
+        if (ctxt->ty->get(ret)->is_unknown()) {
+            if (ctxt->resolve_unk_type(ret)) {
                 func_type->set_return_val(ret);
             } else {
                 valid = false;
@@ -806,17 +814,20 @@ struct BreakStmt final : Stmt {
     BreakStmt(Span span, const Token& tok, std::unique_ptr<Expr> expr)
         : Stmt(Kind, span), tok(tok), expr(std::move(expr)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "BreakStmt";
-        dump_type(stream);
+        dump_type(ctxt, stream);
         if (expr)
-            expr->dump(source, indent + 2, stream);
+            expr->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
-    std::generator<ASTNode*> children() override { co_yield expr.get(); }
+    std::generator<ASTNode*> children() override {
+        if (expr)
+            co_yield expr.get();
+    }
 };
 
 struct ContinueStmt final : Stmt {
@@ -826,10 +837,10 @@ struct ContinueStmt final : Stmt {
 
     ContinueStmt(Span span, const Token& tok) : Stmt(Kind, span), tok(tok) {};
 
-    void dump(SourceManager* /* source */, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ContinueStmt";
-        dump_type(stream);
+        dump_type(ctxt, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -847,12 +858,12 @@ struct ForExpr final : Expr {
         : Expr(Kind, span), ident(std::move(ident)), expr(std::move(expr)),
           block(std::move(block)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ForExpr";
-        dump_type(stream);
-        expr->dump(source, indent + 2, stream);
-        block->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        expr->dump(ctxt, indent + 2, stream);
+        block->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -866,8 +877,8 @@ struct ForExpr final : Expr {
 
 struct LetStmt final : Stmt {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<type::Type> type;
-    std::shared_ptr<Expr> val;
+    type::TypeRef type;
+    std::unique_ptr<Expr> val;
     std::optional<Span> eq;
 
     static constexpr ASTKind Kind = ASTKind::LetStmt;
@@ -875,33 +886,31 @@ struct LetStmt final : Stmt {
     LetStmt(Span span, std::unique_ptr<Identifier> ident)
         : Stmt(Kind, span), ident(std::move(ident)) {};
 
-    LetStmt(Span span, std::unique_ptr<Identifier> ident,
-            std::shared_ptr<type::Type> type)
-        : Stmt(Kind, span), ident(std::move(ident)), type(std::move(type)) {};
+    LetStmt(Span span, std::unique_ptr<Identifier> ident, type::TypeRef type)
+        : Stmt(Kind, span), ident(std::move(ident)), type(type) {};
 
     LetStmt(Span span, std::unique_ptr<Identifier> ident,
-            std::shared_ptr<Expr> val, Span eq)
+            std::unique_ptr<Expr> val, Span eq)
         : Stmt(Kind, span), ident(std::move(ident)), val(std::move(val)),
           eq(eq) {};
 
-    LetStmt(Span span, std::unique_ptr<Identifier> ident,
-            std::shared_ptr<type::Type> type, std::shared_ptr<Expr> val,
-            Span eq)
-        : Stmt(Kind, span), ident(std::move(ident)), type(std::move(type)),
+    LetStmt(Span span, std::unique_ptr<Identifier> ident, type::TypeRef type,
+            std::unique_ptr<Expr> val, Span eq)
+        : Stmt(Kind, span), ident(std::move(ident)), type(type),
           val(std::move(val)), eq(eq) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "LetStmt";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
-        if (type) {
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
+        if (type.is_valid()) {
             stream << std::string(indent + 2, ' ');
-            type->dump(stream);
+            ctxt->ty->get(type)->dump(ctxt, stream);
             stream << '\n';
         }
         if (val)
-            val->dump(source, indent + 2, stream);
+            val->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -922,12 +931,12 @@ struct ReturnStmt final : Stmt {
     ReturnStmt(Span span, std::unique_ptr<Expr> expr)
         : Stmt(Kind, span), expr(std::move(expr)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ReturnStmt";
-        dump_type(stream);
+        dump_type(ctxt, stream);
         if (expr)
-            expr->dump(source, indent + 2, stream);
+            expr->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -949,15 +958,15 @@ struct ElseExpr final : Expr {
     ElseExpr(Span span, std::unique_ptr<Expr> if_expr)
         : Expr(Kind, span), if_expr(std::move(if_expr)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ElseExpr";
-        dump_type(stream);
+        dump_type(ctxt, stream);
 
         if (if_expr) {
-            if_expr->dump(source, indent + 2, stream);
+            if_expr->dump(ctxt, indent + 2, stream);
         } else if (block) {
-            block->dump(source, indent + 2, stream);
+            block->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -985,14 +994,14 @@ struct IfExpr final : Expr {
         : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)),
           else_expr(std::move(else_expr)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "IfExpr";
-        dump_type(stream);
-        expr->dump(source, indent + 2, stream);
-        block->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        expr->dump(ctxt, indent + 2, stream);
+        block->dump(ctxt, indent + 2, stream);
         if (else_expr) {
-            else_expr->dump(source, indent + 2, stream);
+            else_expr->dump(ctxt, indent + 2, stream);
         }
     }
 
@@ -1016,14 +1025,14 @@ struct LoopExpr final : Expr {
              std::unique_ptr<Block> block)
         : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "LoopExpr";
-        dump_type(stream);
+        dump_type(ctxt, stream);
         if (expr) {
-            expr->dump(source, indent + 2, stream);
+            expr->dump(ctxt, indent + 2, stream);
         }
-        block->dump(source, indent + 2, stream);
+        block->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1045,12 +1054,12 @@ struct WhileExpr final : Expr {
               std::unique_ptr<Block> block)
         : Expr(Kind, span), expr(std::move(expr)), block(std::move(block)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "WhileExpr";
-        dump_type(stream);
-        expr->dump(source, indent + 2, stream);
-        block->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        expr->dump(ctxt, indent + 2, stream);
+        block->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1068,11 +1077,11 @@ struct StringExpr final : Expr {
 
     explicit StringExpr(Span span) : Expr(Kind, span), span(span) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "String '"
-               << source->get_string(span) << '\'';
-        dump_type(stream);
+               << ctxt->src->get_string(span) << '\'';
+        dump_type(ctxt, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1085,34 +1094,33 @@ struct CharExpr final : Expr {
 
     explicit CharExpr(Span span) : Expr(Kind, span), span(span) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "Char '"
-               << source->get_string(span) << '\'';
-        dump_type(stream);
+               << ctxt->src->get_string(span) << '\'';
+        dump_type(ctxt, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 };
 
 struct StructField final : ASTNode {
-    std::shared_ptr<Identifier> ident;
-    std::shared_ptr<type::Type> type;
+    std::unique_ptr<Identifier> ident;
+    type::TypeRef type;
 
     static constexpr ASTKind Kind = ASTKind::StructField;
 
-    StructField(Span span, std::shared_ptr<Identifier> ident,
-                std::shared_ptr<type::Type> type)
-        : ASTNode(Kind, span), ident(std::move(ident)),
-          type(std::move(type)) {};
+    StructField(Span span, std::unique_ptr<Identifier> ident,
+                type::TypeRef type)
+        : ASTNode(Kind, span), ident(std::move(ident)), type(type) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "StructField";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         stream << std::string(indent + 2, ' ');
-        type->dump(stream);
+        ctxt->ty->get(type)->dump(ctxt, stream);
         stream << '\n';
     }
 
@@ -1134,15 +1142,15 @@ struct StructDecl final : Decl {
         : Decl(Kind, span), ident(std::move(ident)), fields(std::move(fields)),
           funcs(std::move(funcs)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "StructDecl";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         for (const auto& field : fields)
-            field->dump(source, indent + 2, stream);
+            field->dump(ctxt, indent + 2, stream);
         for (const auto& func : funcs)
-            func->dump(source, indent + 2, stream);
+            func->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1156,58 +1164,61 @@ struct StructDecl final : Decl {
             co_yield func.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        const auto name = ident->get_id();
-
-        if (!syms->declare_type(ident,
-                                std::make_shared<type::StructType>(ident))) {
+    void declare_type(ZContext* ctxt) override {
+        auto type = ctxt->ty->make<type::StructType>(ident);
+        if (!ctxt->syms->declare_type(ident, type)) {
             valid = false;
             return;
         }
 
-        auto* struct_type = cast<type::StructType>(syms->get_type(name).get());
+        auto* struct_type = ctxt->ty->get_as<type::StructType>(type);
 
         for (const auto& field : fields) {
             const bool is_unique =
                 struct_type->define_field(field->ident->get_id(), field->type);
             if (!is_unique) {
-                syms->diag.emit(field->ident->tok.get_span(),
+                ctxt->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
-                                ident->to_string(), field->ident->to_string());
+                                ident->to_string(ctxt->strings.get()),
+                                field->ident->to_string(ctxt->strings.get()));
                 valid = false;
             }
         }
 
         for (const auto& func : funcs) {
             auto* func_decl = cast<FuncDecl>(func.get());
-            auto param_types = std::vector<std::shared_ptr<type::Type>>();
+            auto param_types = std::vector<type::TypeRef>();
             for (const auto& param : func_decl->params) {
                 param_types.push_back(param->type);
             }
 
             const bool is_unique = struct_type->define_func(
-                func_decl->name->get_id(), std::make_shared<type::FunctionType>(
+                func_decl->name->get_id(), ctxt->ty->make<type::FunctionType>(
                                                param_types, func_decl->ret));
             if (!is_unique) {
-                syms->diag.emit(func_decl->name->tok.get_span(),
-                                DiagnosticKind::DuplicateField,
-                                ident->to_string(),
-                                func_decl->name->to_string());
+                ctxt->diag.emit(
+                    func_decl->name->tok.get_span(),
+                    DiagnosticKind::DuplicateField,
+                    ident->to_string(ctxt->strings.get()),
+                    func_decl->name->to_string(ctxt->strings.get()));
                 valid = false;
             }
         }
     }
 
-    void resolve_sym(SymbolTable* syms) override {
+    void resolve_sym(ZContext* ctxt) override {
         if (!is_valid())
             return;
 
-        auto* struct_type =
-            cast<type::StructType>(syms->get_type(ident->get_id()).get());
+        auto t = ctxt->syms->get_type(ident->get_id());
+        if (!t)
+            return;
+
+        auto* struct_type = ctxt->ty->get_as<type::StructType>(*t);
 
         for (const auto& field : fields) {
-            if (field->type->is_unknown()) {
-                if (syms->resolve_unk_type(field->type)) {
+            if (ctxt->ty->get(field->type)->is_unknown()) {
+                if (ctxt->resolve_unk_type(field->type)) {
                     struct_type->replace_field_type(field->ident->get_id(),
                                                     field->type);
                 } else {
@@ -1218,12 +1229,15 @@ struct StructDecl final : Decl {
 
         for (const auto& func : funcs) {
             auto* func_decl = cast<FuncDecl>(func.get());
-            auto* func_type =
-                struct_type->get_func_type(func_decl->name->get_id()).get();
+            auto t = struct_type->get_func_type(func_decl->name->get_id());
+            if (!t)
+                continue;
+
+            auto* func_type = ctxt->ty->get_as<type::FunctionType>(*t);
 
             for (size_t i = 0; i < func_decl->params.size(); i++) {
-                if (func_decl->params[i]->type->is_unknown()) {
-                    if (syms->resolve_unk_type(func_decl->params[i]->type)) {
+                if (ctxt->ty->get(func_decl->params[i]->type)->is_unknown()) {
+                    if (ctxt->resolve_unk_type(func_decl->params[i]->type)) {
                         func_type->get_params()[i] = func_decl->params[i]->type;
                     } else {
                         valid = false;
@@ -1231,8 +1245,8 @@ struct StructDecl final : Decl {
                 }
             }
 
-            if (func_decl->ret->is_unknown()) {
-                if (syms->resolve_unk_type(func_decl->ret)) {
+            if (ctxt->ty->get(func_decl->ret)->is_unknown()) {
+                if (ctxt->resolve_unk_type(func_decl->ret)) {
                     func_type->set_return_val(func_decl->ret);
                 } else {
                     valid = false;
@@ -1259,17 +1273,17 @@ struct TraitDecl final : Decl {
         : Decl(Kind, span), ident(std::move(ident)), consts(std::move(consts)),
           types(std::move(types)), funcs(std::move(funcs)), scope(scope) {}
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TraitDecl";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         for (const auto& c : consts)
-            c->dump(source, indent + 2, stream);
+            c->dump(ctxt, indent + 2, stream);
         for (const auto& type : types)
-            type->dump(source, indent + 2, stream);
+            type->dump(ctxt, indent + 2, stream);
         for (const auto& func : funcs)
-            func->dump(source, indent + 2, stream);
+            func->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1286,65 +1300,65 @@ struct TraitDecl final : Decl {
             co_yield func.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        syms->enter_scope(scope);
+    void declare_type(ZContext* ctxt) override {
+        ctxt->syms->enter_scope(scope);
 
         for (const auto& c : consts)
-            c->declare_type(syms);
+            c->declare_type(ctxt);
 
         for (const auto& type : types)
-            type->declare_type(syms);
+            type->declare_type(ctxt);
 
         for (const auto& func : funcs)
-            func->declare_type(syms);
+            func->declare_type(ctxt);
 
-        syms->exit_scope();
+        ctxt->syms->exit_scope();
     }
 
-    void resolve_sym(SymbolTable* syms) override {
-        syms->enter_scope(scope);
+    void resolve_sym(ZContext* ctxt) override {
+        ctxt->syms->enter_scope(scope);
 
         for (const auto& c : consts)
-            c->resolve_sym(syms);
+            c->resolve_sym(ctxt);
 
         for (const auto& type : types)
-            type->resolve_sym(syms);
+            type->resolve_sym(ctxt);
 
         for (const auto& func : funcs)
-            func->resolve_sym(syms);
+            func->resolve_sym(ctxt);
 
-        syms->exit_scope();
+        ctxt->syms->exit_scope();
     }
 };
 
 struct TypeAliasDecl final : Decl {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<type::Type> type;
+    type::TypeRef type;
 
     static constexpr ASTKind Kind = ASTKind::TypeAliasDecl;
 
     TypeAliasDecl(Span span, std::unique_ptr<Identifier> ident,
-                  std::shared_ptr<type::Type> type)
-        : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)) {}
+                  type::TypeRef type)
+        : Decl(Kind, span), ident(std::move(ident)), type(type) {}
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TypeAliasDecl";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     std::generator<ASTNode*> children() override { co_yield ident.get(); }
 
-    void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_type(ident, type);
+    void declare_type(ZContext* ctxt) override {
+        valid = ctxt->syms->declare_type(ident, type);
     }
 
-    void resolve_sym(SymbolTable* syms) override {
-        if (type->is_unknown()) {
-            if (!syms->resolve_unk_type(type))
+    void resolve_sym(ZContext* ctxt) override {
+        if (ctxt->ty->get(type)->is_unknown()) {
+            if (!ctxt->resolve_unk_type(type))
                 valid = false;
         }
     }
@@ -1353,24 +1367,24 @@ struct TypeAliasDecl final : Decl {
 struct TraitFuncDecl final : Decl {
     std::unique_ptr<Identifier> name;
     std::vector<std::unique_ptr<Param>> params;
-    std::shared_ptr<type::Type> ret;
+    type::TypeRef ret;
     std::unique_ptr<Block> body;
 
-    static constexpr ASTKind Kind = ASTKind::FuncDecl;
+    static constexpr ASTKind Kind = ASTKind::TraitFuncDecl;
 
     TraitFuncDecl(Span span, std::unique_ptr<Identifier> name,
-                  std::vector<std::unique_ptr<Param>> params,
-                  std::shared_ptr<type::Type> ret, std::unique_ptr<Block> body)
+                  std::vector<std::unique_ptr<Param>> params, type::TypeRef ret,
+                  std::unique_ptr<Block> body)
         : Decl(Kind, span), name(std::move(name)), params(std::move(params)),
-          ret(std::move(ret)), body(std::move(body)) {};
+          ret(ret), body(std::move(body)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "TraitFuncDecl";
-        dump_type(stream);
-        name->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        name->dump(ctxt, indent + 2, stream);
         if (body)
-            body->dump(source, indent + 2, stream);
+            body->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1385,23 +1399,29 @@ struct TraitFuncDecl final : Decl {
             co_yield body.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        auto param_types = std::vector<std::shared_ptr<type::Type>>();
+    void declare_type(ZContext* ctxt) override {
+        auto param_types = std::vector<type::TypeRef>();
         for (const auto& param : params) {
             param_types.push_back(param->type);
         }
 
-        valid = syms->declare_func(
-            name, std::make_shared<type::FunctionType>(param_types, ret));
+        valid = ctxt->syms->declare_func(
+            name, ctxt->ty->make<type::FunctionType>(param_types, ret));
     }
 
-    void resolve_sym(SymbolTable* syms) override {
-        auto* func_type =
-            cast<type::FunctionType>(syms->get_func(name->get_id()).get());
+    void resolve_sym(ZContext* ctxt) override {
+        if (!is_valid())
+            return;
+
+        auto t = ctxt->syms->get_func(name->get_id());
+        if (!t)
+            return;
+
+        auto* func_type = ctxt->ty->get_as<type::FunctionType>(*t);
 
         for (size_t i = 0; i < params.size(); i++) {
-            if (params[i]->type->is_unknown()) {
-                if (syms->resolve_unk_type(params[i]->type)) {
+            if (ctxt->ty->get(params[i]->type)->is_unknown()) {
+                if (ctxt->resolve_unk_type(params[i]->type)) {
                     func_type->get_params()[i] = params[i]->type;
                 } else {
                     valid = false;
@@ -1409,8 +1429,8 @@ struct TraitFuncDecl final : Decl {
             }
         }
 
-        if (ret->is_unknown()) {
-            if (syms->resolve_unk_type(ret)) {
+        if (ctxt->ty->get(ret)->is_unknown()) {
+            if (ctxt->resolve_unk_type(ret)) {
                 func_type->set_return_val(ret);
             } else {
                 valid = false;
@@ -1421,25 +1441,25 @@ struct TraitFuncDecl final : Decl {
 
 struct EnumField final : ASTNode {
     std::unique_ptr<Identifier> ident;
-    std::vector<std::shared_ptr<type::Type>> types;
+    std::vector<type::TypeRef> types;
 
     static constexpr ASTKind Kind = ASTKind::EnumField;
 
     EnumField(Span span, std::unique_ptr<Identifier> ident)
         : ASTNode(Kind, span), ident(std::move(ident)) {};
     EnumField(Span span, std::unique_ptr<Identifier> ident,
-              std::vector<std::shared_ptr<type::Type>> types)
+              std::vector<type::TypeRef> types)
         : ASTNode(Kind, span), ident(std::move(ident)),
           types(std::move(types)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "EnumField";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         for (const auto& t : types) {
             stream << std::string(indent + 2, ' ');
-            t->dump(stream);
+            ctxt->ty->get(t)->dump(ctxt, stream);
             stream << '\n';
         }
     }
@@ -1460,13 +1480,13 @@ struct EnumDecl final : Decl {
         : Decl(Kind, span), ident(std::move(ident)),
           fields(std::move(fields)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "EnumDecl";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         for (const auto& field : fields)
-            field->dump(source, indent + 2, stream);
+            field->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1477,34 +1497,34 @@ struct EnumDecl final : Decl {
             co_yield field.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        const auto name = ident->get_id();
+    void declare_type(ZContext* ctxt) override {
+        const auto type = ctxt->ty->make<type::EnumType>(ident);
 
-        const bool is_unique =
-            syms->declare_type(ident, std::make_shared<type::EnumType>(ident));
+        const bool is_unique = ctxt->syms->declare_type(ident, type);
         if (!is_unique) {
             valid = false;
             return;
         }
 
-        auto* enum_type = cast<type::EnumType>(syms->get_type(name).get());
+        auto* enum_type = ctxt->ty->get_as<type::EnumType>(type);
 
         for (const auto& field : fields) {
             if (!enum_type->define_field(field->ident->get_id(),
                                          field->types)) {
-                syms->diag.emit(field->ident->tok.get_span(),
+                ctxt->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
-                                ident->to_string(), field->ident->to_string());
+                                ident->to_string(ctxt->strings.get()),
+                                field->ident->to_string(ctxt->strings.get()));
                 valid = false;
             }
         }
     }
 
-    void resolve_sym(SymbolTable* syms) override {
+    void resolve_sym(ZContext* ctxt) override {
         for (const auto& field : fields) {
             for (auto& field_type : field->types) {
-                if (field_type->is_unknown() &&
-                    !syms->resolve_unk_type(field_type)) {
+                if (ctxt->ty->get(field_type)->is_unknown() &&
+                    !ctxt->resolve_unk_type(field_type)) {
                     valid = false;
                 }
             }
@@ -1514,26 +1534,26 @@ struct EnumDecl final : Decl {
 
 struct ConstDecl final : Decl {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<type::Type> type;
+    type::TypeRef type;
     std::unique_ptr<Expr> val;
 
     static constexpr ASTKind Kind = ASTKind::ConstDecl;
 
-    ConstDecl(Span span, std::unique_ptr<Identifier> ident,
-              std::shared_ptr<type::Type> type, std::unique_ptr<Expr> val)
-        : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)),
+    ConstDecl(Span span, std::unique_ptr<Identifier> ident, type::TypeRef type,
+              std::unique_ptr<Expr> val)
+        : Decl(Kind, span), ident(std::move(ident)), type(type),
           val(std::move(val)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "ConstDecl";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         stream << std::string(indent + 2, ' ');
-        type->dump(stream);
+        ctxt->ty->get(type)->dump(ctxt, stream);
         stream << '\n';
         if (val)
-            val->dump(source, indent + 2, stream);
+            val->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1543,16 +1563,16 @@ struct ConstDecl final : Decl {
         co_yield val.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_var(ident, type);
+    void declare_type(ZContext* ctxt) override {
+        valid = ctxt->syms->declare_var(ident, type);
     }
 
-    void resolve_sym(SymbolTable* syms) override {
-        if (!type->is_unknown()) {
+    void resolve_sym(ZContext* ctxt) override {
+        if (!ctxt->ty->get(type)->is_unknown()) {
             return;
         }
 
-        if (!syms->resolve_unk_type(type)) {
+        if (!ctxt->resolve_unk_type(type)) {
             valid = false;
             return;
         }
@@ -1561,26 +1581,26 @@ struct ConstDecl final : Decl {
 
 struct StaticDecl final : Decl {
     std::unique_ptr<Identifier> ident;
-    std::shared_ptr<type::Type> type;
+    type::TypeRef type;
     std::unique_ptr<Expr> val;
 
     static constexpr ASTKind Kind = ASTKind::StaticDecl;
 
-    StaticDecl(Span span, std::unique_ptr<Identifier> ident,
-               std::shared_ptr<type::Type> type, std::unique_ptr<Expr> val)
-        : Decl(Kind, span), ident(std::move(ident)), type(std::move(type)),
+    StaticDecl(Span span, std::unique_ptr<Identifier> ident, type::TypeRef type,
+               std::unique_ptr<Expr> val)
+        : Decl(Kind, span), ident(std::move(ident)), type(type),
           val(std::move(val)) {};
 
-    void dump(SourceManager* source, const int indent,
+    void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "StaticDecl";
-        dump_type(stream);
-        ident->dump(source, indent + 2, stream);
+        dump_type(ctxt, stream);
+        ident->dump(ctxt, indent + 2, stream);
         stream << std::string(indent + 2, ' ');
-        type->dump(stream);
+        ctxt->ty->get(type)->dump(ctxt, stream);
         stream << '\n';
         if (val)
-            val->dump(source, indent + 2, stream);
+            val->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1590,16 +1610,16 @@ struct StaticDecl final : Decl {
         co_yield val.get();
     }
 
-    void declare_type(SymbolTable* syms) override {
-        valid = syms->declare_var(ident, type);
+    void declare_type(ZContext* ctxt) override {
+        valid = ctxt->syms->declare_var(ident, type);
     }
 
-    void resolve_sym(SymbolTable* syms) override {
-        if (!type->is_unknown()) {
+    void resolve_sym(ZContext* ctxt) override {
+        if (!ctxt->ty->get(type)->is_unknown()) {
             return;
         }
 
-        if (!syms->resolve_unk_type(type)) {
+        if (!ctxt->resolve_unk_type(type)) {
             valid = false;
             return;
         }

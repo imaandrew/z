@@ -2,11 +2,10 @@
 
 #include "src_mgr.h"
 #include "string_pool.h"
-#include "type.h"
+#include "type_ref.h"
 #include <memory>
 #include <optional>
 #include <unordered_map>
-#include <utility>
 
 namespace z {
 namespace ast {
@@ -15,35 +14,37 @@ struct Identifier;
 
 class ScopeContext {
     struct TypeWithSpan {
-        std::shared_ptr<type::Type> type;
+        type::TypeRef type;
         Span span;
+
+        TypeWithSpan(type::TypeRef type, Span span) : type(type), span(span) {}
     };
 
-    std::shared_ptr<type::Type> scope_type;
+    type::TypeRef scope_type;
     std::unordered_map<StringID, TypeWithSpan> vars;
     std::unordered_map<StringID, TypeWithSpan> funcs;
     std::unordered_map<StringID, TypeWithSpan> user_defined_types;
 
 public:
     bool declare_var(const std::unique_ptr<ast::Identifier>& name,
-                     std::shared_ptr<type::Type> type);
+                     type::TypeRef type);
     bool declare_func(const std::unique_ptr<ast::Identifier>& name,
-                      std::shared_ptr<type::FunctionType> type);
+                      type::TypeRef type);
     bool declare_type(const std::unique_ptr<ast::Identifier>& name,
-                      std::shared_ptr<type::Type> type);
+                      type::TypeRef type);
     std::optional<TypeWithSpan> get_var(StringID name) const;
     std::optional<TypeWithSpan> get_func(StringID name) const;
     std::optional<TypeWithSpan> get_type(StringID name) const;
 
-    bool set_type(std::shared_ptr<type::Type> type) {
-        if (scope_type) {
+    bool set_type(type::TypeRef type) {
+        if (scope_type.is_valid()) {
             return false;
         }
 
-        scope_type = std::move(type);
+        scope_type = type;
         return true;
     }
 
-    std::shared_ptr<type::Type>& get_type() { return scope_type; }
+    type::TypeRef get_type() { return scope_type; }
 };
 } // namespace z

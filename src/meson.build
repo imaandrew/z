@@ -8,6 +8,7 @@ sources = files(
   'sym_table.cpp',
   'type_res.cpp',
   'type.cpp',
+  'zctxt.cpp',
 )
 
 zlib = library(

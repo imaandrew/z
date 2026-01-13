@@ -19,7 +19,7 @@ template <class T> class Result {
 
 public:
     Result() = default;
-    explicit Result(T&& val) : val(std::move(val)) {}
+    explicit Result(T val) : val(std::move(val)) {}
 
     [[nodiscard]] bool is_valid() const { return val.has_value(); }
     const T& get() {

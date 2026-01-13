@@ -1,9 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <deque>
+#include <functional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace z {
 class StringID {
@@ -28,26 +31,29 @@ template <> struct hash<z::StringID> {
 namespace z {
 class StringPool {
     std::unordered_map<std::string_view, StringID> map;
-    std::unordered_set<std::string> strings;
+    std::deque<std::string> strings;
     std::uint32_t current_id = 0;
 
 public:
     static constexpr StringID UNDERSCORE = StringID{0};
 
     StringPool() {
-        auto [x, _] = strings.insert(std::string("_"));
+        strings.emplace_back("_");
         auto id = StringID(current_id++);
-        map.insert({std::string_view(x->begin(), x->end()), id});
+        map.insert({std::string_view(strings[id.id]), id});
     }
+
     StringID intern(std::string_view s) {
         if (auto it = map.find(s); it != map.end()) {
             return it->second;
         }
 
-        auto [x, _] = strings.insert(std::string(s));
+        strings.emplace_back(s);
         auto id = StringID(current_id++);
-        map.insert({std::string_view(x->begin(), x->end()), id});
+        map.insert({std::string_view(strings[id.id]), id});
         return id;
     }
+
+    const std::string& get_string(StringID id) { return strings[id.id]; }
 };
 } // namespace z

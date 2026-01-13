@@ -3,19 +3,15 @@
 #include "ast.h"
 #include "constraint_gen.h"
 #include "constraint_solve.h"
-#include "diagnostics.h"
-#include "sym_table.h"
-#include "type.h"
+#include "type_ref.h"
 #include "zctxt.h"
-#include <memory>
 #include <vector>
 
 namespace z::type {
 
 class TypeResolver {
-    std::vector<std::shared_ptr<InferredType>> types;
-    SymbolTable* syms;
-    DiagnosticsEngine* diag;
+    std::vector<TypeRef> types;
+    ZContext* ctxt;
     ConstraintGenerator cc;
     ConstraintSolver cs;
 
@@ -23,7 +19,7 @@ class TypeResolver {
 
 public:
     explicit TypeResolver(ZContext& ctxt)
-        : syms(ctxt.syms.get()), diag(&ctxt.diag), cc(types, syms), cs(diag) {};
+        : ctxt(&ctxt), cc(types, ctxt), cs(ctxt) {};
 
     void resolve(ast::SourceFileDecl* file, bool dump_constraints = false);
     void resolve_subtree(ast::ASTNode* node);

@@ -4,8 +4,9 @@
 #include "scope.h"
 #include "src_mgr.h"
 #include "string_pool.h"
-#include "type.h"
+#include "type_ref.h"
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace z {
@@ -18,12 +19,13 @@ class ScopeID {
 class SymbolTable {
     std::vector<ScopeContext> scopes;
     std::vector<ScopeContext*> stack;
+    DiagnosticsEngine diag;
+    StringPool* strings;
 
 public:
-    DiagnosticsEngine diag;
-
-    explicit SymbolTable(SourceManager* source)
-        : scopes({ScopeContext()}), stack({&scopes.front()}), diag(source) {};
+    explicit SymbolTable(SourceManager* source, StringPool* strings)
+        : scopes({ScopeContext()}), stack({&scopes.front()}), diag(source),
+          strings(strings) {};
 
     ScopeID new_scope() {
         auto id = scopes.size();
@@ -36,18 +38,17 @@ public:
     void exit_scope() { stack.pop_back(); }
 
     bool declare_var(const std::unique_ptr<ast::Identifier>& name,
-                     std::shared_ptr<type::Type> type);
+                     type::TypeRef type);
     bool declare_func(const std::unique_ptr<ast::Identifier>& name,
-                      std::shared_ptr<type::FunctionType> type);
+                      type::TypeRef type);
     bool declare_type(const std::unique_ptr<ast::Identifier>& name,
-                      std::shared_ptr<type::Type> type);
-    [[nodiscard]] std::shared_ptr<type::Type> get_var(StringID name) const;
-    [[nodiscard]] std::shared_ptr<type::Type>
+                      type::TypeRef type);
+    [[nodiscard]] std::optional<type::TypeRef> get_var(StringID name) const;
+    [[nodiscard]] std::optional<type::TypeRef>
     get_global_var(StringID name) const;
-    [[nodiscard]] std::shared_ptr<type::Type> get_func(StringID name) const;
-    [[nodiscard]] std::shared_ptr<type::Type> get_type(StringID name) const;
-    void update_type(StringID name, std::shared_ptr<type::Type>& type);
-    bool resolve_unk_type(std::shared_ptr<type::Type>& type) const;
+    [[nodiscard]] std::optional<type::TypeRef> get_func(StringID name) const;
+    [[nodiscard]] std::optional<type::TypeRef> get_type(StringID name) const;
+    void update_type(StringID name, type::TypeRef& type);
     ScopeContext* get_current_scope() { return stack.back(); }
     ScopeContext& get_scope(ScopeID scope) { return scopes[scope.id]; }
 };

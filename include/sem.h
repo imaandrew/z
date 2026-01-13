@@ -1,20 +1,16 @@
 #pragma once
 
 #include "ast.h"
-#include "diagnostics.h"
-#include "sym_table.h"
 #include "type.h"
 #include "zctxt.h"
 
 namespace z {
 
 class SemChecker : public ast::ASTVisitor {
-    SymbolTable* syms;
-    DiagnosticsEngine* diag;
+    ZContext* ctxt;
 
 public:
-    explicit SemChecker(ZContext& ctxt)
-        : syms(ctxt.syms.get()), diag(&ctxt.diag) {};
+    explicit SemChecker(ZContext& ctxt) : ctxt(&ctxt) {};
     ~SemChecker() override = default;
     SemChecker(const SemChecker& other) = delete;
     SemChecker(SemChecker&& other) = delete;

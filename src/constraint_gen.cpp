@@ -2,16 +2,17 @@
 #include "ast.h"
 #include "token.h"
 #include "type.h"
+#include "type_arena.h"
 #include <cstddef>
 #include <memory>
 #include <utility>
 
 namespace z::type {
 void ConstraintGenerator::visit(ast::Identifier& ident) {
-    ident.node_type = new_type(InferType::Var);
+    ident.node_type = new_var();
 
     if (const auto type = syms->get_var(ident.get_id())) {
-        eq(ident.node_type, type);
+        eq(ident.node_type, *type);
     }
 }
 
@@ -24,7 +25,7 @@ void ConstraintGenerator::visit(ast::FloatExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::BoolExpr& expr) {
-    expr.node_type = std::make_shared<BooleanType>();
+    expr.node_type = TypeArena::BOOL;
 }
 
 void ConstraintGenerator::visit(ast::PrefixExpr& expr) {
@@ -63,7 +64,7 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case TokenKind::ShlEq:
     case TokenKind::ShrEq:
     case TokenKind::Eq:
-        expr.node_type = std::make_shared<VoidType>();
+        expr.node_type = TypeArena::VOID;
         break;
     case TokenKind::Colon:
     case TokenKind::OrOr:
@@ -115,9 +116,9 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
         if (!func)
             return;
 
-        eq(expr.ident->node_type, func);
+        eq(expr.ident->node_type, *func);
 
-        const auto* func_ptr = dyn_cast<type::FunctionType>(func.get());
+        const auto* func_ptr = ty->get_as<type::FunctionType>(*func);
         if (!func_ptr)
             return;
 
@@ -139,10 +140,9 @@ void ConstraintGenerator::visit(ast::ArrayExpr& expr) {
     expr.node_type = new_var();
 
     if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
-        auto arr = syms->get_var(ident->get_id());
-
-        if (const auto* type = dyn_cast<type::ArrayType>(arr.get())) {
-            eq(expr.node_type, type->get_type());
+        if (auto arr = syms->get_var(ident->get_id())) {
+            if (const auto* type = ty->get_as<ArrayType>(*arr))
+                eq(expr.node_type, type->get_type());
         }
     }
 }
@@ -163,7 +163,7 @@ void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     if (!type)
         return;
 
-    auto* struct_type = dyn_cast<type::StructType>(type.get());
+    auto* struct_type = ty->get_as<StructType>(*type);
     if (!struct_type)
         return;
 
@@ -171,7 +171,7 @@ void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     if (!field)
         return;
 
-    eq(expr.field->node_type, field);
+    eq(expr.field->node_type, *field);
 }
 
 void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
@@ -181,13 +181,18 @@ void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
         eq(val->node_type, array_type);
     }
 
-    expr.node_type = std::make_shared<ArrayType>(array_type, expr.vals.size());
+    expr.node_type = ty->make<ArrayType>(array_type, expr.vals.size());
 }
 
-void ConstraintGenerator::visit(ast::StructExprField& /*expr*/) {}
+void ConstraintGenerator::visit(ast::StructExprField& expr) {
+    expr.ident->node_type = new_var();
+    expr.val->node_type = new_var();
+    eq(expr.ident->node_type, expr.val->node_type);
+}
 
 void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
-    expr.ident->node_type = new_type(InferType::Var);
+    expr.ident->node_type = new_var();
+    expr.node_type = new_var();
 
     auto* ident = dyn_cast<ast::Identifier>(expr.ident.get());
     if (!ident)
@@ -197,17 +202,21 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
     if (!type)
         return;
 
-    auto* struct_type = dyn_cast<type::StructType>(type.get());
+    eq(expr.node_type, *type);
+
+    auto* struct_type = ty->get_as<StructType>(*type);
     if (!struct_type)
         return;
 
-    eq(expr.ident->node_type, std::make_shared<TypeType>(type));
+    eq(expr.ident->node_type, ty->make<TypeType>(*type));
 
     for (auto& field : expr.fields) {
-        const auto field_type =
-            struct_type->get_field_type(field->ident->get_id());
-        if (field_type) {
-            eq(field->ident->node_type, field_type);
+        field->accept(*this);
+
+        if (const auto field_type =
+                struct_type->get_field_type(field->ident->get_id());
+            field_type) {
+            eq(field->ident->node_type, *field_type);
             eq(field->val->node_type, field->ident->node_type);
         }
     }
@@ -220,7 +229,7 @@ void ConstraintGenerator::visit(ast::TupleExpr& expr) {
     auto first_type = new_var();
     auto second_type = new_var();
 
-    expr.node_type = std::make_unique<TupleType>(first_type, second_type);
+    expr.node_type = ty->make<TupleType>(first_type, second_type);
 }
 
 void ConstraintGenerator::visit(ast::Block& block) {
@@ -233,7 +242,7 @@ void ConstraintGenerator::visit(ast::Block& block) {
         stmt->accept(*this);
 
     if (!block.stmts.empty() &&
-        !isa<VoidType>(block.stmts.back()->node_type.get())) {
+        !isa<VoidType>(ty->get(block.stmts.back()->node_type))) {
         eq(block.node_type, block.stmts.back()->node_type);
     }
 
@@ -265,19 +274,21 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
     resolve_type_name(func.ret);
     eq(func.body->node_type, func.ret);
 
-    func.node_type = syms->get_func(func.name->get_id());
-    func.name->node_type = syms->get_func(func.name->get_id());
+    if (const auto f = syms->get_func(func.name->get_id())) {
+        func.node_type = *f;
+        func.name->node_type = *f;
+    }
 }
 
 void ConstraintGenerator::visit(ast::BreakStmt& stmt) {
     if (stmt.expr)
         stmt.expr->accept(*this);
 
-    stmt.node_type = std::make_shared<type::VoidType>();
+    stmt.node_type = ty->make<type::VoidType>();
 }
 
 void ConstraintGenerator::visit(ast::ContinueStmt& stmt) {
-    stmt.node_type = std::make_shared<type::VoidType>();
+    stmt.node_type = ty->make<type::VoidType>();
 }
 
 void ConstraintGenerator::visit(ast::ForExpr& expr) {
@@ -302,13 +313,13 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
         eq(stmt.ident->node_type, stmt.val->node_type);
     }
 
-    if (stmt.type) {
+    if (stmt.type.is_valid()) {
         resolve_type_name(stmt.type);
         eq(stmt.ident->node_type, stmt.type);
     }
 
     syms->declare_var(stmt.ident, stmt.ident->node_type);
-    stmt.node_type = std::make_shared<type::VoidType>();
+    stmt.node_type = ty->make<type::VoidType>();
 }
 
 void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
@@ -316,10 +327,10 @@ void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
         stmt.expr->accept(*this);
         eq(peek_block_type(), stmt.expr->node_type);
     } else {
-        eq(peek_block_type(), std::make_shared<VoidType>());
+        eq(peek_block_type(), TypeArena::VOID);
     }
 
-    stmt.node_type = std::make_shared<type::VoidType>();
+    stmt.node_type = ty->make<type::VoidType>();
 }
 
 void ConstraintGenerator::visit(ast::IfExpr& expr) {
@@ -343,7 +354,7 @@ void ConstraintGenerator::visit(ast::ElseExpr& expr) {
         eq(expr.node_type, expr.if_expr->node_type);
     } else if (expr.block) {
         expr.block->accept(*this);
-        eq(expr.node_type, expr.if_expr->node_type);
+        eq(expr.node_type, expr.block->node_type);
     }
 }
 
@@ -365,11 +376,11 @@ void ConstraintGenerator::visit(ast::WhileExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::StringExpr& expr) {
-    expr.node_type = std::make_unique<type::StringType>();
+    expr.node_type = TypeArena::STR;
 }
 
 void ConstraintGenerator::visit(ast::CharExpr& expr) {
-    expr.node_type = std::make_unique<type::CharType>();
+    expr.node_type = TypeArena::CHAR;
 }
 
 void ConstraintGenerator::visit(ast::StructField& field) {
@@ -380,10 +391,14 @@ void ConstraintGenerator::visit(ast::StructField& field) {
 }
 
 void ConstraintGenerator::visit(ast::StructDecl& decl) {
-    decl.node_type = syms->get_type(decl.ident->get_id());
-    decl.ident->node_type = std::make_shared<TypeType>(decl.node_type);
+    const auto t = syms->get_type(decl.ident->get_id());
+    if (!t)
+        return;
 
-    const auto* struct_type = cast<StructType>(decl.node_type.get());
+    decl.node_type = *t;
+    decl.ident->node_type = ty->make<TypeType>(decl.node_type);
+
+    const auto* struct_type = ty->get_as<StructType>(decl.node_type);
 
     for (auto& field : decl.fields) {
         field->accept(*this);
@@ -392,8 +407,11 @@ void ConstraintGenerator::visit(ast::StructDecl& decl) {
     for (auto& func : decl.funcs) {
         func->accept(*this);
         auto* func_decl = cast<ast::FuncDecl>(func.get());
-        func->node_type = struct_type->get_func_type(func_decl->name->get_id());
-        func_decl->name->node_type = func->node_type;
+        if (const auto t =
+                struct_type->get_func_type(func_decl->name->get_id())) {
+            func->node_type = *t;
+            func_decl->name->node_type = func->node_type;
+        }
     }
 }
 
@@ -404,8 +422,10 @@ void ConstraintGenerator::visit(ast::EnumField& field) {
 }
 
 void ConstraintGenerator::visit(ast::EnumDecl& decl) {
-    decl.node_type = syms->get_type(decl.ident->get_id());
-    decl.ident->node_type = std::make_shared<TypeType>(decl.node_type);
+    if (const auto t = syms->get_type(decl.ident->get_id()); t) {
+        decl.node_type = *t;
+        decl.ident->node_type = ty->make<TypeType>(decl.node_type);
+    }
 
     for (auto& field : decl.fields) {
         field->accept(*this);
@@ -415,7 +435,7 @@ void ConstraintGenerator::visit(ast::EnumDecl& decl) {
 void ConstraintGenerator::visit(ast::ConstDecl& decl) {
     resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
-    decl.node_type = std::make_shared<VoidType>();
+    decl.node_type = TypeArena::VOID;
 
     decl.val->accept(*this);
     eq(decl.val->node_type, decl.type);
@@ -424,7 +444,7 @@ void ConstraintGenerator::visit(ast::ConstDecl& decl) {
 void ConstraintGenerator::visit(ast::StaticDecl& decl) {
     resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
-    decl.node_type = std::make_shared<VoidType>();
+    decl.node_type = TypeArena::VOID;
 
     decl.val->accept(*this);
     eq(decl.val->node_type, decl.type);
@@ -444,14 +464,13 @@ void ConstraintGenerator::visit(ast::TraitDecl& decl) {
 
     syms->exit_scope();
 
-    decl.node_type = std::make_shared<VoidType>();
-    decl.ident->node_type =
-        std::make_shared<TraitType>(decl.ident->to_string());
+    decl.node_type = TypeArena::VOID;
+    decl.ident->node_type = ty->make<TraitType>(decl.ident->get_id());
 }
 void ConstraintGenerator::visit(ast::TypeAliasDecl& decl) {
     resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
-    decl.node_type = std::make_shared<VoidType>();
+    decl.node_type = TypeArena::VOID;
 }
 void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
     for (auto& param : decl.params) {
@@ -469,13 +488,20 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
         eq(decl.body->node_type, decl.ret);
     }
 
-    decl.node_type = syms->get_func(decl.name->get_id());
-    decl.name->node_type = syms->get_func(decl.name->get_id());
+    if (const auto t = syms->get_func(decl.name->get_id())) {
+        decl.node_type = *t;
+        decl.name->node_type = *t;
+    }
 }
 
-void ConstraintGenerator::resolve_type_name(std::shared_ptr<type::Type>& type) {
-    if (!syms->resolve_unk_type(type)) {
-        type = std::make_shared<type::InvalidType>();
+void ConstraintGenerator::resolve_type_name(TypeRef& type) {
+    if (auto* unk = ty->get_as<UnknownType>(type)) {
+        auto t = syms->get_type(unk->get_ident()->get_id());
+        if (t) {
+            type = *t;
+        } else {
+            type = TypeArena::INVALID;
+        }
     }
 }
 

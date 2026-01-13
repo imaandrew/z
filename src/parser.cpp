@@ -4,6 +4,8 @@
 #include "src_mgr.h"
 #include "token.h"
 #include "type.h"
+#include "type_arena.h"
+#include "type_ref.h"
 #include <charconv>
 #include <cmath>
 #include <cstddef>
@@ -244,7 +246,7 @@ Result<std::unique_ptr<ast::EnumField>> Parser::parse_enum_field() {
     auto ident = parse_ident_unchecked();
 
     if (kind(TokenKind::LParen)) {
-        std::vector<std::shared_ptr<type::Type>> types;
+        std::vector<type::TypeRef> types;
         next_token();
         while (!tok.is(TokenKind::RParen)) {
             auto type = parse_type();
@@ -419,7 +421,7 @@ DeclResult Parser::parse_trait_func_decl() {
     if (!params.is_valid())
         return DeclError();
 
-    std::unique_ptr<type::Type> ret;
+    type::TypeRef ret;
     if (tok.is(TokenKind::Arrow)) {
         auto type = prime_parse_type();
         if (!type.is_valid())
@@ -427,7 +429,7 @@ DeclResult Parser::parse_trait_func_decl() {
 
         ret = type.take();
     } else {
-        ret = std::make_unique<type::VoidType>();
+        ret = type::TypeArena::VOID;
     }
 
     if (tok.is(TokenKind::LBrace)) {
@@ -437,15 +439,14 @@ DeclResult Parser::parse_trait_func_decl() {
 
         span += prev_tok.get_span();
         return DeclResult(std::make_unique<ast::TraitFuncDecl>(
-            span, std::move(func_ident), params.take(), std::move(ret),
-            block.take()));
+            span, std::move(func_ident), params.take(), ret, block.take()));
     }
 
     tok_assert(TokenKind::Semi);
     span += tok.get_span();
     next_token();
     return DeclResult(std::make_unique<ast::TraitFuncDecl>(
-        span, std::move(func_ident), params.take(), std::move(ret), nullptr));
+        span, std::move(func_ident), params.take(), ret, nullptr));
 }
 
 DeclResult Parser::parse_func_decl() {
@@ -462,7 +463,7 @@ DeclResult Parser::parse_func_decl() {
     if (!params.is_valid())
         return DeclError();
 
-    std::unique_ptr<type::Type> ret;
+    type::TypeRef ret;
     if (tok.is(TokenKind::Arrow)) {
         auto type = prime_parse_type();
         if (!type.is_valid())
@@ -470,7 +471,7 @@ DeclResult Parser::parse_func_decl() {
 
         ret = type.take();
     } else {
-        ret = std::make_unique<type::VoidType>();
+        ret = type::TypeArena::VOID;
     }
 
     auto block = parse_block();
@@ -479,8 +480,7 @@ DeclResult Parser::parse_func_decl() {
 
     span += prev_tok.get_span();
     return DeclResult(std::make_unique<ast::FuncDecl>(
-        span, std::move(func_ident), params.take(), std::move(ret),
-        block.take()));
+        span, std::move(func_ident), params.take(), ret, block.take()));
 }
 
 Result<std::vector<std::unique_ptr<ast::Param>>> Parser::parse_func_params() {
@@ -1134,48 +1134,48 @@ TypeResult Parser::prime_parse_type() {
 }
 
 TypeResult Parser::parse_type() {
-    std::unique_ptr<type::Type> type;
+    type::TypeRef type;
     if (tok.is(TokenKind::Identifier)) {
 
         if (const auto val_str = source->get_string(tok.get_span());
             val_str.at(0) == 'u') {
             if (val_str == "u8") {
-                type = std::make_unique<type::IntegerType>(8, false);
+                type = type::TypeArena::U8;
             } else if (val_str == "u16") {
-                type = std::make_unique<type::IntegerType>(16, false);
+                type = type::TypeArena::U16;
             } else if (val_str == "u32") {
-                type = std::make_unique<type::IntegerType>(32, false);
+                type = type::TypeArena::U32;
             } else if (val_str == "u64") {
-                type = std::make_unique<type::IntegerType>(64, false);
+                type = type::TypeArena::U64;
             }
         } else if (val_str.at(0) == 'i') {
             if (val_str == "i8") {
-                type = std::make_unique<type::IntegerType>(8, true);
+                type = type::TypeArena::I8;
             } else if (val_str == "i16") {
-                type = std::make_unique<type::IntegerType>(16, true);
+                type = type::TypeArena::I16;
             } else if (val_str == "i32") {
-                type = std::make_unique<type::IntegerType>(32, true);
+                type = type::TypeArena::I32;
             } else if (val_str == "i64") {
-                type = std::make_unique<type::IntegerType>(64, true);
+                type = type::TypeArena::I64;
             }
         } else if (val_str.at(0) == 'f') {
             if (val_str == "f32") {
-                type = std::make_unique<type::FloatType>(32);
+                type = type::TypeArena::F32;
             } else if (val_str == "f64") {
-                type = std::make_unique<type::FloatType>(64);
+                type = type::TypeArena::F64;
             }
         } else if (val_str == "bool") {
-            type = std::make_unique<type::BooleanType>();
+            type = type::TypeArena::BOOL;
         } else if (val_str == "str") {
-            type = std::make_unique<type::StringType>();
+            type = type::TypeArena::STR;
         } else if (val_str == "char") {
-            type = std::make_unique<type::CharType>();
+            type = type::TypeArena::CHAR;
         } else {
-            type = std::make_unique<type::UnknownType>(parse_ident_unchecked());
+            type = ty->make<type::UnknownType>(parse_ident_unchecked());
         }
 
         while (kind(TokenKind::Star)) {
-            type = std::make_unique<type::PointerType>(std::move(type));
+            type = ty->make<type::PointerType>(type);
         }
     } else if (tok.is(TokenKind::LBracket)) {
         auto array_type = prime_parse_type();
@@ -1187,10 +1187,9 @@ TypeResult Parser::parse_type() {
             if (!size.is_valid())
                 return TypeError();
 
-            type = std::make_unique<type::ArrayType>(array_type.take(),
-                                                     size.take());
+            type = ty->make<type::ArrayType>(array_type.take(), size.take());
         } else {
-            type = std::make_unique<type::ArrayType>(array_type.take());
+            type = ty->make<type::ArrayType>(array_type.take());
         }
         tok_assert(TokenKind::RBracket);
         next_token();
@@ -1198,7 +1197,7 @@ TypeResult Parser::parse_type() {
         return TypeError();
     }
 
-    return TypeResult(std::move(type));
+    return TypeResult(type);
 }
 
 void Parser::next_token() {

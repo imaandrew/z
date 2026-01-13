@@ -6,20 +6,29 @@
 #include <argparse/argparse.hpp>
 #include <exception>
 #include <iostream>
+#include <string>
+#include <utility>
 
 using namespace z;
 
 int main(int argc, char** argv) {
+    bool dump_ast_untyped = false;
+    bool dump_ast = false;
     bool dump_constraints = false;
+    std::string input;
 
     auto z = argparse::ArgumentParser("z");
 
     try {
-        z.add_argument("INPUT").help("input file");
+        z.add_argument("INPUT").help("input file").store_into(input);
         z.add_argument("--dump-ast-untyped")
             .help("print parsed AST before type resolution")
-            .flag();
-        z.add_argument("--dump-ast").help("print typed AST").flag();
+            .flag()
+            .store_into(dump_ast_untyped);
+        z.add_argument("--dump-ast")
+            .help("print typed AST")
+            .flag()
+            .store_into(dump_ast);
         z.add_argument("--dump-type-constraints")
             .help("print type constraints")
             .flag()
@@ -31,7 +40,6 @@ int main(int argc, char** argv) {
         std::exit(1); // NOLINT
     }
 
-    auto input = z.get<std::string>("INPUT");
     auto c = ZContext::Create(input);
     if (!c)
         return 1;
@@ -41,16 +49,16 @@ int main(int argc, char** argv) {
     auto parser = Parser(lexer, ctxt);
     auto file = parser.parse();
 
-    if (z["--dump-ast-untyped"] == true)
-        file->dump(ctxt.src.get(), 0, std::cout);
+    if (dump_ast_untyped)
+        file->dump(&ctxt, 0, std::cout);
 
     auto type_res = type::TypeResolver(ctxt);
     auto sem = SemChecker(ctxt);
 
     type_res.resolve(file.get(), dump_constraints);
 
-    if (z["--dump-ast"] == true)
-        file->dump(ctxt.src.get(), 0, std::cout);
+    if (dump_ast)
+        file->dump(&ctxt, 0, std::cout);
 
     file->accept(sem);
 }

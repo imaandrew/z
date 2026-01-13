@@ -1,6 +1,8 @@
 #include "scope.h"
 #include "ast.h"
+#include "string_pool.h"
 #include "type.h"
+#include "type_ref.h"
 #include <memory>
 #include <optional>
 #include <utility>
@@ -8,32 +10,28 @@
 namespace z {
 
 bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
-                               std::shared_ptr<type::Type> type) {
+                               type::TypeRef type) {
     const bool is_unique =
-        vars.insert({name->get_id(),
-                     TypeWithSpan(std::move(type), name->tok.get_span())})
+        vars.insert({name->get_id(), TypeWithSpan(type, name->tok.get_span())})
             .second;
 
     return is_unique;
 }
 
 bool ScopeContext::declare_func(const std::unique_ptr<ast::Identifier>& name,
-                                std::shared_ptr<type::FunctionType> type) {
+                                type::TypeRef type) {
     const bool is_unique =
-        funcs
-            .insert({name->get_id(),
-                     TypeWithSpan(std::move(type), name->tok.get_span())})
+        funcs.insert({name->get_id(), TypeWithSpan(type, name->tok.get_span())})
             .second;
 
     return is_unique;
 }
 
 bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
-                                std::shared_ptr<type::Type> type) {
+                                type::TypeRef type) {
     const bool is_unique =
         user_defined_types
-            .insert({name->get_id(),
-                     TypeWithSpan(std::move(type), name->tok.get_span())})
+            .insert({name->get_id(), TypeWithSpan(type, name->tok.get_span())})
             .second;
 
     return is_unique;

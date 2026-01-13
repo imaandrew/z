@@ -7,6 +7,8 @@
 #include "sym_table.h"
 #include "token.h"
 #include "type.h"
+#include "type_arena.h"
+#include "type_ref.h"
 #include "zctxt.h"
 #include <cstdint>
 #include <memory>
@@ -19,7 +21,7 @@ namespace z {
 using StmtResult = Result<std::unique_ptr<ast::Stmt>>;
 using ExprResult = Result<std::unique_ptr<ast::Expr>>;
 using DeclResult = Result<std::unique_ptr<ast::Decl>>;
-using TypeResult = Result<std::unique_ptr<type::Type>>;
+using TypeResult = Result<type::TypeRef>;
 
 inline StmtResult StmtError() { return StmtResult(); }
 inline ExprResult ExprError() { return ExprResult(); }
@@ -48,6 +50,7 @@ class Parser {
     SourceManager* source;
     SymbolTable* syms;
     StringPool* strings;
+    type::TypeArena* ty;
     Token tok{};
     Token prev_tok{};
     bool required_semi = true;
@@ -95,7 +98,8 @@ class Parser {
 public:
     Parser(const Lexer& lexer, ZContext& ctxt)
         : lexer(lexer), diag(&ctxt.diag), source(ctxt.src.get()),
-          syms(ctxt.syms.get()), strings(ctxt.strings.get()) {};
+          syms(ctxt.syms.get()), strings(ctxt.strings.get()),
+          ty(ctxt.ty.get()) {};
     std::unique_ptr<ast::SourceFileDecl> parse();
 };
 } // namespace z

@@ -7,6 +7,7 @@
 #include <format>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -114,7 +115,7 @@ public:
     }
 
     [[nodiscard]] std::optional<char> get_char(const std::size_t index) {
-        if (in_bounds(index)) {
+        if (!in_bounds(index)) {
             return std::nullopt;
         }
 
@@ -133,11 +134,11 @@ public:
     }
 
     [[nodiscard]] bool in_bounds(const std::size_t index) const {
-        return index >= input.size();
+        return index < input.size();
     }
 
     [[nodiscard]] const char* get_char_ptr(const std::size_t index) const {
-        if (in_bounds(index))
+        if (!in_bounds(index))
             return nullptr;
 
         return &input[index];
@@ -148,7 +149,7 @@ public:
             return path->string();
         }
 
-        return std::string("asdf");
+        return std::string("<stdin>");
     }
 
     [[nodiscard]] std::string_view get_string(const Span& span) const {

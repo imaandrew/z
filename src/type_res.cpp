@@ -9,11 +9,11 @@ namespace z::type {
 
 void TypeResolver::resolve_decls(const ast::SourceFileDecl* file) const {
     for (const auto& decl : file->decls) {
-        decl->declare_type(syms);
+        decl->declare_type(ctxt);
     }
 
     for (const auto& decl : file->decls) {
-        decl->resolve_sym(syms);
+        decl->resolve_sym(ctxt);
     }
 }
 
@@ -25,7 +25,7 @@ void TypeResolver::resolve(ast::SourceFileDecl* file, bool dump_constraints) {
     if (dump_constraints) {
         for (const auto& c : constraints) {
             if (const auto* eq = std::get_if<EqualityConstraint>(&c))
-                std::cout << eq->to_string() << '\n';
+                std::cout << eq->to_string(ctxt) << '\n';
         }
     }
 

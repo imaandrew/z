@@ -1,19 +1,21 @@
 #pragma once
 
 #include "type.h"
+#include "type_ref.h"
+#include "zctxt.h"
 #include <format>
-#include <memory>
 #include <string>
 #include <variant>
 
 namespace z::type {
 
 struct EqualityConstraint {
-    std::shared_ptr<Type> lhs;
-    std::shared_ptr<Type> rhs;
+    TypeRef lhs;
+    TypeRef rhs;
 
-    [[nodiscard]] std::string to_string() const {
-        return std::format("{} = {}", lhs->basic_name(), rhs->basic_name());
+    [[nodiscard]] std::string to_string(ZContext* ctxt) const {
+        return std::format("{} = {}", ctxt->ty->get(lhs)->basic_name(ctxt),
+                           ctxt->ty->get(rhs)->basic_name(ctxt));
     }
 };
 
