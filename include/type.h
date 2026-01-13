@@ -1,5 +1,6 @@
 #pragma once
 
+#include "src_mgr.h"
 #include "string_pool.h"
 #include "type_arena.h"
 #include "type_ref.h"
@@ -49,7 +50,8 @@ enum class TypeKind : std::uint8_t {
     Invalid,
     Inferred,
     Type,
-    Trait
+    Trait,
+    Temp
 };
 
 class Type {
@@ -310,24 +312,26 @@ public:
 };
 
 class UnknownType final : public Type {
-    std::unique_ptr<ast::Identifier> ident;
+    StringID ident;
+    Span span;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Unknown;
 
-    explicit UnknownType(std::unique_ptr<ast::Identifier> ident);
-    ~UnknownType() override;
+    UnknownType(StringID ident, Span span)
+        : Type(Kind), ident(ident), span(span) {}
 
-    UnknownType(const UnknownType&) = delete;
-    UnknownType& operator=(const UnknownType&) = delete;
-    UnknownType(UnknownType&&) = delete;
-    UnknownType& operator=(UnknownType&&) = delete;
+    [[nodiscard]] StringID get_id() const { return ident; }
 
-    [[nodiscard]] const ast::Identifier* get_ident() const {
-        return ident.get();
+    [[nodiscard]] Span get_span() const { return span; }
+
+    bool operator==(const Type& other) const override {
+        if (const auto* other_ = dyn_cast<UnknownType>(&other)) {
+            return ident == other_->ident;
+        }
+
+        return false;
     }
-
-    bool operator==(const Type& other) const override;
 
     [[nodiscard]] bool is_unknown() const override { return true; }
 
@@ -348,9 +352,9 @@ class FunctionType final : public Type {
 public:
     static constexpr TypeKind Kind = TypeKind::Function;
 
-    explicit FunctionType(const std::vector<type::TypeRef>& params,
-                          const type::TypeRef& return_val)
-        : Type(Kind), params(params), return_val(return_val) {};
+    explicit FunctionType(std::vector<type::TypeRef> params,
+                          type::TypeRef return_val)
+        : Type(Kind), params(std::move(params)), return_val(return_val) {};
 
     bool operator==(const Type& other) const override {
         if (const auto* other_ = dyn_cast<FunctionType>(&other)) {
@@ -368,15 +372,11 @@ public:
         return false;
     }
 
-    void set_return_val(const type::TypeRef& ret) { return_val = ret; }
-
     [[nodiscard]] type::TypeRef get_return_val() const { return return_val; }
 
     [[nodiscard]] const std::vector<type::TypeRef>& get_params() const {
         return params;
     }
-
-    [[nodiscard]] std::vector<type::TypeRef>& get_params() { return params; }
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
@@ -391,18 +391,13 @@ class StructType final : public Type {
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
 
-    explicit StructType(const std::unique_ptr<ast::Identifier>& ident);
+    explicit StructType(StringID name,
+                        std::unordered_map<StringID, type::TypeRef> fields,
+                        std::unordered_map<StringID, TypeRef> funcs)
+        : Type(Kind), name(name), fields(std::move(fields)),
+          funcs(std::move(funcs)) {}
 
     [[nodiscard]] bool is_struct() const override { return true; }
-
-    bool define_field(StringID field, const type::TypeRef& type) {
-        auto x = fields.insert(std::make_pair(field, type));
-        return x.second;
-    }
-
-    void replace_field_type(StringID field, const type::TypeRef& type) {
-        fields.insert_or_assign(field, type);
-    }
 
     std::optional<type::TypeRef> get_field_type(StringID field) const {
         if (!fields.contains(field))
@@ -416,10 +411,6 @@ public:
     }
 
     bool has_field(StringID field) const { return fields.contains(field); }
-
-    bool define_func(StringID name, TypeRef type) {
-        return funcs.insert({name, type}).second;
-    }
 
     std::optional<TypeRef> get_func_type(StringID func) const {
         if (!funcs.contains(func))
@@ -465,11 +456,10 @@ class EnumType final : public Type {
 public:
     static constexpr TypeKind Kind = TypeKind::Enum;
 
-    explicit EnumType(const std::unique_ptr<ast::Identifier>& ident);
-
-    bool define_field(StringID field, std::vector<type::TypeRef>& types) {
-        return fields.insert({field, types}).second;
-    }
+    explicit EnumType(
+        StringID name,
+        std::unordered_map<StringID, std::vector<type::TypeRef>&> fields)
+        : Type(Kind), name(name), fields(std::move(fields)) {}
 
     bool operator==(const Type& other) const override {
         const auto* other_ = dyn_cast<EnumType>(&other);
@@ -670,6 +660,21 @@ public:
 
         return false;
     }
+
+    void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
+
+    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+};
+
+class TempType final : public Type {
+    StringID name;
+    TypeKind real_type;
+
+public:
+    static constexpr TypeKind Kind = TypeKind::Temp;
+
+    TempType(StringID name, TypeKind real_type)
+        : Type(Kind), name(name), real_type(real_type) {}
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 

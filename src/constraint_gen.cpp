@@ -110,6 +110,7 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
         arg->accept(*this);
 
     expr.node_type = new_var();
+    expr.ident->node_type = new_var();
 
     if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
         auto func = syms->get_func(ident->get_id());
@@ -496,7 +497,7 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
 
 void ConstraintGenerator::resolve_type_name(TypeRef& type) {
     if (auto* unk = ty->get_as<UnknownType>(type)) {
-        auto t = syms->get_type(unk->get_ident()->get_id());
+        auto t = syms->get_type(unk->get_id());
         if (t) {
             type = *t;
         } else {

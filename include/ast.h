@@ -10,7 +10,6 @@
 #include "type_ref.h"
 #include "zctxt.h"
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
 #include <generator>
 #include <iostream>
@@ -18,6 +17,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -765,13 +765,9 @@ struct FuncDecl final : Decl {
     }
 
     void declare_type(ZContext* ctxt) override {
-        auto param_types = std::vector<type::TypeRef>();
-        for (const auto& param : params) {
-            param_types.push_back(param->type);
-        }
-
         valid = ctxt->syms->declare_func(
-            name, ctxt->ty->make<type::FunctionType>(param_types, ret));
+            name, ctxt->ty->make<type::TempType>(name->get_id(),
+                                                 type::TypeKind::Function));
     }
 
     void resolve_sym(ZContext* ctxt) override {
@@ -782,25 +778,25 @@ struct FuncDecl final : Decl {
         if (!t)
             return;
 
-        auto* func_type = ctxt->ty->get_as<type::FunctionType>(*t);
-
-        for (size_t i = 0; i < params.size(); i++) {
-            if (ctxt->ty->get(params[i]->type)->is_unknown()) {
-                if (ctxt->resolve_unk_type(params[i]->type)) {
-                    func_type->get_params()[i] = params[i]->type;
-                } else {
+        auto param_types = std::vector<type::TypeRef>();
+        for (const auto& param : params) {
+            if (ctxt->ty->get(param->type)->is_unknown()) {
+                if (!ctxt->resolve_unk_type(param->type)) {
                     valid = false;
+                    return;
                 }
             }
+            param_types.push_back(param->type);
         }
 
         if (ctxt->ty->get(ret)->is_unknown()) {
-            if (ctxt->resolve_unk_type(ret)) {
-                func_type->set_return_val(ret);
-            } else {
+            if (!ctxt->resolve_unk_type(ret)) {
                 valid = false;
+                return;
             }
         }
+
+        ctxt->ty->replace<type::FunctionType>(*t, param_types, ret);
     }
 };
 
@@ -1165,17 +1161,27 @@ struct StructDecl final : Decl {
     }
 
     void declare_type(ZContext* ctxt) override {
-        auto type = ctxt->ty->make<type::StructType>(ident);
-        if (!ctxt->syms->declare_type(ident, type)) {
-            valid = false;
-            return;
-        }
+        valid = ctxt->syms->declare_type(
+            ident, ctxt->ty->make<type::TempType>(ident->get_id(),
+                                                  type::TypeKind::Struct));
+    }
 
-        auto* struct_type = ctxt->ty->get_as<type::StructType>(type);
+    void resolve_sym(ZContext* ctxt) override {
+        if (!is_valid())
+            return;
+
+        auto t = ctxt->syms->get_type(ident->get_id());
+        if (!t)
+            return;
+
+        std::unordered_map<StringID, type::TypeRef> field_types;
+        std::unordered_map<StringID, type::TypeRef> func_types;
 
         for (const auto& field : fields) {
-            const bool is_unique =
-                struct_type->define_field(field->ident->get_id(), field->type);
+            const auto is_unique =
+                field_types
+                    .insert(std::make_pair(field->ident->get_id(), field->type))
+                    .second;
             if (!is_unique) {
                 ctxt->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
@@ -1189,12 +1195,21 @@ struct StructDecl final : Decl {
             auto* func_decl = cast<FuncDecl>(func.get());
             auto param_types = std::vector<type::TypeRef>();
             for (const auto& param : func_decl->params) {
+                if (ctxt->ty->get(param->type)->is_unknown()) {
+                    if (!ctxt->resolve_unk_type(param->type)) {
+                        valid = false;
+                        return;
+                    }
+                }
                 param_types.push_back(param->type);
             }
 
-            const bool is_unique = struct_type->define_func(
-                func_decl->name->get_id(), ctxt->ty->make<type::FunctionType>(
-                                               param_types, func_decl->ret));
+            const auto is_unique =
+                func_types
+                    .insert(std::make_pair(func_decl->name->get_id(),
+                                           ctxt->ty->make<type::FunctionType>(
+                                               param_types, func_decl->ret)))
+                    .second;
             if (!is_unique) {
                 ctxt->diag.emit(
                     func_decl->name->tok.get_span(),
@@ -1204,55 +1219,9 @@ struct StructDecl final : Decl {
                 valid = false;
             }
         }
-    }
 
-    void resolve_sym(ZContext* ctxt) override {
-        if (!is_valid())
-            return;
-
-        auto t = ctxt->syms->get_type(ident->get_id());
-        if (!t)
-            return;
-
-        auto* struct_type = ctxt->ty->get_as<type::StructType>(*t);
-
-        for (const auto& field : fields) {
-            if (ctxt->ty->get(field->type)->is_unknown()) {
-                if (ctxt->resolve_unk_type(field->type)) {
-                    struct_type->replace_field_type(field->ident->get_id(),
-                                                    field->type);
-                } else {
-                    valid = false;
-                }
-            }
-        }
-
-        for (const auto& func : funcs) {
-            auto* func_decl = cast<FuncDecl>(func.get());
-            auto t = struct_type->get_func_type(func_decl->name->get_id());
-            if (!t)
-                continue;
-
-            auto* func_type = ctxt->ty->get_as<type::FunctionType>(*t);
-
-            for (size_t i = 0; i < func_decl->params.size(); i++) {
-                if (ctxt->ty->get(func_decl->params[i]->type)->is_unknown()) {
-                    if (ctxt->resolve_unk_type(func_decl->params[i]->type)) {
-                        func_type->get_params()[i] = func_decl->params[i]->type;
-                    } else {
-                        valid = false;
-                    }
-                }
-            }
-
-            if (ctxt->ty->get(func_decl->ret)->is_unknown()) {
-                if (ctxt->resolve_unk_type(func_decl->ret)) {
-                    func_type->set_return_val(func_decl->ret);
-                } else {
-                    valid = false;
-                }
-            }
-        }
+        ctxt->ty->replace<type::StructType>(*t, ident->get_id(), field_types,
+                                            func_types);
     }
 };
 
@@ -1400,13 +1369,9 @@ struct TraitFuncDecl final : Decl {
     }
 
     void declare_type(ZContext* ctxt) override {
-        auto param_types = std::vector<type::TypeRef>();
-        for (const auto& param : params) {
-            param_types.push_back(param->type);
-        }
-
         valid = ctxt->syms->declare_func(
-            name, ctxt->ty->make<type::FunctionType>(param_types, ret));
+            name, ctxt->ty->make<type::TempType>(name->get_id(),
+                                                 type::TypeKind::Function));
     }
 
     void resolve_sym(ZContext* ctxt) override {
@@ -1417,25 +1382,25 @@ struct TraitFuncDecl final : Decl {
         if (!t)
             return;
 
-        auto* func_type = ctxt->ty->get_as<type::FunctionType>(*t);
-
-        for (size_t i = 0; i < params.size(); i++) {
-            if (ctxt->ty->get(params[i]->type)->is_unknown()) {
-                if (ctxt->resolve_unk_type(params[i]->type)) {
-                    func_type->get_params()[i] = params[i]->type;
-                } else {
+        auto param_types = std::vector<type::TypeRef>();
+        for (const auto& param : params) {
+            if (ctxt->ty->get(param->type)->is_unknown()) {
+                if (!ctxt->resolve_unk_type(param->type)) {
                     valid = false;
+                    return;
                 }
             }
+            param_types.push_back(param->type);
         }
 
         if (ctxt->ty->get(ret)->is_unknown()) {
-            if (ctxt->resolve_unk_type(ret)) {
-                func_type->set_return_val(ret);
-            } else {
+            if (!ctxt->resolve_unk_type(ret)) {
                 valid = false;
+                return;
             }
         }
+
+        ctxt->ty->replace<type::FunctionType>(*t, param_types, ret);
     }
 };
 
@@ -1498,19 +1463,26 @@ struct EnumDecl final : Decl {
     }
 
     void declare_type(ZContext* ctxt) override {
-        const auto type = ctxt->ty->make<type::EnumType>(ident);
+        valid = ctxt->syms->declare_type(
+            ident, ctxt->ty->make<type::TempType>(ident->get_id(),
+                                                  type::TypeKind::Enum));
+    }
 
-        const bool is_unique = ctxt->syms->declare_type(ident, type);
-        if (!is_unique) {
-            valid = false;
+    void resolve_sym(ZContext* ctxt) override {
+        if (!is_valid())
             return;
-        }
 
-        auto* enum_type = ctxt->ty->get_as<type::EnumType>(type);
+        auto t = ctxt->syms->get_type(ident->get_id());
+        if (!t)
+            return;
+
+        std::unordered_map<StringID, std::vector<type::TypeRef>&> field_types;
 
         for (const auto& field : fields) {
-            if (!enum_type->define_field(field->ident->get_id(),
-                                         field->types)) {
+            const auto is_unique =
+                field_types.insert({field->ident->get_id(), field->types})
+                    .second;
+            if (!is_unique) {
                 ctxt->diag.emit(field->ident->tok.get_span(),
                                 DiagnosticKind::DuplicateField,
                                 ident->to_string(ctxt->strings.get()),
@@ -1518,17 +1490,8 @@ struct EnumDecl final : Decl {
                 valid = false;
             }
         }
-    }
 
-    void resolve_sym(ZContext* ctxt) override {
-        for (const auto& field : fields) {
-            for (auto& field_type : field->types) {
-                if (ctxt->ty->get(field_type)->is_unknown() &&
-                    !ctxt->resolve_unk_type(field_type)) {
-                    valid = false;
-                }
-            }
-        }
+        ctxt->ty->replace<type::EnumType>(*t, ident->get_id(), field_types);
     }
 };
 

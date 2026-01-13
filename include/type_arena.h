@@ -37,6 +37,11 @@ public:
         return TypeRef(t);
     }
 
+    template <class T, typename... Args>
+    void replace(TypeRef ref, Args&&... args) {
+        types[ref.id] = std::make_unique<T>(std::forward<Args>(args)...);
+    }
+
     [[nodiscard]] Type* get(TypeRef ref) const {
         assert(ref.is_valid() && "Tried to get invalid TypeRef");
 

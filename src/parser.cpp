@@ -1171,7 +1171,8 @@ TypeResult Parser::parse_type() {
         } else if (val_str == "char") {
             type = type::TypeArena::CHAR;
         } else {
-            type = ty->make<type::UnknownType>(parse_ident_unchecked());
+            auto tok = parse_ident_unchecked();
+            type = ty->make<type::UnknownType>(tok->get_id(), tok->get_span());
         }
 
         while (kind(TokenKind::Star)) {

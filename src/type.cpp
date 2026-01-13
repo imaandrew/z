@@ -17,22 +17,6 @@ ArrayType::ArrayType(TypeRef type, std::shared_ptr<ast::Expr> size)
     : Type(Kind), type(type), size(std::move(size)) {};
 ArrayType::~ArrayType() = default;
 
-UnknownType::UnknownType(std::unique_ptr<ast::Identifier> ident)
-    : Type(Kind), ident(std::move(ident)) {};
-UnknownType::~UnknownType() = default;
-bool UnknownType::operator==(const Type& other) const {
-    if (const auto* other_ = dyn_cast<UnknownType>(&other)) {
-        return ident->get_id() == other_->ident->get_id();
-    }
-
-    return false;
-}
-
-EnumType::EnumType(const std::unique_ptr<ast::Identifier>& ident)
-    : Type(Kind), name(ident->get_id()) {};
-StructType::StructType(const std::unique_ptr<ast::Identifier>& ident)
-    : Type(Kind), name(ident->get_id()) {};
-
 TypeArena::TypeArena() {
     types.reserve(16);
     types.push_back(std::make_unique<InvalidType>());
@@ -162,6 +146,14 @@ void TraitType::dump(ZContext* ctxt, std::ostream& stream) const {
 
 std::string TraitType::basic_name(ZContext* ctxt) const {
     return std::format("trait({})", ctxt->strings->get_string(name));
+}
+
+void TempType::dump(ZContext* ctxt, std::ostream& stream) const {
+    stream << "TempType { name: " << ctxt->strings->get_string(name) << " }";
+}
+
+std::string TempType::basic_name(ZContext* ctxt) const {
+    return std::format("temp({})", ctxt->strings->get_string(name));
 }
 
 } // namespace z::type
