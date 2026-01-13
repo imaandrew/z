@@ -167,6 +167,18 @@ TypeRef ConstraintSolver::resolve(TypeRef type) {
             return TypeArena::VOID;
         return resolved.is_valid() ? resolved : type;
     }
+
+    if (const auto* arr = ty->get_as<ArrayType>(type)) {
+        const auto resolved_elem = resolve(arr->get_type());
+        if (resolved_elem != arr->get_type()) {
+            return ty->make<ArrayType>(resolved_elem, arr->get_size());
+        }
+
+        return type;
+    }
+
+    // TODO: look at other nested types
+
     return type;
 }
 } // namespace z::type

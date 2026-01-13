@@ -182,6 +182,12 @@ void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
         eq(val->node_type, array_type);
     }
 
+    if (const auto expected = peek_expected()) {
+        if (const auto* concrete = ty->get_as<ArrayType>(*expected)) {
+            eq(array_type, concrete->get_type());
+        }
+    }
+
     expr.node_type = ty->make<ArrayType>(array_type, expr.vals.size());
 }
 
@@ -312,11 +318,14 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
     if (stmt.type.is_valid()) {
         resolve_type_name(stmt.type);
         eq(stmt.ident->node_type, stmt.type);
+        push_expected(stmt.type);
     }
 
     if (stmt.val) {
         stmt.val->accept(*this);
         eq(stmt.ident->node_type, stmt.val->node_type);
+        if (stmt.type.is_valid())
+            pop_expected();
     }
 
     syms->declare_var(stmt.ident, stmt.ident->node_type);

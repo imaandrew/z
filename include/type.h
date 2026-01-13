@@ -274,7 +274,12 @@ public:
     ArrayType(type::TypeRef type, std::uint64_t size)
         : Type(Kind), type(type), size(size) {};
 
+    ArrayType(type::TypeRef type, std::optional<std::uint64_t> size)
+        : Type(Kind), type(type), size(size) {};
+
     [[nodiscard]] type::TypeRef get_type() const { return type; }
+
+    [[nodiscard]] std::optional<std::uint64_t> get_size() const { return size; }
 
     [[nodiscard]] bool is_array() const override { return true; }
 
