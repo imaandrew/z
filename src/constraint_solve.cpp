@@ -37,7 +37,7 @@ bool ConstraintSolver::solve_equality(EqualityConstraint& c) {
     auto* lhs = ty->get(lhs_ref);
     auto* rhs = ty->get(rhs_ref);
 
-    if (*lhs == *rhs)
+    if (lhs_ref == rhs_ref)
         return true;
 
     if (lhs->is_explicit() && rhs->is_explicit())

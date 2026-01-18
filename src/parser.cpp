@@ -1196,7 +1196,7 @@ TypeResult Parser::parse_type() {
                 return TypeError();
             }
         } else {
-            type = ty->make<type::ArrayType>(array_type.take());
+            type = ty->make<type::ArrayType>(array_type.take(), std::nullopt);
         }
         tok_assert(TokenKind::RBracket);
         next_token();

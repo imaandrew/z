@@ -30,28 +30,6 @@ namespace z::type {
 
 using TypeID = std::uint32_t;
 
-enum class TypeKind : std::uint8_t {
-    Integer,
-    Float,
-    Boolean,
-    Char,
-    String,
-    Pointer,
-    Array,
-    Unknown,
-    Function,
-    Struct,
-    Enum,
-    EnumVariant,
-    Tuple,
-    Void,
-    Invalid,
-    Inferred,
-    Type,
-    Trait,
-    Temp
-};
-
 class Type {
     const TypeKind kind;
 
@@ -129,6 +107,10 @@ public:
     IntegerType(const int bit_width, const bool is_signed)
         : Type(Kind), bit_width(bit_width), _signed(is_signed) {};
 
+    static TypeKey make_key(const int bit_width, const bool is_signed) {
+        return make_type_key(Kind, bit_width, is_signed);
+    }
+
     [[nodiscard]] int get_width() const { return bit_width; }
 
     [[nodiscard]] bool is_signed() const { return _signed; }
@@ -165,6 +147,10 @@ public:
     explicit FloatType(const int bit_width)
         : Type(Kind), bit_width(bit_width) {};
 
+    static TypeKey make_key(const int bit_width) {
+        return make_type_key(Kind, bit_width);
+    }
+
     [[nodiscard]] int get_width() const { return bit_width; }
 
     bool operator==(const Type& other) const override {
@@ -195,6 +181,8 @@ public:
 
     BooleanType() : Type(Kind) {};
 
+    static TypeKey make_key() { return make_type_key(Kind); }
+
     [[nodiscard]] bool is_logical() const override { return true; }
 
     void dump(ZContext* /*ctxt*/,
@@ -212,6 +200,8 @@ public:
     static constexpr TypeKind Kind = TypeKind::String;
 
     StringType() : Type(Kind) {};
+
+    static TypeKey make_key() { return make_type_key(Kind); }
 
     void dump(ZContext* /*ctxt*/,
               std::ostream& stream = std::cout) const override {
@@ -231,6 +221,8 @@ public:
 
     CharType() : Type(Kind) {};
 
+    static TypeKey make_key() { return make_type_key(Kind); }
+
     void dump(ZContext* /*ctxt*/,
               std::ostream& stream = std::cout) const override {
         stream << "CharType";
@@ -242,12 +234,14 @@ public:
 };
 
 class PointerType final : public Type {
-    type::TypeRef type;
+    TypeRef type;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Pointer;
 
-    explicit PointerType(type::TypeRef type) : Type(Kind), type(type) {};
+    explicit PointerType(TypeRef type) : Type(Kind), type(type) {};
+
+    static TypeKey make_key(TypeRef type) { return make_type_key(Kind, type); }
 
     [[nodiscard]] bool is_logical() const override { return true; }
 
@@ -264,20 +258,20 @@ public:
 };
 
 class ArrayType final : public Type {
-    type::TypeRef type;
+    TypeRef type;
     std::optional<std::uint64_t> size;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Array;
 
-    explicit ArrayType(type::TypeRef type) : Type(Kind), type(type) {}
-    ArrayType(type::TypeRef type, std::uint64_t size)
+    ArrayType(TypeRef type, std::optional<std::uint64_t> size)
         : Type(Kind), type(type), size(size) {};
 
-    ArrayType(type::TypeRef type, std::optional<std::uint64_t> size)
-        : Type(Kind), type(type), size(size) {};
+    static TypeKey make_key(TypeRef type, std::optional<std::uint64_t> size) {
+        return make_type_key(Kind, type, size.has_value(), size.value_or(0));
+    }
 
-    [[nodiscard]] type::TypeRef get_type() const { return type; }
+    [[nodiscard]] TypeRef get_type() const { return type; }
 
     [[nodiscard]] std::optional<std::uint64_t> get_size() const { return size; }
 
@@ -314,6 +308,10 @@ public:
     UnknownType(StringID ident, Span span)
         : Type(Kind), ident(ident), span(span) {}
 
+    static TypeKey make_key(StringID ident, Span span) {
+        return make_type_key(Kind, ident, span);
+    }
+
     [[nodiscard]] StringID get_id() const { return ident; }
 
     [[nodiscard]] Span get_span() const { return span; }
@@ -339,15 +337,24 @@ public:
 };
 
 class FunctionType final : public Type {
-    std::vector<type::TypeRef> params;
-    type::TypeRef return_val;
+    std::vector<TypeRef> params;
+    TypeRef return_val;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Function;
 
-    explicit FunctionType(std::vector<type::TypeRef> params,
-                          type::TypeRef return_val)
+    explicit FunctionType(std::vector<TypeRef> params, TypeRef return_val)
         : Type(Kind), params(std::move(params)), return_val(return_val) {};
+
+    static TypeKey make_key(const std::vector<TypeRef>& params,
+                            TypeRef return_val) {
+        std::size_t params_hash = params.size();
+        for (const auto& p : params) {
+            params_hash ^= p.get_id() + 0x9e3779b9 + (params_hash << 6U) +
+                           (params_hash >> 2U);
+        }
+        return make_type_key(Kind, return_val, params_hash);
+    }
 
     bool operator==(const Type& other) const override {
         if (const auto* other_ = dyn_cast<FunctionType>(&other)) {
@@ -365,9 +372,9 @@ public:
         return false;
     }
 
-    [[nodiscard]] type::TypeRef get_return_val() const { return return_val; }
+    [[nodiscard]] TypeRef get_return_val() const { return return_val; }
 
-    [[nodiscard]] const std::vector<type::TypeRef>& get_params() const {
+    [[nodiscard]] const std::vector<TypeRef>& get_params() const {
         return params;
     }
 
@@ -378,28 +385,49 @@ public:
 
 class StructType final : public Type {
     StringID name;
-    std::unordered_map<StringID, type::TypeRef> fields;
+    std::unordered_map<StringID, TypeRef> fields;
     std::unordered_map<StringID, TypeRef> funcs;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
 
     explicit StructType(StringID name,
-                        std::unordered_map<StringID, type::TypeRef> fields,
+                        std::unordered_map<StringID, TypeRef> fields,
                         std::unordered_map<StringID, TypeRef> funcs)
         : Type(Kind), name(name), fields(std::move(fields)),
           funcs(std::move(funcs)) {}
 
+    static TypeKey
+    make_key(StringID name, const std::unordered_map<StringID, TypeRef>& fields,
+             const std::unordered_map<StringID, TypeRef>& funcs) {
+        std::size_t fields_hash = fields.size();
+        for (const auto& [k, v] : fields) {
+            fields_hash ^= k.raw_id() + 0x9e3779b9 + (fields_hash << 6U) +
+                           (fields_hash >> 2U);
+            fields_hash ^= v.get_id() + 0x9e3779b9 + (fields_hash << 6U) +
+                           (fields_hash >> 2U);
+        }
+
+        std::size_t funcs_hash = funcs.size();
+        for (const auto& [k, v] : funcs) {
+            funcs_hash ^= k.raw_id() + 0x9e3779b9 + (funcs_hash << 6U) +
+                          (funcs_hash >> 2U);
+            funcs_hash ^= v.get_id() + 0x9e3779b9 + (funcs_hash << 6U) +
+                          (funcs_hash >> 2U);
+        }
+        return make_type_key(Kind, name, fields_hash, funcs_hash);
+    }
+
     [[nodiscard]] bool is_struct() const override { return true; }
 
-    std::optional<type::TypeRef> get_field_type(StringID field) const {
+    std::optional<TypeRef> get_field_type(StringID field) const {
         if (!fields.contains(field))
             return std::nullopt;
 
         return fields.at(field);
     }
 
-    const std::unordered_map<StringID, type::TypeRef>& get_fields() const {
+    const std::unordered_map<StringID, TypeRef>& get_fields() const {
         return fields;
     }
 
@@ -444,15 +472,30 @@ public:
 
 class EnumType final : public Type {
     StringID name;
-    std::unordered_map<StringID, std::vector<type::TypeRef>&> fields;
+    std::unordered_map<StringID, std::vector<TypeRef>&> fields;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Enum;
 
     explicit EnumType(
         StringID name,
-        std::unordered_map<StringID, std::vector<type::TypeRef>&> fields)
+        std::unordered_map<StringID, std::vector<TypeRef>&> fields)
         : Type(Kind), name(name), fields(std::move(fields)) {}
+
+    static TypeKey make_key(
+        StringID name,
+        const std::unordered_map<StringID, std::vector<TypeRef>&>& fields) {
+        std::size_t fields_hash = fields.size();
+        for (const auto& [k, v] : fields) {
+            fields_hash ^= k.raw_id() + 0x9e3779b9 + (fields_hash << 6U) +
+                           (fields_hash >> 2U);
+            for (const auto& vv : v) {
+                fields_hash ^= vv.get_id() + 0x9e3779b9 + (fields_hash << 6U) +
+                               (fields_hash >> 2U);
+            }
+        }
+        return make_type_key(Kind, name, fields_hash);
+    }
 
     bool operator==(const Type& other) const override {
         const auto* other_ = dyn_cast<EnumType>(&other);
@@ -496,6 +539,10 @@ public:
     explicit EnumVariantType(StringID parent_enum)
         : Type(Kind), parent_enum(parent_enum) {};
 
+    static TypeKey make_key(StringID parent_enum) {
+        return make_type_key(Kind, parent_enum);
+    }
+
     [[nodiscard]] StringID get_parent_enum() const { return parent_enum; }
 
     bool operator==(const Type& other) const override {
@@ -511,14 +558,18 @@ public:
 };
 
 class TupleType final : public Type {
-    type::TypeRef first;
-    type::TypeRef second;
+    TypeRef first;
+    TypeRef second;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Tuple;
 
-    TupleType(type::TypeRef first, type::TypeRef second)
+    TupleType(TypeRef first, TypeRef second)
         : Type(Kind), first(first), second(second) {};
+
+    static TypeKey make_key(TypeRef first, TypeRef second) {
+        return make_type_key(Kind, first, second);
+    }
 
     bool operator==(const Type& other) const override {
         if (const auto* other_ = dyn_cast<TupleType>(&other)) {
@@ -537,7 +588,10 @@ class VoidType final : public Type {
 public:
     static constexpr TypeKind Kind = TypeKind::Void;
 
-    VoidType() : Type(Kind) {}; /*ctxt*/
+    VoidType() : Type(Kind) {}
+
+    static TypeKey make_key() { return make_type_key(Kind); }
+
     [[nodiscard]] bool is_void() const override { return true; }
 
     void dump(ZContext* /*ctxt*/,
@@ -555,6 +609,8 @@ public:
     static constexpr TypeKind Kind = TypeKind::Invalid;
 
     InvalidType() : Type(Kind) {};
+
+    static TypeKey make_key() { return make_type_key(Kind); }
 
     bool operator==(const Type& /* other*/) const override { return false; }
 
@@ -579,6 +635,10 @@ public:
 
     explicit InferredType(TypeID id, InferType infer_type = InferType::Var)
         : Type(Kind), id(id), infer_type(infer_type) {};
+
+    static TypeKey make_key(TypeID id, InferType infer_type = InferType::Var) {
+        return make_type_key(Kind, id, infer_type);
+    }
 
     [[nodiscard]] TypeID get_id() const { return id; }
 
@@ -621,12 +681,14 @@ public:
 };
 
 class TypeType final : public Type {
-    type::TypeRef internal_type;
+    TypeRef internal_type;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Type;
 
-    explicit TypeType(type::TypeRef type) : Type(Kind), internal_type(type) {}
+    explicit TypeType(TypeRef type) : Type(Kind), internal_type(type) {}
+
+    static TypeKey make_key(TypeRef type) { return make_type_key(Kind, type); }
 
     bool operator==(const Type& other) const override {
         if (const auto* other_ = dyn_cast<TypeType>(&other))
@@ -647,6 +709,9 @@ public:
     static constexpr TypeKind Kind = TypeKind::Trait;
 
     explicit TraitType(StringID name) : Type(Kind), name(name) {}
+
+    static TypeKey make_key(StringID name) { return make_type_key(Kind, name); }
+
     bool operator==(const Type& other) const override {
         if (const auto* other_ = dyn_cast<TraitType>(&other))
             return name == other_->name;
@@ -668,6 +733,10 @@ public:
 
     TempType(StringID name, TypeKind real_type)
         : Type(Kind), name(name), real_type(real_type) {}
+
+    static TypeKey make_key(StringID name, TypeKind real_type) {
+        return make_type_key(Kind, name, real_type);
+    }
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
