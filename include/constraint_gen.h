@@ -21,6 +21,7 @@ class ConstraintGenerator : public ast::ASTVisitor {
     std::uint32_t type_id = 0;
     std::vector<TypeRef> block_type_stack;
     std::vector<TypeRef> expected_type_stack;
+    std::vector<TypeRef> loop_result_type_stack;
 
     TypeRef new_type(InferType type) {
         auto v = ty->make<InferredType>(type_id++, type);
@@ -50,6 +51,18 @@ class ConstraintGenerator : public ast::ASTVisitor {
         return expected_type_stack.empty()
                    ? std::nullopt
                    : std::optional(expected_type_stack.back());
+    }
+
+    void push_loop_result(TypeRef type) {
+        loop_result_type_stack.push_back(type);
+    }
+
+    void pop_loop_result() { loop_result_type_stack.pop_back(); }
+
+    std::optional<TypeRef> peek_loop_result() {
+        return loop_result_type_stack.empty()
+                   ? std::nullopt
+                   : std::optional(loop_result_type_stack.back());
     }
 
 public:

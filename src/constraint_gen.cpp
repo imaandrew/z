@@ -66,15 +66,6 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case TokenKind::Eq:
         expr.node_type = TypeArena::VOID;
         break;
-    case TokenKind::Colon:
-    case TokenKind::OrOr:
-    case TokenKind::AndAnd:
-    case TokenKind::EqEq:
-    case TokenKind::Ne:
-    case TokenKind::Gt:
-    case TokenKind::Lt:
-    case TokenKind::Ge:
-    case TokenKind::Le:
     case TokenKind::Range:
     case TokenKind::RangeEq:
     case TokenKind::Or:
@@ -91,6 +82,17 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
         break;
     case TokenKind::ColonColon:
         eq(expr.node_type, expr.rhs->node_type);
+        break;
+    case TokenKind::Colon:
+    case TokenKind::OrOr:
+    case TokenKind::AndAnd:
+    case TokenKind::EqEq:
+    case TokenKind::Ne:
+    case TokenKind::Gt:
+    case TokenKind::Lt:
+    case TokenKind::Ge:
+    case TokenKind::Le:
+        expr.node_type = TypeArena::BOOL;
         break;
     default:
         std::unreachable();
@@ -291,8 +293,15 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
 }
 
 void ConstraintGenerator::visit(ast::BreakStmt& stmt) {
-    if (stmt.expr)
+    TypeRef break_type = TypeArena::VOID;
+    if (stmt.expr) {
         stmt.expr->accept(*this);
+        break_type = stmt.expr->node_type;
+    }
+
+    if (auto loop_result = peek_loop_result()) {
+        eq(break_type, *loop_result);
+    }
 
     stmt.node_type = ty->make<type::VoidType>();
 }
@@ -307,12 +316,12 @@ void ConstraintGenerator::visit(ast::ForExpr& expr) {
         .declare_var(expr.ident, expr.ident->node_type, false, true);
 
     expr.block->accept(*this);
-    expr.node_type = new_var();
-    eq(expr.node_type, expr.block->node_type);
 
     expr.expr->accept(*this);
     // TODO: expr should be an iterator over some type T, ident should have type
     // T
+
+    expr.node_type = TypeArena::VOID;
 }
 
 void ConstraintGenerator::visit(ast::LetStmt& stmt) {
@@ -376,17 +385,22 @@ void ConstraintGenerator::visit(ast::LoopExpr& expr) {
     if (expr.expr)
         expr.expr->accept(*this);
 
+    auto loop_result = new_var();
+    push_loop_result(loop_result);
+
     expr.block->accept(*this);
-    expr.node_type = new_var();
-    eq(expr.node_type, expr.block->node_type);
+
+    pop_loop_result();
+
+    expr.node_type = loop_result;
 }
 
 void ConstraintGenerator::visit(ast::WhileExpr& expr) {
     expr.expr->accept(*this);
 
     expr.block->accept(*this);
-    expr.node_type = new_var();
-    eq(expr.node_type, expr.block->node_type);
+
+    expr.node_type = TypeArena::VOID;
 }
 
 void ConstraintGenerator::visit(ast::StringExpr& expr) {

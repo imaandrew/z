@@ -560,7 +560,6 @@ Parser::parse_block(const bool implicit_return) {
                 is_valid = false;
         } else {
             required_semi = true;
-            next_token();
         }
     }
 

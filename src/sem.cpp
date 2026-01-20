@@ -583,7 +583,7 @@ void SemChecker::visit(ast::FuncDecl& func) {
 }
 
 void SemChecker::visit(ast::BreakStmt& stmt) {
-    if (loop_depth == 0) {
+    if (loop_depth == 0 || loop_stack.empty()) {
         ctxt->diag.emit(stmt.get_span(), DiagnosticKind::BreakOutsideLoop);
         stmt.mark_invalid();
         return;
@@ -591,27 +591,22 @@ void SemChecker::visit(ast::BreakStmt& stmt) {
 
     is_stmt_reachable = ReachableStatus::Unreachable;
 
-    /* if (stmt.expr) {
+    if (stmt.expr)
         stmt.expr->accept(*this);
-        if (stmt.expr->has_type() &&
-            ctxt->syms->get_current_scope()->get_type() !=
-                stmt.expr->node_type) {
-            ctxt->diag.emit(
-                stmt.expr->get_span(), DiagnosticKind::TypeMismatch,
-                ctxt->ty->get(ctxt->syms->get_current_scope()->get_type())
-                    ->basic_name(ctxt),
-                ctxt->ty->get(stmt.expr->node_type)->basic_name(ctxt));
-        }
-    } else {
-        if (!ctxt->ty->get(ctxt->syms->get_current_scope()->get_type())
-                 ->is_void()) {
-            ctxt->diag.emit(
-                stmt.get_span(), DiagnosticKind::TypeMismatch,
-                ctxt->ty->get(ctxt->syms->get_current_scope()->get_type())
-                    ->basic_name(ctxt),
-                "()");
-        }
-    } */
+
+    auto& ctx = loop_stack.back();
+    auto break_type = stmt.expr ? stmt.expr->node_type : type::TypeArena::VOID;
+
+    if (!ctx.has_break) {
+        ctx.has_break = true;
+        ctx.expected_type = break_type;
+        ctx.first_break = stmt.get_span();
+    } else if (ctx.expected_type != break_type) {
+        ctxt->diag.emit(stmt.get_span(), DiagnosticKind::BreakTypeMismatch,
+                        ctxt->ty->get(ctx.expected_type)->basic_name(ctxt),
+                        ctxt->ty->get(break_type)->basic_name(ctxt));
+        stmt.mark_invalid();
+    }
 }
 
 void SemChecker::visit(ast::ContinueStmt& stmt) {
@@ -655,7 +650,8 @@ void SemChecker::visit(ast::LetStmt& stmt) {
                                 DiagnosticKind::InvalidArraySize);
         }
     }
-    if (stmt.val->has_type() && stmt.type != stmt.val->node_type) {
+    if (stmt.val->has_type() && stmt.type.is_valid() &&
+        stmt.type != stmt.val->node_type) {
         ctxt->diag.emit(stmt.val->get_span(), DiagnosticKind::InvalidAssignment,
                         ctxt->ty->get(stmt.val->node_type)->basic_name(ctxt),
                         ctxt->ty->get(stmt.type)->basic_name(ctxt));
@@ -723,8 +719,18 @@ void SemChecker::visit(ast::LoopExpr& expr) {
     }
 
     loop_depth++;
+    loop_stack.emplace_back();
     expr.block->accept(*this);
+
+    if (!expr.expr && !loop_stack.back().has_break) {
+        ctxt->diag.emit(expr.get_span(), DiagnosticKind::InfiniteLoop);
+        expr.mark_invalid();
+    }
+
+    expr.node_type = loop_stack.back().expected_type;
+
     loop_depth--;
+    loop_stack.pop_back();
 }
 
 void SemChecker::visit(ast::WhileExpr& expr) {

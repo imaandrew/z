@@ -1,11 +1,13 @@
 #pragma once
 
 #include "ast.h"
+#include "src_mgr.h"
 #include "type.h"
 #include "type_ref.h"
 #include "zctxt.h"
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 namespace z {
 
@@ -16,11 +18,18 @@ class SemChecker : public ast::ASTVisitor {
         WarningEmitted
     };
 
+    struct LoopContext {
+        type::TypeRef expected_type;
+        Span first_break{};
+        bool has_break = false;
+    };
+
     ZContext* ctxt;
     int loop_depth = 0;
     ast::Identifier* current_func_name = nullptr;
     std::optional<type::TypeRef> current_return_type;
     ReachableStatus is_stmt_reachable = ReachableStatus::Reachable;
+    std::vector<LoopContext> loop_stack;
 
 public:
     explicit SemChecker(ZContext& ctxt) : ctxt(&ctxt) {};

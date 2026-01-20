@@ -83,7 +83,9 @@ enum class DiagnosticKind : std::uint8_t {
     InvalidArraySize,
     MainFunctionParams,
     MainFunctionReturnType,
-    RecursiveStructDefiniton
+    RecursiveStructDefiniton,
+    BreakTypeMismatch,
+    InfiniteLoop
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -158,7 +160,10 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::MainFunctionReturnType,
              "main function must either return `()` or `i32`"},
             {DiagnosticKind::RecursiveStructDefiniton,
-             "struct `{0}` cannot contain a field of its own type"}};
+             "struct `{0}` cannot contain a field of its own type"},
+            {DiagnosticKind::BreakTypeMismatch,
+             "loop has type `{0}` but this statement returns a `{1}`"},
+            {DiagnosticKind::InfiniteLoop, "infinite loop never breaks"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;
