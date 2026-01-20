@@ -5,6 +5,7 @@
 #include "src_mgr.h"
 #include "string_pool.h"
 #include "type_ref.h"
+#include <deque>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -17,10 +18,13 @@ class ScopeID {
 };
 
 class SymbolTable {
-    std::vector<ScopeContext> scopes;
+    std::deque<ScopeContext> scopes;
     std::vector<ScopeContext*> stack;
     DiagnosticsEngine diag;
     StringPool* strings;
+
+    [[nodiscard]] std::optional<ScopeContext::VarInfo>
+    _get_var(StringID name) const;
 
 public:
     explicit SymbolTable(SourceManager* source, StringPool* strings)
@@ -38,7 +42,7 @@ public:
     void exit_scope() { stack.pop_back(); }
 
     bool declare_var(const std::unique_ptr<ast::Identifier>& name,
-                     type::TypeRef type);
+                     type::TypeRef type, bool is_const, bool is_initialized);
     bool declare_func(const std::unique_ptr<ast::Identifier>& name,
                       type::TypeRef type);
     bool declare_type(const std::unique_ptr<ast::Identifier>& name,
@@ -49,6 +53,8 @@ public:
     [[nodiscard]] std::optional<type::TypeRef> get_func(StringID name) const;
     [[nodiscard]] std::optional<type::TypeRef> get_type(StringID name) const;
     void update_type(StringID name, type::TypeRef& type);
+    [[nodiscard]] bool is_var_initialized(StringID name) const;
+    [[nodiscard]] bool is_var_const(StringID name) const;
     ScopeContext* get_current_scope() { return stack.back(); }
     ScopeContext& get_scope(ScopeID scope) { return scopes[scope.id]; }
 };

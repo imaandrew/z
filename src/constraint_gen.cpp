@@ -89,6 +89,9 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case TokenKind::Slash:
         eq(expr.node_type, expr.lhs->node_type);
         break;
+    case TokenKind::ColonColon:
+        eq(expr.node_type, expr.rhs->node_type);
+        break;
     default:
         std::unreachable();
     }
@@ -273,7 +276,7 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
     for (auto& param : func.params) {
         param->accept(*this);
         resolve_type_name(param->type);
-        scope.declare_var(param->name, param->type);
+        scope.declare_var(param->name, param->type, false, true);
     }
 
     func.body->accept(*this);
@@ -301,7 +304,7 @@ void ConstraintGenerator::visit(ast::ContinueStmt& stmt) {
 void ConstraintGenerator::visit(ast::ForExpr& expr) {
     expr.ident->node_type = new_var();
     syms->get_scope(expr.block->get_scope_id())
-        .declare_var(expr.ident, expr.ident->node_type);
+        .declare_var(expr.ident, expr.ident->node_type, false, true);
 
     expr.block->accept(*this);
     expr.node_type = new_var();
@@ -328,7 +331,8 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
             pop_expected();
     }
 
-    syms->declare_var(stmt.ident, stmt.ident->node_type);
+    syms->declare_var(stmt.ident, stmt.ident->node_type, false,
+                      stmt.val != nullptr);
     stmt.node_type = ty->make<type::VoidType>();
 }
 
@@ -488,7 +492,7 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
         resolve_type_name(param->type);
         if (decl.body)
             syms->get_scope(decl.body->get_scope_id())
-                .declare_var(param->name, param->type);
+                .declare_var(param->name, param->type, false, true);
     }
 
     resolve_type_name(decl.ret);

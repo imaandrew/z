@@ -2,12 +2,25 @@
 
 #include "ast.h"
 #include "type.h"
+#include "type_ref.h"
 #include "zctxt.h"
+#include <cstdint>
+#include <optional>
 
 namespace z {
 
 class SemChecker : public ast::ASTVisitor {
+    enum class ReachableStatus : std::uint8_t {
+        Reachable,
+        Unreachable,
+        WarningEmitted
+    };
+
     ZContext* ctxt;
+    int loop_depth = 0;
+    ast::Identifier* current_func_name = nullptr;
+    std::optional<type::TypeRef> current_return_type;
+    ReachableStatus is_stmt_reachable = ReachableStatus::Reachable;
 
 public:
     explicit SemChecker(ZContext& ctxt) : ctxt(&ctxt) {};
@@ -57,6 +70,8 @@ public:
     void visit(ast::TypeAliasDecl& decl) override;
     void visit(ast::TraitFuncDecl& decl) override;
 
-    void check_expr_assignable(ast::Expr& expr);
+    void check_expr_assignable(ast::Expr& expr) const;
+    bool is_recursive_struct(const type::StructType* s,
+                             type::TypeRef orig) const;
 };
 } // namespace z

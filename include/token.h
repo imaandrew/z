@@ -211,6 +211,39 @@ inline const std::string& operator_to_string(const TokenKind kind) {
     throw std::runtime_error("Not valid operator");
 }
 
+constexpr bool is_assignment_op(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::PlusPlus:
+    case TokenKind::MinusMinus:
+    case TokenKind::PlusEq:
+    case TokenKind::MinusEq:
+    case TokenKind::StarEq:
+    case TokenKind::SlashEq:
+    case TokenKind::PercentEq:
+    case TokenKind::CaretEq:
+    case TokenKind::AndEq:
+    case TokenKind::OrEq:
+    case TokenKind::ShlEq:
+    case TokenKind::ShrEq:
+    case TokenKind::Eq:
+        return true;
+    default:
+        return false;
+    }
+}
+
+constexpr bool is_division_op(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::Slash:
+    case TokenKind::SlashEq:
+    case TokenKind::Percent:
+    case TokenKind::PercentEq:
+        return true;
+    default:
+        return false;
+    }
+}
+
 class Token {
     TokenKind kind;
     Span span;

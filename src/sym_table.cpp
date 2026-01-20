@@ -1,6 +1,7 @@
 #include "sym_table.h"
 #include "ast.h"
 #include "diagnostics.h"
+#include "scope.h"
 #include "string_pool.h"
 #include "token.h"
 #include "type.h"
@@ -11,13 +12,26 @@
 
 namespace z {
 
+std::optional<ScopeContext::VarInfo>
+SymbolTable::_get_var(StringID name) const {
+    for (auto* scope : std::ranges::reverse_view(stack)) {
+        if (auto type = scope->get_var(name)) {
+            return type;
+        }
+    }
+
+    return std::nullopt;
+}
+
 bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
-                              type::TypeRef type) {
+                              type::TypeRef type, bool is_const,
+                              bool is_initialized) {
     // _ variable name "discards" value
     if (name->get_id() == StringPool::UNDERSCORE)
         return true;
 
-    const bool is_unique = stack.back()->declare_var(name, type);
+    const bool is_unique =
+        stack.back()->declare_var(name, type, is_const, is_initialized);
 
     if (!is_unique) {
         auto data = diag.emit_with_notes(name->tok.get_span(),
@@ -26,7 +40,7 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
 
         for (const auto* scope : stack) {
             if (auto type = scope->get_var(name->get_id())) {
-                data.add_note(type->span, "first defined here");
+                data.add_note(type->type.span, "first defined here");
                 break;
             }
         }
@@ -79,19 +93,14 @@ bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
 }
 
 std::optional<type::TypeRef> SymbolTable::get_var(StringID name) const {
-    for (auto* scope : std::ranges::reverse_view(stack)) {
-        if (auto type = scope->get_var(name)) {
-            return type->type;
-        }
-    }
-
-    return std::nullopt;
+    return _get_var(name).transform(
+        [](ScopeContext::VarInfo var) { return var.type.type; });
 }
 
 std::optional<type::TypeRef> SymbolTable::get_global_var(StringID name) const {
     if (const auto* scope = stack.front()) {
         if (auto type = scope->get_var(name)) {
-            return type->type;
+            return type->type.type;
         }
     }
 
@@ -125,5 +134,20 @@ void SymbolTable::update_type(StringID name, type::TypeRef& new_type) {
             type->type = new_type;
         }
     }
+}
+
+[[nodiscard]] bool SymbolTable::is_var_initialized(StringID name) const {
+    if (auto v = _get_var(name)) {
+        return v->is_initialized;
+    }
+
+    return false;
+}
+[[nodiscard]] bool SymbolTable::is_var_const(StringID name) const {
+    if (auto v = _get_var(name)) {
+        return v->is_const;
+    }
+
+    return false;
 }
 } // namespace z

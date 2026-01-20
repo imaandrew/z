@@ -10,9 +10,11 @@
 namespace z {
 
 bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
-                               type::TypeRef type) {
+                               type::TypeRef type, bool is_const,
+                               bool is_initialized) {
     const bool is_unique =
-        vars.insert({name->get_id(), TypeWithSpan(type, name->tok.get_span())})
+        vars.insert({name->get_id(), VarInfo(type, name->tok.get_span(),
+                                             is_const, is_initialized)})
             .second;
 
     return is_unique;
@@ -37,7 +39,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
     return is_unique;
 }
 
-std::optional<ScopeContext::TypeWithSpan>
+std::optional<ScopeContext::VarInfo>
 ScopeContext::get_var(StringID name) const {
     if (auto var = vars.find(name); var != vars.end()) {
         return var->second;

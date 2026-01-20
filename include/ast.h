@@ -284,10 +284,10 @@ struct Identifier final : Expr {
 
 struct IntExpr final : Expr {
     Token tok;
-    unsigned long long val;
+    std::uint64_t val;
     static constexpr ASTKind Kind = ASTKind::IntExpr;
 
-    IntExpr(const Token& tok, const unsigned long long val)
+    IntExpr(const Token& tok, std::uint64_t val)
         : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
@@ -1527,7 +1527,7 @@ struct ConstDecl final : Decl {
     }
 
     void declare_type(ZContext* ctxt) override {
-        valid = ctxt->syms->declare_var(ident, type);
+        valid = ctxt->syms->declare_var(ident, type, true, true);
     }
 
     void resolve_sym(ZContext* ctxt) override {
@@ -1574,7 +1574,7 @@ struct StaticDecl final : Decl {
     }
 
     void declare_type(ZContext* ctxt) override {
-        valid = ctxt->syms->declare_var(ident, type);
+        valid = ctxt->syms->declare_var(ident, type, false, true);
     }
 
     void resolve_sym(ZContext* ctxt) override {

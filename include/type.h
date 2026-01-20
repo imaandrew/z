@@ -420,6 +420,8 @@ public:
 
     [[nodiscard]] bool is_struct() const override { return true; }
 
+    StringID get_name() const { return name; }
+
     std::optional<TypeRef> get_field_type(StringID field) const {
         if (!fields.contains(field))
             return std::nullopt;

@@ -73,6 +73,17 @@ enum class DiagnosticKind : std::uint8_t {
     DuplicateFieldInitialization,
     FieldNotInitialized,
     MoreThanOneChar,
+    NumericLiteralTooBig,
+    BreakOutsideLoop,
+    ContinueOutsideLoop,
+    UnreachableStmt,
+    UninitializedVar,
+    AssignmentToConst,
+    DivisionByZero,
+    InvalidArraySize,
+    MainFunctionParams,
+    MainFunctionReturnType,
+    RecursiveStructDefiniton
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -127,7 +138,27 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
             {DiagnosticKind::FieldNotInitialized,
              "required field `{0}` not initialized"},
             {DiagnosticKind::MoreThanOneChar,
-             "char literal may contain at most one character"}};
+             "char literal may contain at most one character"},
+            {DiagnosticKind::NumericLiteralTooBig,
+             "numeric literal too big for `{0}`"},
+            {DiagnosticKind::BreakOutsideLoop,
+             "break statement outside of loop"},
+            {DiagnosticKind::ContinueOutsideLoop,
+             "continue statement outside of loop"},
+            {DiagnosticKind::UnreachableStmt, "statement is unreachable"},
+            {DiagnosticKind::UninitializedVar,
+             "`{0}` should be initialized before use"},
+            {DiagnosticKind::AssignmentToConst,
+             "cannot reassign value of const variable `{0}`"},
+            {DiagnosticKind::DivisionByZero, "denominator cannot be zero"},
+            {DiagnosticKind::InvalidArraySize,
+             "size of array must be a positive integer"},
+            {DiagnosticKind::MainFunctionParams,
+             "main function cannot have parameters"},
+            {DiagnosticKind::MainFunctionReturnType,
+             "main function must either return `()` or `i32`"},
+            {DiagnosticKind::RecursiveStructDefiniton,
+             "struct `{0}` cannot contain a field of its own type"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;

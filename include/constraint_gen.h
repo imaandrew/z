@@ -9,6 +9,7 @@
 #include "zctxt.h"
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace z::type {
