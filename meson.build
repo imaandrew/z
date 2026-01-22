@@ -10,7 +10,7 @@ project(
 
 argparse = dependency('argparse')
 
-inc = include_directories('include')
+inc = include_directories('src')
 
 subdir('src')
 

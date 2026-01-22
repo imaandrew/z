@@ -1,12 +1,12 @@
 #pragma once
 
-#include "ast.h"
 #include "constraint.h"
-#include "sym_table.h"
+#include "core/zctxt.h"
+#include "parser/ast.h"
+#include "sema/sym_table.h"
 #include "type.h"
 #include "type_arena.h"
 #include "type_ref.h"
-#include "zctxt.h"
 #include <cstdint>
 #include <memory>
 #include <optional>

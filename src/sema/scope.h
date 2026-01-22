@@ -1,8 +1,8 @@
 #pragma once
 
-#include "src_mgr.h"
-#include "string_pool.h"
-#include "type_ref.h"
+#include "core/string_pool.h"
+#include "diag/src_mgr.h"
+#include "type/type_ref.h"
 #include <memory>
 #include <optional>
 #include <unordered_map>

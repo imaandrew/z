@@ -1,6 +1,6 @@
 #include "type_res.h"
-#include "ast.h"
 #include "constraint.h"
+#include "parser/ast.h"
 #include <iostream>
 #include <memory>
 #include <variant>

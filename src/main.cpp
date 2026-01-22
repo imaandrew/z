@@ -1,8 +1,8 @@
-#include "lexer.h"
-#include "parser.h"
-#include "sem.h"
-#include "type_res.h"
-#include "zctxt.h"
+#include "core/zctxt.h"
+#include "lexer/lexer.h"
+#include "parser/parser.h"
+#include "sema/sem.h"
+#include "type/type_res.h"
 #include <argparse/argparse.hpp>
 #include <exception>
 #include <iostream>

@@ -1,7 +1,7 @@
 #include "zctxt.h"
-#include "diagnostics.h"
-#include "type.h"
-#include "type_ref.h"
+#include "diag/diagnostics.h"
+#include "type/type.h"
+#include "type/type_ref.h"
 
 namespace z {
 bool ZContext::resolve_unk_type(type::TypeRef& type) {

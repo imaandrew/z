@@ -1,6 +1,6 @@
 #include "constraint_gen.h"
-#include "ast.h"
-#include "token.h"
+#include "lexer/token.h"
+#include "parser/ast.h"
 #include "type.h"
 #include "type_arena.h"
 #include <cstddef>

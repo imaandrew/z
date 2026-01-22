@@ -1,14 +1,14 @@
 #pragma once
 
-#include "diagnostics.h"
-#include "scope.h"
-#include "src_mgr.h"
-#include "string_pool.h"
-#include "sym_table.h"
-#include "token.h"
-#include "type.h"
-#include "type_ref.h"
-#include "zctxt.h"
+#include "core/string_pool.h"
+#include "core/zctxt.h"
+#include "diag/diagnostics.h"
+#include "diag/src_mgr.h"
+#include "lexer/token.h"
+#include "sema/scope.h"
+#include "sema/sym_table.h"
+#include "type/type.h"
+#include "type/type_ref.h"
 #include <cassert>
 #include <cstdint>
 #include <generator>

@@ -1,11 +1,11 @@
 #include "parser.h"
 #include "ast.h"
-#include "diagnostics.h"
-#include "src_mgr.h"
-#include "token.h"
-#include "type.h"
-#include "type_arena.h"
-#include "type_ref.h"
+#include "diag/diagnostics.h"
+#include "diag/src_mgr.h"
+#include "lexer/token.h"
+#include "type/type.h"
+#include "type/type_arena.h"
+#include "type/type_ref.h"
 #include <charconv>
 #include <cmath>
 #include <cstddef>

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "diagnostics.h"
-#include "src_mgr.h"
+#include "diag/diagnostics.h"
+#include "diag/src_mgr.h"
+#include "sema/sym_table.h"
 #include "string_pool.h"
-#include "sym_table.h"
-#include "type.h"
-#include "type_arena.h"
-#include "type_ref.h"
+#include "type/type.h"
+#include "type/type_arena.h"
+#include "type/type_ref.h"
 #include <memory>
 #include <optional>
 #include <string>

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "diagnostics.h"
-#include "scope.h"
-#include "src_mgr.h"
-#include "string_pool.h"
-#include "type_ref.h"
+#include "core/string_pool.h"
+#include "diag/diagnostics.h"
+#include "diag/src_mgr.h"
+#include "sema/scope.h"
+#include "type/type_ref.h"
 #include <deque>
 #include <memory>
 #include <optional>

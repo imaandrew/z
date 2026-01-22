@@ -1,8 +1,8 @@
 #include "scope.h"
-#include "ast.h"
-#include "string_pool.h"
-#include "type.h"
-#include "type_ref.h"
+#include "core/string_pool.h"
+#include "parser/ast.h"
+#include "type/type.h"
+#include "type/type_ref.h"
 #include <memory>
 #include <optional>
 #include <utility>

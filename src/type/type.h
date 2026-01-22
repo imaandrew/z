@@ -1,7 +1,7 @@
 #pragma once
 
-#include "src_mgr.h"
-#include "string_pool.h"
+#include "core/string_pool.h"
+#include "diag/src_mgr.h"
 #include "type_arena.h"
 #include "type_ref.h"
 #include <algorithm>

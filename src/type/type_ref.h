@@ -1,6 +1,6 @@
 #pragma once
 
-#include "string_pool.h"
+#include "core/string_pool.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>

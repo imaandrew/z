@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ast.h"
 #include "constraint_gen.h"
 #include "constraint_solve.h"
+#include "core/zctxt.h"
+#include "parser/ast.h"
 #include "type_ref.h"
-#include "zctxt.h"
 #include <vector>
 
 namespace z::type {

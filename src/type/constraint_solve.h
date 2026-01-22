@@ -1,11 +1,11 @@
 #pragma once
 
 #include "constraint.h"
-#include "diagnostics.h"
+#include "core/zctxt.h"
+#include "diag/diagnostics.h"
 #include "type.h"
 #include "type_arena.h"
 #include "type_ref.h"
-#include "zctxt.h"
 #include <memory>
 #include <vector>
 

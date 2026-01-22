@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ast.h"
-#include "src_mgr.h"
-#include "type.h"
-#include "type_ref.h"
-#include "zctxt.h"
+#include "core/zctxt.h"
+#include "diag/src_mgr.h"
+#include "parser/ast.h"
+#include "type/type.h"
+#include "type/type_ref.h"
 #include <cstdint>
 #include <optional>
 #include <vector>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src_mgr.h"
+#include "diag/src_mgr.h"
 #include "token.h"
 #include <cstddef>
 
