@@ -177,7 +177,6 @@ struct ASTNode {
     type::TypeRef node_type;
     Span span;
     const ASTKind kind;
-    bool valid = true;
 
     ASTNode(ASTKind kind, Span span) : span(span), kind(kind) {}
     virtual ~ASTNode() = default;
@@ -187,8 +186,6 @@ struct ASTNode {
     ASTNode(ASTNode&&) = delete;
     ASTNode& operator=(ASTNode&&) = delete;
 
-    [[nodiscard]] bool is_valid() const { return valid; }
-    void mark_invalid() { valid = false; }
     [[nodiscard]] bool has_type() const { return node_type.is_valid(); }
     [[nodiscard]] Span get_span() const { return span; }
     [[nodiscard]] ASTKind get_kind() const { return kind; }
@@ -201,7 +198,7 @@ struct ASTNode {
 
     void dump_type(ZContext* ctxt, std::ostream& stream = std::cout) const {
         stream << " - type: ";
-        if (node_type.is_valid())
+        if (node_type.is_initialized())
             ctxt->ty->get(node_type)->dump(ctxt);
         else
             stream << "null";
@@ -699,6 +696,8 @@ struct Decl : ASTNode {
     Decl(Decl&&) = delete;
     Decl& operator=(Decl&&) = delete;
 
+    bool valid = true;
+
     virtual void declare_type(ZContext* ctxt) = 0;
     virtual void resolve_sym(ZContext* ctxt) = 0;
 };
@@ -771,7 +770,7 @@ struct FuncDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
-        if (!is_valid())
+        if (!valid)
             return;
 
         auto t = ctxt->syms->get_func(name->get_id());
@@ -782,7 +781,6 @@ struct FuncDecl final : Decl {
         for (const auto& param : params) {
             if (ctxt->ty->get(param->type)->is_unknown()) {
                 if (!ctxt->resolve_unk_type(param->type)) {
-                    valid = false;
                     return;
                 }
             }
@@ -791,7 +789,6 @@ struct FuncDecl final : Decl {
 
         if (ctxt->ty->get(ret)->is_unknown()) {
             if (!ctxt->resolve_unk_type(ret)) {
-                valid = false;
                 return;
             }
         }
@@ -900,7 +897,7 @@ struct LetStmt final : Stmt {
         stream << std::string(indent, ' ') << "LetStmt";
         dump_type(ctxt, stream);
         ident->dump(ctxt, indent + 2, stream);
-        if (type.is_valid()) {
+        if (type.is_initialized()) {
             stream << std::string(indent + 2, ' ');
             ctxt->ty->get(type)->dump(ctxt, stream);
             stream << '\n';
@@ -1129,14 +1126,15 @@ struct StructDecl final : Decl {
     std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<StructField>> fields;
     std::vector<std::unique_ptr<Decl>> funcs;
+    ScopeID scope;
 
     static constexpr ASTKind Kind = ASTKind::StructDecl;
 
     StructDecl(Span span, std::unique_ptr<Identifier> ident,
                std::vector<std::unique_ptr<StructField>> fields,
-               std::vector<std::unique_ptr<Decl>> funcs)
+               std::vector<std::unique_ptr<Decl>> funcs, ScopeID scope)
         : Decl(Kind, span), ident(std::move(ident)), fields(std::move(fields)),
-          funcs(std::move(funcs)) {};
+          funcs(std::move(funcs)), scope(scope) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -1167,7 +1165,7 @@ struct StructDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
-        if (!is_valid())
+        if (!valid)
             return;
 
         auto t = ctxt->syms->get_type(ident->get_id());
@@ -1176,6 +1174,8 @@ struct StructDecl final : Decl {
 
         std::unordered_map<StringID, type::TypeRef> field_types;
         std::unordered_map<StringID, type::TypeRef> func_types;
+
+        ctxt->syms->enter_scope(scope);
 
         for (const auto& field : fields) {
             const auto is_unique =
@@ -1187,7 +1187,8 @@ struct StructDecl final : Decl {
                                 DiagnosticKind::DuplicateField,
                                 ident->to_string(ctxt->strings.get()),
                                 field->ident->to_string(ctxt->strings.get()));
-                valid = false;
+            } else {
+                ctxt->syms->declare_var(field->ident, field->type, false, true);
             }
         }
 
@@ -1197,18 +1198,18 @@ struct StructDecl final : Decl {
             for (const auto& param : func_decl->params) {
                 if (ctxt->ty->get(param->type)->is_unknown()) {
                     if (!ctxt->resolve_unk_type(param->type)) {
-                        valid = false;
                         return;
                     }
                 }
                 param_types.push_back(param->type);
             }
 
+            const auto func_type =
+                ctxt->ty->make<type::FunctionType>(param_types, func_decl->ret);
             const auto is_unique =
                 func_types
-                    .insert(std::make_pair(func_decl->name->get_id(),
-                                           ctxt->ty->make<type::FunctionType>(
-                                               param_types, func_decl->ret)))
+                    .insert(
+                        std::make_pair(func_decl->name->get_id(), func_type))
                     .second;
             if (!is_unique) {
                 ctxt->diag.emit(
@@ -1216,10 +1217,12 @@ struct StructDecl final : Decl {
                     DiagnosticKind::DuplicateField,
                     ident->to_string(ctxt->strings.get()),
                     func_decl->name->to_string(ctxt->strings.get()));
-                valid = false;
+            } else {
+                ctxt->syms->declare_func(func_decl->name, func_type);
             }
         }
 
+        ctxt->syms->exit_scope();
         ctxt->ty->replace<type::StructType>(*t, ident->get_id(), field_types,
                                             func_types);
     }
@@ -1326,9 +1329,11 @@ struct TypeAliasDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
+        if (!valid)
+            return;
+
         if (ctxt->ty->get(type)->is_unknown()) {
-            if (!ctxt->resolve_unk_type(type))
-                valid = false;
+            ctxt->resolve_unk_type(type);
         }
     }
 };
@@ -1375,7 +1380,7 @@ struct TraitFuncDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
-        if (!is_valid())
+        if (!valid)
             return;
 
         auto t = ctxt->syms->get_func(name->get_id());
@@ -1386,7 +1391,6 @@ struct TraitFuncDecl final : Decl {
         for (const auto& param : params) {
             if (ctxt->ty->get(param->type)->is_unknown()) {
                 if (!ctxt->resolve_unk_type(param->type)) {
-                    valid = false;
                     return;
                 }
             }
@@ -1395,7 +1399,6 @@ struct TraitFuncDecl final : Decl {
 
         if (ctxt->ty->get(ret)->is_unknown()) {
             if (!ctxt->resolve_unk_type(ret)) {
-                valid = false;
                 return;
             }
         }
@@ -1469,7 +1472,7 @@ struct EnumDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
-        if (!is_valid())
+        if (!valid)
             return;
 
         auto t = ctxt->syms->get_type(ident->get_id());
@@ -1487,7 +1490,6 @@ struct EnumDecl final : Decl {
                                 DiagnosticKind::DuplicateField,
                                 ident->to_string(ctxt->strings.get()),
                                 field->ident->to_string(ctxt->strings.get()));
-                valid = false;
             }
         }
 
@@ -1531,12 +1533,14 @@ struct ConstDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
+        if (!valid)
+            return;
+
         if (!ctxt->ty->get(type)->is_unknown()) {
             return;
         }
 
         if (!ctxt->resolve_unk_type(type)) {
-            valid = false;
             return;
         }
     }
@@ -1578,12 +1582,14 @@ struct StaticDecl final : Decl {
     }
 
     void resolve_sym(ZContext* ctxt) override {
+        if (!valid)
+            return;
+
         if (!ctxt->ty->get(type)->is_unknown()) {
             return;
         }
 
         if (!ctxt->resolve_unk_type(type)) {
-            valid = false;
             return;
         }
     }

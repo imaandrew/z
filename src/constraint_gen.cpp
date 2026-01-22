@@ -9,11 +9,8 @@
 
 namespace z::type {
 void ConstraintGenerator::visit(ast::Identifier& ident) {
-    ident.node_type = new_var();
-
-    if (const auto type = syms->get_var(ident.get_id())) {
-        eq(ident.node_type, *type);
-    }
+    if (const auto type = syms->get_var(ident.get_id()))
+        ident.node_type = *type;
 }
 
 void ConstraintGenerator::visit(ast::IntExpr& expr) {
@@ -31,26 +28,18 @@ void ConstraintGenerator::visit(ast::BoolExpr& expr) {
 void ConstraintGenerator::visit(ast::PrefixExpr& expr) {
     expr.expr->accept(*this);
 
-    expr.node_type = new_var();
-
-    eq(expr.node_type, expr.expr->node_type);
+    expr.node_type = expr.expr->node_type;
 }
 
 void ConstraintGenerator::visit(ast::PostfixExpr& expr) {
     expr.expr->accept(*this);
 
-    expr.node_type = new_var();
-
-    eq(expr.node_type, expr.expr->node_type);
+    expr.node_type = expr.expr->node_type;
 }
 
 void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     expr.lhs->accept(*this);
     expr.rhs->accept(*this);
-
-    expr.node_type = new_var();
-
-    eq(expr.lhs->node_type, expr.rhs->node_type);
 
     switch (expr.op.get_kind()) {
     case TokenKind::PlusEq:
@@ -64,6 +53,7 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case TokenKind::ShlEq:
     case TokenKind::ShrEq:
     case TokenKind::Eq:
+        eq(expr.lhs->node_type, expr.rhs->node_type);
         expr.node_type = TypeArena::VOID;
         break;
     case TokenKind::Range:
@@ -78,9 +68,12 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case TokenKind::Minus:
     case TokenKind::Star:
     case TokenKind::Slash:
+        expr.node_type = new_var();
         eq(expr.node_type, expr.lhs->node_type);
+        eq(expr.node_type, expr.rhs->node_type);
         break;
     case TokenKind::ColonColon:
+        expr.node_type = new_var();
         eq(expr.node_type, expr.rhs->node_type);
         break;
     case TokenKind::Colon:
@@ -92,6 +85,7 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case TokenKind::Lt:
     case TokenKind::Ge:
     case TokenKind::Le:
+        eq(expr.lhs->node_type, expr.rhs->node_type);
         expr.node_type = TypeArena::BOOL;
         break;
     default:
@@ -104,38 +98,36 @@ void ConstraintGenerator::visit(ast::TernaryExpr& expr) {
     expr.mhs->accept(*this);
     expr.rhs->accept(*this);
 
+    eq(expr.lhs->node_type, TypeArena::BOOL);
+
     expr.node_type = new_var();
 
-    eq(expr.mhs->node_type, expr.rhs->node_type);
     eq(expr.node_type, expr.mhs->node_type);
+    eq(expr.node_type, expr.rhs->node_type);
 }
 
 void ConstraintGenerator::visit(ast::CallExpr& expr) {
     for (auto& arg : expr.args)
         arg->accept(*this);
 
-    expr.node_type = new_var();
-    expr.ident->node_type = new_var();
-
     if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
         auto func = syms->get_func(ident->get_id());
         if (!func)
             return;
 
-        eq(expr.ident->node_type, *func);
+        expr.ident->node_type = *func;
 
-        const auto* func_ptr = ty->get_as<type::FunctionType>(*func);
+        const auto* func_ptr = ty->get_as<FunctionType>(*func);
         if (!func_ptr)
             return;
 
-        eq(expr.node_type, func_ptr->get_return_val());
+        expr.node_type = func_ptr->get_return_val();
 
         if (func_ptr->get_params().size() != expr.args.size())
             return;
 
-        for (size_t i = 0; i < func_ptr->get_params().size(); i++) {
+        for (size_t i = 0; i < func_ptr->get_params().size(); i++)
             eq(expr.args[i]->node_type, func_ptr->get_params()[i]);
-        }
     }
 }
 
@@ -143,33 +135,14 @@ void ConstraintGenerator::visit(ast::ArrayExpr& expr) {
     expr.ident->accept(*this);
     expr.val->accept(*this);
 
-    expr.node_type = new_var();
-
-    if (const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get())) {
-        if (auto arr = syms->get_var(ident->get_id())) {
-            if (const auto* type = ty->get_as<ArrayType>(*arr))
-                eq(expr.node_type, type->get_type());
-        }
-    }
+    if (const auto* type = ty->get_as<ArrayType>(expr.ident->node_type))
+        expr.node_type = type->get_type();
 }
 
 void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     expr.container->accept(*this);
 
-    expr.field->node_type = new_var();
-    expr.node_type = new_var();
-
-    eq(expr.node_type, expr.field->node_type);
-
-    auto* ident = dyn_cast<ast::Identifier>(expr.container.get());
-    if (!ident)
-        return;
-
-    auto type = syms->get_type(ident->get_id());
-    if (!type)
-        return;
-
-    auto* struct_type = ty->get_as<StructType>(*type);
+    auto* struct_type = ty->get_as<StructType>(expr.container->node_type);
     if (!struct_type)
         return;
 
@@ -177,35 +150,31 @@ void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     if (!field)
         return;
 
-    eq(expr.field->node_type, *field);
+    expr.field->node_type = *field;
+    expr.node_type = *field;
 }
 
 void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
     auto array_type = new_var();
-    for (auto& val : expr.vals) {
-        val->accept(*this);
-        eq(val->node_type, array_type);
-    }
-
     if (const auto expected = peek_expected()) {
         if (const auto* concrete = ty->get_as<ArrayType>(*expected)) {
             eq(array_type, concrete->get_type());
         }
     }
 
+    for (auto& val : expr.vals) {
+        val->accept(*this);
+        eq(array_type, val->node_type);
+    }
+
     expr.node_type = ty->make<ArrayType>(array_type, expr.vals.size());
 }
 
 void ConstraintGenerator::visit(ast::StructExprField& expr) {
-    expr.ident->node_type = new_var();
-    expr.val->node_type = new_var();
-    eq(expr.ident->node_type, expr.val->node_type);
+    expr.val->accept(*this);
 }
 
 void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
-    expr.ident->node_type = new_var();
-    expr.node_type = new_var();
-
     auto* ident = dyn_cast<ast::Identifier>(expr.ident.get());
     if (!ident)
         return;
@@ -214,13 +183,12 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
     if (!type)
         return;
 
-    eq(expr.node_type, *type);
+    expr.node_type = *type;
+    expr.ident->node_type = ty->make<TypeType>(*type);
 
     auto* struct_type = ty->get_as<StructType>(*type);
     if (!struct_type)
         return;
-
-    eq(expr.ident->node_type, ty->make<TypeType>(*type));
 
     for (auto& field : expr.fields) {
         field->accept(*this);
@@ -228,8 +196,8 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
         if (const auto field_type =
                 struct_type->get_field_type(field->ident->get_id());
             field_type) {
-            eq(field->ident->node_type, *field_type);
-            eq(field->val->node_type, field->ident->node_type);
+            field->ident->node_type = *field_type;
+            eq(field->val->node_type, *field_type);
         }
     }
 }
@@ -238,10 +206,8 @@ void ConstraintGenerator::visit(ast::TupleExpr& expr) {
     expr.first->accept(*this);
     expr.second->accept(*this);
 
-    auto first_type = new_var();
-    auto second_type = new_var();
-
-    expr.node_type = ty->make<TupleType>(first_type, second_type);
+    expr.node_type =
+        ty->make<TupleType>(expr.first->node_type, expr.second->node_type);
 }
 
 void ConstraintGenerator::visit(ast::Block& block) {
@@ -299,15 +265,14 @@ void ConstraintGenerator::visit(ast::BreakStmt& stmt) {
         break_type = stmt.expr->node_type;
     }
 
-    if (auto loop_result = peek_loop_result()) {
+    if (auto loop_result = peek_loop_result())
         eq(break_type, *loop_result);
-    }
 
-    stmt.node_type = ty->make<type::VoidType>();
+    stmt.node_type = TypeArena::VOID;
 }
 
 void ConstraintGenerator::visit(ast::ContinueStmt& stmt) {
-    stmt.node_type = ty->make<type::VoidType>();
+    stmt.node_type = TypeArena::VOID;
 }
 
 void ConstraintGenerator::visit(ast::ForExpr& expr) {
@@ -315,11 +280,13 @@ void ConstraintGenerator::visit(ast::ForExpr& expr) {
     syms->get_scope(expr.block->get_scope_id())
         .declare_var(expr.ident, expr.ident->node_type, false, true);
 
-    expr.block->accept(*this);
-
     expr.expr->accept(*this);
     // TODO: expr should be an iterator over some type T, ident should have type
     // T
+
+    push_loop_result(TypeArena::VOID);
+    expr.block->accept(*this);
+    pop_loop_result();
 
     expr.node_type = TypeArena::VOID;
 }
@@ -336,13 +303,14 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
     if (stmt.val) {
         stmt.val->accept(*this);
         eq(stmt.ident->node_type, stmt.val->node_type);
-        if (stmt.type.is_valid())
-            pop_expected();
     }
+
+    if (stmt.type.is_valid())
+        pop_expected();
 
     syms->declare_var(stmt.ident, stmt.ident->node_type, false,
                       stmt.val != nullptr);
-    stmt.node_type = ty->make<type::VoidType>();
+    stmt.node_type = TypeArena::VOID;
 }
 
 void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
@@ -353,31 +321,33 @@ void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
         eq(peek_block_type(), TypeArena::VOID);
     }
 
-    stmt.node_type = ty->make<type::VoidType>();
+    stmt.node_type = TypeArena::VOID;
 }
 
 void ConstraintGenerator::visit(ast::IfExpr& expr) {
     expr.expr->accept(*this);
-    expr.block->accept(*this);
+    eq(expr.expr->node_type, TypeArena::BOOL);
 
-    expr.node_type = new_var();
-    eq(expr.node_type, expr.block->node_type);
+    expr.block->accept(*this);
 
     if (expr.else_expr) {
         expr.else_expr->accept(*this);
+
+        expr.node_type = new_var();
+        eq(expr.node_type, expr.block->node_type);
         eq(expr.block->node_type, expr.else_expr->node_type);
+    } else {
+        expr.node_type = expr.block->node_type;
     }
 }
 
 void ConstraintGenerator::visit(ast::ElseExpr& expr) {
-    expr.node_type = new_var();
-
     if (expr.if_expr) {
         expr.if_expr->accept(*this);
-        eq(expr.node_type, expr.if_expr->node_type);
+        expr.node_type = expr.if_expr->node_type;
     } else if (expr.block) {
         expr.block->accept(*this);
-        eq(expr.node_type, expr.block->node_type);
+        expr.node_type = expr.block->node_type;
     }
 }
 
@@ -398,7 +368,9 @@ void ConstraintGenerator::visit(ast::LoopExpr& expr) {
 void ConstraintGenerator::visit(ast::WhileExpr& expr) {
     expr.expr->accept(*this);
 
+    push_loop_result(TypeArena::VOID);
     expr.block->accept(*this);
+    pop_loop_result();
 
     expr.node_type = TypeArena::VOID;
 }
@@ -419,19 +391,20 @@ void ConstraintGenerator::visit(ast::StructField& field) {
 }
 
 void ConstraintGenerator::visit(ast::StructDecl& decl) {
+    for (auto& field : decl.fields) {
+        field->accept(*this);
+    }
+
     const auto t = syms->get_type(decl.ident->get_id());
     if (!t)
         return;
 
     decl.node_type = *t;
-    decl.ident->node_type = ty->make<TypeType>(decl.node_type);
+    decl.ident->node_type = ty->make<TypeType>(*t);
 
     const auto* struct_type = ty->get_as<StructType>(decl.node_type);
 
-    for (auto& field : decl.fields) {
-        field->accept(*this);
-    }
-
+    syms->enter_scope(decl.scope);
     for (auto& func : decl.funcs) {
         func->accept(*this);
         auto* func_decl = cast<ast::FuncDecl>(func.get());
@@ -441,6 +414,7 @@ void ConstraintGenerator::visit(ast::StructDecl& decl) {
             func_decl->name->node_type = func->node_type;
         }
     }
+    syms->exit_scope();
 }
 
 void ConstraintGenerator::visit(ast::EnumField& field) {
@@ -457,6 +431,7 @@ void ConstraintGenerator::visit(ast::EnumDecl& decl) {
 
     for (auto& field : decl.fields) {
         field->accept(*this);
+        field->node_type = decl.node_type;
     }
 }
 

@@ -36,6 +36,6 @@ public:
         return ZContext(std::move(src));
     }
 
-    bool resolve_unk_type(type::TypeRef& type) const;
+    bool resolve_unk_type(type::TypeRef& type);
 };
 } // namespace z

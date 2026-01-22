@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
     } catch (const std::exception& err) {
         std::cerr << err.what() << '\n';
         std::cerr << z;
-        std::exit(1); // NOLINT
+        return 1;
     }
 
     auto c = ZContext::Create(input);
@@ -61,4 +61,7 @@ int main(int argc, char** argv) {
         file->dump(&ctxt, 0, std::cout);
 
     file->accept(sem);
+
+    if (ctxt.diag.has_error())
+        return 1;
 }

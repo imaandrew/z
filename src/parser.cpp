@@ -176,7 +176,8 @@ DeclResult Parser::parse_struct_decl() {
     next_token();
 
     return DeclResult(std::make_unique<ast::StructDecl>(
-        span, std::move(ident), std::move(fields), std::move(funcs)));
+        span, std::move(ident), std::move(fields), std::move(funcs),
+        syms->new_scope()));
 }
 
 Result<std::unique_ptr<ast::StructField>> Parser::parse_struct_field() {
@@ -389,8 +390,6 @@ DeclResult Parser::parse_type_alias_decl() {
         return DeclError();
 
     auto ident = parse_ident_unchecked();
-    if (!ident->is_valid())
-        return DeclError();
 
     if (!consume(TokenKind::Eq))
         return DeclError();
@@ -964,9 +963,7 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
             if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
                 std::errc::result_out_of_range) {
                 diag->emit(tok.get_span(), DiagnosticKind::FloatOutOfRange);
-                auto res = std::make_unique<ast::FloatExpr>(tok, num);
-                res->mark_invalid();
-                return res;
+                return std::make_unique<ast::FloatExpr>(tok, num);
             }
 
             return std::make_unique<ast::FloatExpr>(tok, num);
@@ -998,17 +995,13 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
         if (std::from_chars(&val[2], val.end().base(), num, base).ec ==
             std::errc::result_out_of_range) {
             diag->emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
-            auto res = std::make_unique<ast::IntExpr>(tok, num);
-            res->mark_invalid();
-            return res;
+            return std::make_unique<ast::IntExpr>(tok, num);
         }
     } else {
         if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
             std::errc::result_out_of_range) {
             diag->emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
-            auto res = std::make_unique<ast::IntExpr>(tok, num);
-            res->mark_invalid();
-            return res;
+            return std::make_unique<ast::IntExpr>(tok, num);
         }
     }
 

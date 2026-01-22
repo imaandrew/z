@@ -235,6 +235,7 @@ struct Diagnostic {
 
 class DiagnosticsEngine {
     SourceManager* source;
+    bool error = false;
 
     void print_location(const LinePos& pos, std::ostream& out) const {
         out << source->get_path() << ":" << pos.get_line() << ":"
@@ -259,8 +260,8 @@ public:
 
     // NOLINTBEGIN(cppcoreguidelines-missing-std-forward)
     template <typename... Args>
-    void emit(const Span& span, const DiagnosticKind kind,
-              Args&&... args) const {
+    void emit(const Span& span, const DiagnosticKind kind, Args&&... args) {
+        error = true;
         print_diagnostic(Diagnostic(
             kind, span,
             std::make_unique<SimpleDiagnosticData>(std::vformat(
@@ -269,13 +270,19 @@ public:
 
     template <typename... Args>
     Diagnostic emit_with_notes(const Span& span, DiagnosticKind kind,
-                               Args&&... args) const {
+                               Args&&... args) {
+        error = true;
         auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
             get_diagnostic_string(kind), std::make_format_args(args...)));
         return Diagnostic(kind, span, std::move(data));
     }
     // NOLINTEND(cppcoreguidelines-missing-std-forward)
 
-    void emit(const Diagnostic& diag) const { print_diagnostic(diag); }
+    void emit(const Diagnostic& diag) {
+        error = true;
+        print_diagnostic(diag);
+    }
+
+    [[nodiscard]] bool has_error() const { return error; }
 };
 } // namespace z

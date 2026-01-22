@@ -14,7 +14,8 @@ class TypeRef {
 
 public:
     TypeRef() = default;
-    [[nodiscard]] bool is_valid() const { return id != 0; }
+    [[nodiscard]] bool is_initialized() const { return id != 0; }
+    [[nodiscard]] bool is_valid() const { return id != 0 && id != 15; }
     [[nodiscard]] std::uint32_t get_id() const { return id; }
 
     bool operator==(const TypeRef& other) const { return id == other.id; }

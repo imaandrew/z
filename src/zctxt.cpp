@@ -4,7 +4,7 @@
 #include "type_ref.h"
 
 namespace z {
-bool ZContext::resolve_unk_type(type::TypeRef& type) const {
+bool ZContext::resolve_unk_type(type::TypeRef& type) {
     if (auto* unk_type = ty->get_as<type::UnknownType>(type)) {
         const auto ident = unk_type->get_id();
         if (const auto new_type = syms->get_type(ident); new_type) {
