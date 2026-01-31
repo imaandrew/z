@@ -1,4 +1,5 @@
 build/
 subprojects/argparse-*
+subprojects/magic_enum-*
 subprojects/packagecache
 subprojects/.wraplock

@@ -15,4 +15,6 @@ sources = files(
 zlib = library(
   'z',
   sources,
+  cpp_args: args,
+  dependencies : deps
 )

@@ -1,1 +1,2 @@
 option('tests', type: 'boolean', value: false, description: 'Build test suite')
+option('enable_stacktrace', type : 'boolean', value : false, description : 'Enable stacktrace support in panics')
