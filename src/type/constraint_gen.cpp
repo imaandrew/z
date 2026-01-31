@@ -1,5 +1,4 @@
 #include "constraint_gen.h"
-#include "lexer/token.h"
 #include "parser/ast.h"
 #include "type.h"
 #include "type_arena.h"
@@ -41,69 +40,56 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     expr.lhs->accept(*this);
     expr.rhs->accept(*this);
 
-    switch (expr.op.get_kind()) {
-    case TokenKind::PlusEq:
-    case TokenKind::MinusEq:
-    case TokenKind::StarEq:
-    case TokenKind::SlashEq:
-    case TokenKind::PercentEq:
-    case TokenKind::CaretEq:
-    case TokenKind::AndEq:
-    case TokenKind::OrEq:
-    case TokenKind::ShlEq:
-    case TokenKind::ShrEq:
-    case TokenKind::Eq:
+    using ast::BinOp;
+    switch (expr.op) {
+    case BinOp::AddEq:
+    case BinOp::SubEq:
+    case BinOp::MulEq:
+    case BinOp::DivEq:
+    case BinOp::ModEq:
+    case BinOp::BitXorEq:
+    case BinOp::BitAndEq:
+    case BinOp::BitOrEq:
+    case BinOp::ShlEq:
+    case BinOp::ShrEq:
+    case BinOp::Eq:
         eq(expr.lhs->node_type, expr.rhs->node_type);
         expr.node_type = TypeArena::VOID;
         break;
-    case TokenKind::Range:
-    case TokenKind::RangeEq:
-    case TokenKind::Or:
-    case TokenKind::Caret:
-    case TokenKind::And:
-    case TokenKind::Shl:
-    case TokenKind::Shr:
-    case TokenKind::Percent:
-    case TokenKind::Plus:
-    case TokenKind::Minus:
-    case TokenKind::Star:
-    case TokenKind::Slash:
+    case BinOp::Range:
+    case BinOp::RangeEq:
+    case BinOp::BitOr:
+    case BinOp::BitXor:
+    case BinOp::BitAnd:
+    case BinOp::Shl:
+    case BinOp::Shr:
+    case BinOp::Mod:
+    case BinOp::Add:
+    case BinOp::Sub:
+    case BinOp::Mul:
+    case BinOp::Div:
         expr.node_type = new_var();
         eq(expr.node_type, expr.lhs->node_type);
         eq(expr.node_type, expr.rhs->node_type);
         break;
-    case TokenKind::ColonColon:
+    case BinOp::ColonColon:
         expr.node_type = new_var();
         eq(expr.node_type, expr.rhs->node_type);
         break;
-    case TokenKind::Colon:
-    case TokenKind::OrOr:
-    case TokenKind::AndAnd:
-    case TokenKind::EqEq:
-    case TokenKind::Ne:
-    case TokenKind::Gt:
-    case TokenKind::Lt:
-    case TokenKind::Ge:
-    case TokenKind::Le:
+    case BinOp::LogicOr:
+    case BinOp::LogicAnd:
+    case BinOp::EqEq:
+    case BinOp::Ne:
+    case BinOp::Gt:
+    case BinOp::Lt:
+    case BinOp::Ge:
+    case BinOp::Le:
         eq(expr.lhs->node_type, expr.rhs->node_type);
         expr.node_type = TypeArena::BOOL;
         break;
     default:
         std::unreachable();
     }
-}
-
-void ConstraintGenerator::visit(ast::TernaryExpr& expr) {
-    expr.lhs->accept(*this);
-    expr.mhs->accept(*this);
-    expr.rhs->accept(*this);
-
-    eq(expr.lhs->node_type, TypeArena::BOOL);
-
-    expr.node_type = new_var();
-
-    eq(expr.node_type, expr.mhs->node_type);
-    eq(expr.node_type, expr.rhs->node_type);
 }
 
 void ConstraintGenerator::visit(ast::CallExpr& expr) {

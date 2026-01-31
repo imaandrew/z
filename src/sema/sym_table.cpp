@@ -1,7 +1,6 @@
 #include "sym_table.h"
 #include "core/string_pool.h"
 #include "diag/diagnostics.h"
-#include "lexer/token.h"
 #include "parser/ast.h"
 #include "sema/scope.h"
 #include "type/type.h"
@@ -34,7 +33,7 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
         stack.back()->declare_var(name, type, is_const, is_initialized);
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(name->tok.get_span(),
+        auto data = diag.emit_with_notes(name->get_span(),
                                          DiagnosticKind::RedeclaredVar,
                                          name->to_string(strings));
 
@@ -55,7 +54,7 @@ bool SymbolTable::declare_func(const std::unique_ptr<ast::Identifier>& name,
     const bool is_unique = stack.back()->declare_func(name, type);
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(name->tok.get_span(),
+        auto data = diag.emit_with_notes(name->get_span(),
                                          DiagnosticKind::RedeclaredFunc,
                                          name->to_string(strings));
 
@@ -76,7 +75,7 @@ bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
     const bool is_unique = stack.back()->declare_type(name, type);
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(name->tok.get_span(),
+        auto data = diag.emit_with_notes(name->get_span(),
                                          DiagnosticKind::RedeclaredType,
                                          name->to_string(strings));
 

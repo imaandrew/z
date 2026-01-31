@@ -13,8 +13,8 @@ bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
                                type::TypeRef type, bool is_const,
                                bool is_initialized) {
     const bool is_unique =
-        vars.insert({name->get_id(), VarInfo(type, name->tok.get_span(),
-                                             is_const, is_initialized)})
+        vars.insert({name->get_id(),
+                     VarInfo(type, name->get_span(), is_const, is_initialized)})
             .second;
 
     return is_unique;
@@ -23,7 +23,7 @@ bool ScopeContext::declare_var(const std::unique_ptr<ast::Identifier>& name,
 bool ScopeContext::declare_func(const std::unique_ptr<ast::Identifier>& name,
                                 type::TypeRef type) {
     const bool is_unique =
-        funcs.insert({name->get_id(), TypeWithSpan(type, name->tok.get_span())})
+        funcs.insert({name->get_id(), TypeWithSpan(type, name->get_span())})
             .second;
 
     return is_unique;
@@ -33,7 +33,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
                                 type::TypeRef type) {
     const bool is_unique =
         user_defined_types
-            .insert({name->get_id(), TypeWithSpan(type, name->tok.get_span())})
+            .insert({name->get_id(), TypeWithSpan(type, name->get_span())})
             .second;
 
     return is_unique;

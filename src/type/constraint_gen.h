@@ -83,7 +83,6 @@ public:
     void visit(ast::PrefixExpr& expr) override;
     void visit(ast::PostfixExpr& expr) override;
     void visit(ast::BinaryExpr& expr) override;
-    void visit(ast::TernaryExpr& expr) override;
     void visit(ast::CallExpr& expr) override;
     void visit(ast::ArrayExpr& expr) override;
     void visit(ast::FieldExpr& expr) override;

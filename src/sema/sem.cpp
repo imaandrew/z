@@ -1,7 +1,6 @@
 #include "sem.h"
 #include "core/string_pool.h"
 #include "diag/diagnostics.h"
-#include "lexer/token.h"
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_arena.h"
@@ -19,15 +18,14 @@ namespace z {
 
 void SemChecker::visit(ast::Identifier& ident) {
     if (!ident.has_type()) {
-        ctxt->diag.emit(ident.tok.get_span(),
-                        DiagnosticKind::UndefinedIdentifier,
+        ctxt->diag.emit(ident.get_span(), DiagnosticKind::UndefinedIdentifier,
                         ident.to_string(ctxt->strings.get()));
 
         return;
     }
 
     if (!ctxt->syms->is_var_initialized(ident.get_id())) {
-        ctxt->diag.emit(ident.tok.get_span(), DiagnosticKind::UninitializedVar,
+        ctxt->diag.emit(ident.get_span(), DiagnosticKind::UninitializedVar,
                         ctxt->strings->get_string(ident.get_id()));
     }
 }
@@ -90,36 +88,37 @@ void SemChecker::visit(ast::PrefixExpr& expr) {
         return;
 
     const auto* type = ctxt->ty->get(expr.expr->node_type);
-    switch (expr.op.get_kind()) {
-    case TokenKind::PlusPlus:
-    case TokenKind::MinusMinus:
+    using ast::UnOp;
+    switch (expr.op) {
+    case UnOp::Inc:
+    case UnOp::Dec:
         check_expr_assignable(*expr.expr);
 
         if (!type->is_integral()) {
-            ctxt->diag.emit(
-                expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
-                operator_to_string(expr.op.get_kind()), type->basic_name(ctxt));
+            ctxt->diag.emit(expr.expr->get_span(),
+                            DiagnosticKind::InvalidUnaryOperand, expr.op,
+                            type->basic_name(ctxt));
         }
         break;
-    case TokenKind::LogicalNot:
+    case UnOp::LogicNot:
         if (!type->is_logical()) {
-            ctxt->diag.emit(
-                expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
-                operator_to_string(expr.op.get_kind()), type->basic_name(ctxt));
+            ctxt->diag.emit(expr.expr->get_span(),
+                            DiagnosticKind::InvalidUnaryOperand, expr.op,
+                            type->basic_name(ctxt));
         }
         break;
-    case TokenKind::Not:
+    case UnOp::BitNot:
         if (!type->is_integral()) {
-            ctxt->diag.emit(
-                expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
-                operator_to_string(expr.op.get_kind()), type->basic_name(ctxt));
+            ctxt->diag.emit(expr.expr->get_span(),
+                            DiagnosticKind::InvalidUnaryOperand, expr.op,
+                            type->basic_name(ctxt));
         }
         break;
-    case TokenKind::Minus:
+    case UnOp::Neg:
         if (!type->is_numeric()) {
-            ctxt->diag.emit(
-                expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
-                operator_to_string(expr.op.get_kind()), type->basic_name(ctxt));
+            ctxt->diag.emit(expr.expr->get_span(),
+                            DiagnosticKind::InvalidUnaryOperand, expr.op,
+                            type->basic_name(ctxt));
         }
         break;
     default:
@@ -132,16 +131,16 @@ void SemChecker::visit(ast::PostfixExpr& expr) {
     if (!expr.expr->has_type())
         return;
 
-    switch (expr.op.get_kind()) {
-    case TokenKind::PlusPlus:
-    case TokenKind::MinusMinus:
+    using ast::UnOp;
+    switch (expr.op) {
+    case UnOp::Inc:
+    case UnOp::Dec:
         check_expr_assignable(*expr.expr);
 
         if (!ctxt->ty->get(expr.expr->node_type)->is_integral()) {
             ctxt->diag.emit(
                 expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
-                operator_to_string(expr.op.get_kind()),
-                ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt));
+                expr.op, ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt));
         }
         break;
     default:
@@ -160,146 +159,136 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     auto* r_type = ctxt->ty->get(expr.rhs->node_type);
 
     bool valid = true;
-
-    switch (expr.op.get_kind()) {
-    case TokenKind::PlusEq:
-    case TokenKind::MinusEq:
-    case TokenKind::StarEq:
-    case TokenKind::SlashEq:
+    using ast::BinOp;
+    switch (expr.op) {
+    case BinOp::AddEq:
+    case BinOp::SubEq:
+    case BinOp::MulEq:
+    case BinOp::DivEq:
         check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_numeric()) {
             ctxt->diag.emit(expr.lhs->get_span(),
-                            DiagnosticKind::InvalidBinaryOperand,
-                            operator_to_string(expr.op.get_kind()),
+                            DiagnosticKind::InvalidBinaryOperand, expr.op,
                             l_type->basic_name(ctxt));
             valid = false;
         }
 
         if (!r_type->is_numeric()) {
             ctxt->diag.emit(expr.rhs->get_span(),
-                            DiagnosticKind::InvalidBinaryOperand,
-                            operator_to_string(expr.op.get_kind()),
+                            DiagnosticKind::InvalidBinaryOperand, expr.op,
                             r_type->basic_name(ctxt));
             valid = false;
         }
 
         if (*l_type != *r_type) {
-            ctxt->diag.emit(expr.op.get_span(),
-                            DiagnosticKind::InvalidAssignment,
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidAssignment,
                             r_type->basic_name(ctxt), l_type->basic_name(ctxt));
             valid = false;
         }
 
         break;
-    case TokenKind::PercentEq:
-    case TokenKind::CaretEq:
-    case TokenKind::AndEq:
-    case TokenKind::OrEq:
-    case TokenKind::ShlEq:
-    case TokenKind::ShrEq:
+    case BinOp::ModEq:
+    case BinOp::BitXorEq:
+    case BinOp::BitAndEq:
+    case BinOp::BitOrEq:
+    case BinOp::ShlEq:
+    case BinOp::ShrEq:
         check_expr_assignable(*expr.lhs);
 
         if (!l_type->is_integral()) {
             ctxt->diag.emit(expr.lhs->get_span(),
-                            DiagnosticKind::InvalidBinaryOperand,
-                            operator_to_string(expr.op.get_kind()),
+                            DiagnosticKind::InvalidBinaryOperand, expr.op,
                             l_type->basic_name(ctxt));
             valid = false;
         }
 
         if (!r_type->is_integral()) {
             ctxt->diag.emit(expr.rhs->get_span(),
-                            DiagnosticKind::InvalidBinaryOperand,
-                            operator_to_string(expr.op.get_kind()),
+                            DiagnosticKind::InvalidBinaryOperand, expr.op,
                             r_type->basic_name(ctxt));
             valid = false;
         }
 
         if (*l_type != *r_type) {
-            ctxt->diag.emit(expr.op.get_span(),
-                            DiagnosticKind::InvalidAssignment,
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidAssignment,
                             r_type->basic_name(ctxt), l_type->basic_name(ctxt));
             valid = false;
         }
 
         break;
-    case TokenKind::Eq:
+    case BinOp::Eq:
         check_expr_assignable(*expr.lhs);
 
         if (*l_type != *r_type) {
-            ctxt->diag.emit(expr.op.get_span(),
-                            DiagnosticKind::InvalidAssignment,
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidAssignment,
                             r_type->basic_name(ctxt), l_type->basic_name(ctxt));
             valid = false;
         }
         break;
-    case TokenKind::Colon:
-    case TokenKind::OrOr:
-    case TokenKind::AndAnd:
+    case BinOp::LogicOr:
+    case BinOp::LogicAnd:
         if (!l_type->is_logical() || !r_type->is_logical()) {
-            ctxt->diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                            operator_to_string(expr.op.get_kind()),
-                            l_type->basic_name(ctxt), r_type->basic_name(ctxt));
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidOperands,
+                            expr.op, l_type->basic_name(ctxt),
+                            r_type->basic_name(ctxt));
             valid = false;
         }
         break;
-    case TokenKind::EqEq:
-    case TokenKind::Ne:
+    case BinOp::EqEq:
+    case BinOp::Ne:
         if (*l_type != *r_type) {
-            ctxt->diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                            operator_to_string(expr.op.get_kind()),
-                            l_type->basic_name(ctxt), r_type->basic_name(ctxt));
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidOperands,
+                            expr.op, l_type->basic_name(ctxt),
+                            r_type->basic_name(ctxt));
             valid = false;
         }
         break;
-    case TokenKind::Range:
-    case TokenKind::RangeEq:
-    case TokenKind::Or:
-    case TokenKind::Caret:
-    case TokenKind::And:
-    case TokenKind::Shl:
-    case TokenKind::Shr:
-    case TokenKind::Percent:
+    case BinOp::Range:
+    case BinOp::RangeEq:
+    case BinOp::BitOr:
+    case BinOp::BitXor:
+    case BinOp::BitAnd:
+    case BinOp::Shl:
+    case BinOp::Shr:
+    case BinOp::Mod:
         if (!l_type->is_integral() || !r_type->is_integral() ||
             *l_type != *r_type) {
-            ctxt->diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                            operator_to_string(expr.op.get_kind()),
-                            l_type->basic_name(ctxt), r_type->basic_name(ctxt));
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidOperands,
+                            expr.op, l_type->basic_name(ctxt),
+                            r_type->basic_name(ctxt));
             valid = false;
         }
         break;
-    case TokenKind::Plus:
-    case TokenKind::Minus:
-    case TokenKind::Star:
-    case TokenKind::Slash:
-    case TokenKind::Gt:
-    case TokenKind::Lt:
-    case TokenKind::Ge:
-    case TokenKind::Le:
+    case BinOp::Add:
+    case BinOp::Sub:
+    case BinOp::Mul:
+    case BinOp::Div:
+    case BinOp::Gt:
+    case BinOp::Lt:
+    case BinOp::Ge:
+    case BinOp::Le:
         if (!l_type->is_numeric() || !r_type->is_numeric() ||
             *l_type != *r_type) {
-            ctxt->diag.emit(expr.op.get_span(), DiagnosticKind::InvalidOperands,
-                            operator_to_string(expr.op.get_kind()),
-                            l_type->basic_name(ctxt), r_type->basic_name(ctxt));
+            ctxt->diag.emit(expr.op_span, DiagnosticKind::InvalidOperands,
+                            expr.op, l_type->basic_name(ctxt),
+                            r_type->basic_name(ctxt));
             valid = false;
         }
 
         break;
-    case TokenKind::ColonColon: {
+    case BinOp::ColonColon: {
         const auto* enum_type = type::dyn_cast<type::EnumType>(l_type);
         if (enum_type) { // TODO:
         }
         break;
     }
-    default:
-        std::unreachable();
     }
 
     if (!valid)
         return;
 
-    if (is_assignment_op(expr.op.get_kind())) {
+    if (is_assignment_op(expr.op)) {
         if (const auto* ident = dyn_cast<ast::Identifier>(expr.lhs.get())) {
             if (ctxt->syms->is_var_const(ident->get_id())) {
                 ctxt->diag.emit(expr.lhs->get_span(),
@@ -309,7 +298,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         }
     }
 
-    if (is_division_op(expr.op.get_kind())) {
+    if (is_division_op(expr.op)) {
         if (const auto* int_expr = dyn_cast<ast::IntExpr>(expr.rhs.get())) {
             if (int_expr->val == 0) {
                 ctxt->diag.emit(expr.rhs->get_span(),
@@ -322,30 +311,6 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
                                 DiagnosticKind::DivisionByZero);
             }
         }
-    }
-}
-
-void SemChecker::visit(ast::TernaryExpr& expr) {
-    expr.lhs->accept(*this);
-    expr.mhs->accept(*this);
-    expr.rhs->accept(*this);
-
-    const auto* lhs = ctxt->ty->get(expr.lhs->node_type);
-    const auto* mhs = ctxt->ty->get(expr.mhs->node_type);
-    const auto* rhs = ctxt->ty->get(expr.rhs->node_type);
-
-    if (expr.lhs->has_type() && !lhs->is_logical()) {
-        ctxt->diag.emit(expr.lhs->get_span(), DiagnosticKind::TypeMismatch,
-                        "bool", lhs->basic_name(ctxt));
-    }
-
-    if (!expr.mhs->has_type() || !expr.rhs->has_type())
-        return;
-
-    if (expr.mhs->node_type != expr.rhs->node_type) {
-        ctxt->diag.emit(expr.op2.get_span(), DiagnosticKind::InvalidOperands,
-                        operator_to_string(expr.op2.get_kind()),
-                        mhs->basic_name(ctxt), rhs->basic_name(ctxt));
     }
 }
 

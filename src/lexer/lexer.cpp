@@ -245,8 +245,6 @@ Token Lexer::lex_token() {
         return make_token(TokenKind::Comma);
     case ';':
         return make_token(TokenKind::Semi);
-    case '?':
-        return make_token(TokenKind::Question);
     case ':': {
         if (peek() == ':') {
             next();

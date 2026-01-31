@@ -38,8 +38,6 @@ ast::BinOpPrecedence get_op_precedence(const TokenKind kind) {
     case TokenKind::Range:
     case TokenKind::RangeEq:
         return ast::BinOpPrecedence::Range;
-    case TokenKind::Question:
-        return ast::BinOpPrecedence::Conditional;
     case TokenKind::OrOr:
         return ast::BinOpPrecedence::LogicalOr;
     case TokenKind::AndAnd:
@@ -584,12 +582,12 @@ StmtResult Parser::parse_stmt() {
                 return StmtError();
 
             span += prev_tok.get_span();
-            stmt = std::make_unique<ast::BreakStmt>(span, tok, expr.take());
+            stmt = std::make_unique<ast::BreakStmt>(span, expr.take());
         } else {
-            stmt = std::make_unique<ast::BreakStmt>(span, tok);
+            stmt = std::make_unique<ast::BreakStmt>(span);
         }
     } else if (tok.is(TokenKind::KwContinue)) {
-        stmt = std::make_unique<ast::ContinueStmt>(span, tok);
+        stmt = std::make_unique<ast::ContinueStmt>(span);
         next_token();
     } else if (tok.is(TokenKind::KwLet)) {
         auto let = parse_let_stmt();
@@ -797,27 +795,6 @@ ExprResult Parser::parse_expr(const int precedence,
             lhs = std::make_unique<ast::PostfixExpr>(tok, std::move(lhs));
             next_token();
             break;
-        case TokenKind::Question: {
-            auto operator_tok = tok;
-
-            auto then_expr = prime_parse_expr();
-            if (!then_expr.is_valid())
-                return ExprError();
-
-            if (!tok_assert(TokenKind::Colon))
-                return ExprError();
-            auto colon_tok = tok;
-
-            auto else_expr = prime_parse_expr(
-                static_cast<int>(ast::BinOpPrecedence::Prefix) - 1);
-            if (!else_expr.is_valid())
-                return ExprError();
-
-            lhs = std::make_unique<ast::TernaryExpr>(
-                operator_tok, colon_tok, std::move(lhs), then_expr.take(),
-                else_expr.take());
-            break;
-        }
         case TokenKind::LParen: {
             std::vector<std::unique_ptr<ast::Expr>> args;
 

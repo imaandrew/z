@@ -81,7 +81,6 @@ enum class TokenKind : std::uint8_t {
     Semi,
     Colon,
     ColonColon,
-    Question,
     Dot,
     Arrow,
 
@@ -160,7 +159,6 @@ inline const std::string& tok_kind_to_string(const TokenKind kind) {
         {TokenKind::Semi, "TOK_SEMI"},
         {TokenKind::Colon, "TOK_COLON"},
         {TokenKind::ColonColon, "TOK_COLONCOLON"},
-        {TokenKind::Question, "TOK_QUESTION"},
         {TokenKind::Dot, "TOK_DOT"},
         {TokenKind::Arrow, "TOK_ARROW"},
         {TokenKind::Identifier, "TOK_IDENT"},
@@ -200,8 +198,8 @@ inline const std::string& operator_to_string(const TokenKind kind) {
         {TokenKind::Lt, "<"},          {TokenKind::Ge, ">="},
         {TokenKind::Le, "<="},         {TokenKind::Comma, ","},
         {TokenKind::Semi, ";"},        {TokenKind::Colon, ":"},
-        {TokenKind::ColonColon, "::"}, {TokenKind::Question, "?"},
-        {TokenKind::Dot, "."},         {TokenKind::Arrow, "->"},
+        {TokenKind::ColonColon, "::"}, {TokenKind::Dot, "."},
+        {TokenKind::Arrow, "->"},
     };
 
     if (const auto str = token_strs.find(kind); str != token_strs.end()) {
@@ -209,39 +207,6 @@ inline const std::string& operator_to_string(const TokenKind kind) {
     }
 
     throw std::runtime_error("Not valid operator");
-}
-
-constexpr bool is_assignment_op(TokenKind kind) {
-    switch (kind) {
-    case TokenKind::PlusPlus:
-    case TokenKind::MinusMinus:
-    case TokenKind::PlusEq:
-    case TokenKind::MinusEq:
-    case TokenKind::StarEq:
-    case TokenKind::SlashEq:
-    case TokenKind::PercentEq:
-    case TokenKind::CaretEq:
-    case TokenKind::AndEq:
-    case TokenKind::OrEq:
-    case TokenKind::ShlEq:
-    case TokenKind::ShrEq:
-    case TokenKind::Eq:
-        return true;
-    default:
-        return false;
-    }
-}
-
-constexpr bool is_division_op(TokenKind kind) {
-    switch (kind) {
-    case TokenKind::Slash:
-    case TokenKind::SlashEq:
-    case TokenKind::Percent:
-    case TokenKind::PercentEq:
-        return true;
-    default:
-        return false;
-    }
 }
 
 class Token {

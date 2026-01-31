@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/panic.h"
 #include "core/string_pool.h"
 #include "core/zctxt.h"
 #include "diag/diagnostics.h"
@@ -27,7 +28,6 @@ enum class BinOpPrecedence : std::uint8_t {
     Unknown,
     Assignment,
     Range,
-    Conditional,
     LogicalOr,
     LogicalAnd,
     Equality,
@@ -42,13 +42,168 @@ enum class BinOpPrecedence : std::uint8_t {
     Postfix,
 };
 
+enum class UnOp : std::uint8_t { Inc, Dec, Neg, BitNot, LogicNot };
+
+static constexpr UnOp tok_kind_to_unop(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::PlusPlus:
+        return UnOp::Inc;
+    case TokenKind::MinusMinus:
+        return UnOp::Dec;
+    case TokenKind::Minus:
+        return UnOp::Neg;
+    case TokenKind::Not:
+        return UnOp::BitNot;
+    case TokenKind::LogicalNot:
+        return UnOp::LogicNot;
+    default:
+        panic("Cannot convert TokenKind to unary operator");
+    }
+}
+
+enum class BinOp : std::uint8_t {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+    BitXor,
+    BitAnd,
+    BitOr,
+    LogicAnd,
+    LogicOr,
+    Shl,
+    Shr,
+    Range,
+    RangeEq,
+    AddEq,
+    SubEq,
+    MulEq,
+    DivEq,
+    ModEq,
+    BitXorEq,
+    BitAndEq,
+    BitOrEq,
+    ShlEq,
+    ShrEq,
+    Eq,
+    EqEq,
+    Ne,
+    Gt,
+    Lt,
+    Ge,
+    Le,
+    ColonColon,
+};
+
+static constexpr BinOp tok_kind_to_binop(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::Plus:
+        return BinOp::Add;
+    case TokenKind::Minus:
+        return BinOp::Sub;
+    case TokenKind::Star:
+        return BinOp::Mul;
+    case TokenKind::Slash:
+        return BinOp::Div;
+    case TokenKind::Percent:
+        return BinOp::Mod;
+    case TokenKind::Caret:
+        return BinOp::BitXor;
+    case TokenKind::And:
+        return BinOp::BitAnd;
+    case TokenKind::Or:
+        return BinOp::BitOr;
+    case TokenKind::AndAnd:
+        return BinOp::LogicAnd;
+    case TokenKind::OrOr:
+        return BinOp::LogicOr;
+    case TokenKind::Shl:
+        return BinOp::Shl;
+    case TokenKind::Shr:
+        return BinOp::Shr;
+    case TokenKind::Range:
+        return BinOp::Range;
+    case TokenKind::RangeEq:
+        return BinOp::RangeEq;
+    case TokenKind::PlusEq:
+        return BinOp::AddEq;
+    case TokenKind::MinusEq:
+        return BinOp::SubEq;
+    case TokenKind::StarEq:
+        return BinOp::MulEq;
+    case TokenKind::SlashEq:
+        return BinOp::DivEq;
+    case TokenKind::PercentEq:
+        return BinOp::ModEq;
+    case TokenKind::CaretEq:
+        return BinOp::BitXorEq;
+    case TokenKind::AndEq:
+        return BinOp::BitAndEq;
+    case TokenKind::OrEq:
+        return BinOp::BitOrEq;
+    case TokenKind::ShlEq:
+        return BinOp::ShlEq;
+    case TokenKind::ShrEq:
+        return BinOp::ShrEq;
+    case TokenKind::Eq:
+        return BinOp::Eq;
+    case TokenKind::EqEq:
+        return BinOp::EqEq;
+    case TokenKind::Ne:
+        return BinOp::Ne;
+    case TokenKind::Gt:
+        return BinOp::Gt;
+    case TokenKind::Lt:
+        return BinOp::Lt;
+    case TokenKind::Ge:
+        return BinOp::Ge;
+    case TokenKind::Le:
+        return BinOp::Le;
+    case TokenKind::ColonColon:
+        return BinOp::ColonColon;
+    default:
+        panic("Cannot convert TokenKind to binary operator");
+    }
+}
+
+static constexpr bool is_assignment_op(BinOp op) {
+    switch (op) {
+    case BinOp::AddEq:
+    case BinOp::SubEq:
+    case BinOp::MulEq:
+    case BinOp::DivEq:
+    case BinOp::ModEq:
+    case BinOp::BitXorEq:
+    case BinOp::BitAndEq:
+    case BinOp::BitOrEq:
+    case BinOp::ShlEq:
+    case BinOp::ShrEq:
+    case BinOp::Eq:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static constexpr bool is_division_op(BinOp op) {
+    switch (op) {
+    case BinOp::Div:
+    case BinOp::DivEq:
+    case BinOp::Mod:
+    case BinOp::ModEq:
+        return true;
+    default:
+        return false;
+    }
+}
+
 struct IntExpr;
 struct FloatExpr;
 struct BoolExpr;
 struct PrefixExpr;
 struct PostfixExpr;
 struct BinaryExpr;
-struct TernaryExpr;
 struct CallExpr;
 struct ArrayExpr;
 struct FieldExpr;
@@ -90,7 +245,6 @@ enum class ASTKind : std::uint8_t {
     PrefixExpr,
     PostfixExpr,
     BinaryExpr,
-    TernaryExpr,
     CallExpr,
     ArrayExpr,
     FieldExpr,
@@ -138,7 +292,6 @@ public:
     virtual void visit(PrefixExpr&) = 0;
     virtual void visit(PostfixExpr&) = 0;
     virtual void visit(BinaryExpr&) = 0;
-    virtual void visit(TernaryExpr&) = 0;
     virtual void visit(CallExpr&) = 0;
     virtual void visit(ArrayExpr&) = 0;
     virtual void visit(FieldExpr&) = 0;
@@ -253,18 +406,17 @@ struct Expr : Stmt {
 };
 
 struct Identifier final : Expr {
-    Token tok;
     StringID ident;
 
     static constexpr ASTKind Kind = ASTKind::Identifier;
 
     Identifier(const Token& tok, StringID ident)
-        : Expr(Kind, tok.get_span()), tok(tok), ident(ident) {};
+        : Expr(Kind, tok.get_span()), ident(ident) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "Identifier "
-               << ctxt->src->get_string(tok.get_span());
+               << ctxt->src->get_string(get_span());
         dump_type(ctxt, stream);
     }
 
@@ -280,12 +432,11 @@ struct Identifier final : Expr {
 };
 
 struct IntExpr final : Expr {
-    Token tok;
     std::uint64_t val;
     static constexpr ASTKind Kind = ASTKind::IntExpr;
 
     IntExpr(const Token& tok, std::uint64_t val)
-        : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
+        : Expr(Kind, tok.get_span()), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -297,12 +448,11 @@ struct IntExpr final : Expr {
 };
 
 struct FloatExpr final : Expr {
-    Token tok;
     double val;
     static constexpr ASTKind Kind = ASTKind::FloatExpr;
 
     FloatExpr(const Token& tok, const double val)
-        : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
+        : Expr(Kind, tok.get_span()), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -314,13 +464,12 @@ struct FloatExpr final : Expr {
 };
 
 struct BoolExpr final : Expr {
-    Token tok;
     bool val;
 
     static constexpr ASTKind Kind = ASTKind::BoolExpr;
 
     BoolExpr(const Token& tok, const bool val)
-        : Expr(Kind, tok.get_span()), tok(tok), val(val) {};
+        : Expr(Kind, tok.get_span()), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -335,19 +484,21 @@ struct BoolExpr final : Expr {
 // NOLINTBEGIN(readability-identifier-length)
 
 struct PrefixExpr final : Expr {
-    Token op;
+    UnOp op;
+    Span op_span;
     std::unique_ptr<Expr> expr;
 
     static constexpr ASTKind Kind = ASTKind::PrefixExpr;
 
     PrefixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(Kind, op.get_span() + expr->span), op(op),
+        : Expr(Kind, op.get_span() + expr->span),
+          op(tok_kind_to_unop(op.get_kind())), op_span(op.get_span()),
           expr(std::move(expr)) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "PrefixExpr "
-               << ctxt->src->get_string(op.get_span());
+               << ctxt->src->get_string(op_span);
         dump_type(ctxt, stream);
         expr->dump(ctxt, indent + 2, stream);
     }
@@ -358,19 +509,21 @@ struct PrefixExpr final : Expr {
 };
 
 struct PostfixExpr final : Expr {
-    Token op;
+    UnOp op;
+    Span op_span;
     std::unique_ptr<Expr> expr;
 
     static constexpr ASTKind Kind = ASTKind::PostfixExpr;
 
     PostfixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(Kind, op.get_span() + expr->span), op(op),
+        : Expr(Kind, op.get_span() + expr->span),
+          op(tok_kind_to_unop(op.get_kind())), op_span(op.get_span()),
           expr(std::move(expr)) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "PostfixExpr "
-               << ctxt->src->get_string(op.get_span());
+               << ctxt->src->get_string(op_span);
         dump_type(ctxt, stream);
         expr->dump(ctxt, indent + 2, stream);
     }
@@ -381,7 +534,8 @@ struct PostfixExpr final : Expr {
 };
 
 struct BinaryExpr final : Expr {
-    Token op;
+    BinOp op;
+    Span op_span;
     std::unique_ptr<Expr> lhs;
     std::unique_ptr<Expr> rhs;
 
@@ -389,13 +543,14 @@ struct BinaryExpr final : Expr {
 
     BinaryExpr(const Token& op, std::unique_ptr<Expr> lhs,
                std::unique_ptr<Expr> rhs)
-        : Expr(Kind, lhs->span + rhs->span), op(op), lhs(std::move(lhs)),
-          rhs(std::move(rhs)) {};
+        : Expr(Kind, lhs->span + rhs->span),
+          op(tok_kind_to_binop(op.get_kind())), op_span(op.get_span()),
+          lhs(std::move(lhs)), rhs(std::move(rhs)) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "BinaryExpr "
-               << ctxt->src->get_string(op.get_span());
+               << ctxt->src->get_string(op_span);
         dump_type(ctxt, stream);
         lhs->dump(ctxt, indent + 2, stream);
         rhs->dump(ctxt, indent + 2, stream);
@@ -405,39 +560,6 @@ struct BinaryExpr final : Expr {
 
     std::generator<ASTNode*> children() override {
         co_yield lhs.get();
-        co_yield rhs.get();
-    }
-};
-
-struct TernaryExpr final : Expr {
-    Token op;
-    Token op2;
-    std::unique_ptr<Expr> lhs;
-    std::unique_ptr<Expr> mhs;
-    std::unique_ptr<Expr> rhs;
-
-    static constexpr ASTKind Kind = ASTKind::TernaryExpr;
-
-    TernaryExpr(const Token& op, const Token& op2, std::unique_ptr<Expr> lhs,
-                std::unique_ptr<Expr> mhs, std::unique_ptr<Expr> rhs)
-        : Expr(Kind, lhs->span + rhs->span), op(op), op2(op2),
-          lhs(std::move(lhs)), mhs(std::move(mhs)), rhs(std::move(rhs)) {};
-
-    void dump(ZContext* ctxt, const int indent,
-              std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "TernaryExpr "
-               << ctxt->src->get_string(op.get_span());
-        dump_type(ctxt, stream);
-        lhs->dump(ctxt, indent + 2, stream);
-        mhs->dump(ctxt, indent + 2, stream);
-        rhs->dump(ctxt, indent + 2, stream);
-    }
-
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
-
-    std::generator<ASTNode*> children() override {
-        co_yield lhs.get();
-        co_yield mhs.get();
         co_yield rhs.get();
     }
 };
@@ -798,14 +920,13 @@ struct FuncDecl final : Decl {
 };
 
 struct BreakStmt final : Stmt {
-    Token tok;
     std::unique_ptr<Expr> expr;
 
     static constexpr ASTKind Kind = ASTKind::BreakStmt;
 
-    BreakStmt(Span span, const Token& tok) : Stmt(Kind, span), tok(tok) {};
-    BreakStmt(Span span, const Token& tok, std::unique_ptr<Expr> expr)
-        : Stmt(Kind, span), tok(tok), expr(std::move(expr)) {};
+    explicit BreakStmt(Span span) : Stmt(Kind, span) {};
+    BreakStmt(Span span, std::unique_ptr<Expr> expr)
+        : Stmt(Kind, span), expr(std::move(expr)) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -824,11 +945,9 @@ struct BreakStmt final : Stmt {
 };
 
 struct ContinueStmt final : Stmt {
-    Token tok;
-
     static constexpr ASTKind Kind = ASTKind::ContinueStmt;
 
-    ContinueStmt(Span span, const Token& tok) : Stmt(Kind, span), tok(tok) {};
+    explicit ContinueStmt(Span span) : Stmt(Kind, span) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -1183,7 +1302,7 @@ struct StructDecl final : Decl {
                     .insert(std::make_pair(field->ident->get_id(), field->type))
                     .second;
             if (!is_unique) {
-                ctxt->diag.emit(field->ident->tok.get_span(),
+                ctxt->diag.emit(field->ident->get_span(),
                                 DiagnosticKind::DuplicateField,
                                 ident->to_string(ctxt->strings.get()),
                                 field->ident->to_string(ctxt->strings.get()));
@@ -1213,8 +1332,7 @@ struct StructDecl final : Decl {
                     .second;
             if (!is_unique) {
                 ctxt->diag.emit(
-                    func_decl->name->tok.get_span(),
-                    DiagnosticKind::DuplicateField,
+                    func_decl->name->get_span(), DiagnosticKind::DuplicateField,
                     ident->to_string(ctxt->strings.get()),
                     func_decl->name->to_string(ctxt->strings.get()));
             } else {
@@ -1486,7 +1604,7 @@ struct EnumDecl final : Decl {
                 field_types.insert({field->ident->get_id(), field->types})
                     .second;
             if (!is_unique) {
-                ctxt->diag.emit(field->ident->tok.get_span(),
+                ctxt->diag.emit(field->ident->get_span(),
                                 DiagnosticKind::DuplicateField,
                                 ident->to_string(ctxt->strings.get()),
                                 field->ident->to_string(ctxt->strings.get()));
