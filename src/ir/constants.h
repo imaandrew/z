@@ -18,7 +18,8 @@ class ConstInt {
     }
 
     [[nodiscard]] std::int64_t sign_extend(std::uint64_t v) const {
-        std::uint64_t const sign_bit = 1ULL << (width - 1);
+        std::uint64_t const sign_bit = 1ULL
+                                       << static_cast<std::uint64_t>(width - 1);
         if ((v & sign_bit) != 0U)
             return static_cast<std::int64_t>(v | ~((1ULL << width) - 1));
 
@@ -26,7 +27,8 @@ class ConstInt {
     }
 
     [[nodiscard]] bool is_negative() const {
-        std::uint64_t const sign_bit = 1ULL << (width - 1);
+        std::uint64_t const sign_bit = 1ULL
+                                       << static_cast<std::uint64_t>(width - 1);
         if (is_signed)
             return (bits & sign_bit) != 0U;
 
@@ -52,8 +54,9 @@ public:
         auto result = add(other);
 
         if (result.is_signed) {
-            overflow = (is_negative() == other.is_negative()) &&
-                       (is_negative() != result.is_negative());
+            auto rhs_is_negative = other.is_negative();
+            auto result_lt_lhs = result.cmp(*this, IntCC::SignedLessThan);
+            overflow = rhs_is_negative ^ result_lt_lhs;
         } else {
             overflow = result.cmp(*this, IntCC::UnsignedLessThan);
         }
@@ -66,9 +69,51 @@ public:
         return {mask(bits - other.bits), width, is_signed};
     }
 
+    [[nodiscard]] ConstInt sub(const ConstInt& other, bool& overflow) const {
+        auto result = sub(other);
+
+        if (result.is_signed) {
+            auto rhs_is_negative = other.is_negative();
+            auto result_gt_lhs = result.cmp(*this, IntCC::SignedGreaterThan);
+            overflow = rhs_is_negative ^ result_gt_lhs;
+        } else {
+            overflow = result.cmp(*this, IntCC::UnsignedLessThan);
+        }
+
+        return result;
+    }
+
     [[nodiscard]] ConstInt mul(const ConstInt& other) const {
         assert(width == other.width);
         return {mask(bits * other.bits), width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt mul(const ConstInt& other, bool& overflow) const {
+        auto result = mul(other);
+
+        if (result.is_signed) {
+            if (bits != 0) {
+                auto lhs_signed = sign_extend(bits);
+                auto rhs_signed = sign_extend(other.bits);
+                auto result_signed = sign_extend(result.bits);
+
+                if (lhs_signed == -1) {
+                    overflow = false;
+                } else {
+                    overflow = (result_signed / lhs_signed) != rhs_signed;
+                }
+            } else {
+                overflow = false;
+            }
+        } else {
+            if (bits != 0) {
+                overflow = result.udiv(*this).bits != other.bits;
+            } else {
+                overflow = false;
+            }
+        }
+
+        return result;
     }
 
     [[nodiscard]] ConstInt udiv(const ConstInt& other) const {
@@ -83,6 +128,19 @@ public:
         auto b = sign_extend(other.bits);
 
         return {mask(static_cast<std::uint64_t>(a / b)), width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt sdiv(const ConstInt& other, bool& overflow) const {
+        auto result = sdiv(other);
+
+        auto lhs_signed = sign_extend(bits);
+        auto rhs_signed = sign_extend(bits);
+
+        std::int64_t min_val = -static_cast<std::int64_t>(
+            1ULL << static_cast<std::uint64_t>(width - 1));
+        overflow = lhs_signed == min_val && rhs_signed == -1;
+
+        return result;
     }
 
     [[nodiscard]] ConstInt shl(const ConstInt& other) const {
@@ -100,7 +158,9 @@ public:
     [[nodiscard]] ConstInt ashr(const ConstInt& other) const {
         assert(width == other.width);
 
-        return {mask(sign_extend(bits) >> other.bits), width, is_signed};
+        return {
+            mask(static_cast<std::uint64_t>(sign_extend(bits)) >> other.bits),
+            width, is_signed};
     }
 
     [[nodiscard]] bool cmp(const ConstInt& other, IntCC cc) const {
