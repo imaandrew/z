@@ -11,7 +11,7 @@ enum class IntCC : std::uint8_t {
     UnsignedLessThan,
     UnsignedLessEqual,
     SignedGreaterThan,
-    SignedGreaterEq,
+    SignedGreaterEqual,
     SignedLessThan,
     SignedLessEqual
 };

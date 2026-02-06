@@ -2,6 +2,7 @@
 
 #include "core/panic.h"
 #include "core/string_pool.h"
+#include "ir/condition_codes.h"
 #include "ir/constants.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
@@ -28,20 +29,16 @@ enum class IROp : std::uint8_t {
     FDiv,
     FNeg,
 
-    BitAnd,
-    BitOr,
-    BitXor,
-    BitNot,
+    And,
+    Or,
+    Xor,
+    Not,
     Shl,
     Lsr,
     Asr,
 
     ICmp,
     FCmp,
-
-    LogicAnd,
-    LogicOr,
-    LogicNot,
 
     Alloca,
     Load,
@@ -66,9 +63,8 @@ using ast::UnOp;
 static constexpr IROp get_ir_op(UnOp kind) {
     switch (kind) {
     case UnOp::BitNot:
-        return IROp::BitNot;
     case UnOp::LogicNot:
-        return IROp::LogicNot;
+        return IROp::Not;
     default:
         panic("Invalid op");
     }
@@ -78,17 +74,13 @@ static constexpr IROp get_ir_op(BinOp kind) {
     switch (kind) {
     case BinOp::BitXor:
     case BinOp::BitXorEq:
-        return IROp::BitXor;
+        return IROp::Xor;
     case BinOp::BitAnd:
     case BinOp::BitAndEq:
-        return IROp::BitAnd;
+        return IROp::And;
     case BinOp::BitOr:
     case BinOp::BitOrEq:
-        return IROp::BitOr;
-    case BinOp::LogicAnd:
-        return IROp::LogicAnd;
-    case BinOp::LogicOr:
-        return IROp::LogicOr;
+        return IROp::Or;
     case BinOp::Shl:
     case BinOp::ShlEq:
         return IROp::Shl;
@@ -154,6 +146,46 @@ static constexpr IROp get_float_ir_op(BinOp op) {
         return IROp::FDiv;
     default:
         panic("Invalid op");
+    }
+}
+
+static constexpr IntCC get_int_cc(BinOp op, bool is_signed) {
+    switch (op) {
+        case BinOp::Eq:
+            return IntCC::Equal;
+        case BinOp::Ne:
+            return IntCC::NotEqual;
+        case BinOp::Gt:
+        return is_signed ? IntCC::SignedGreaterThan
+                         : IntCC::UnsignedGreaterThan;
+        case BinOp::Ge:
+        return is_signed ? IntCC::SignedGreaterEqual
+                         : IntCC::UnsignedGreaterEqual;
+        case BinOp::Lt:
+            return is_signed ? IntCC::SignedLessThan : IntCC::UnsignedLessThan;
+        case BinOp::Le:
+            return is_signed ? IntCC::SignedLessEqual : IntCC::UnsignedLessEqual;
+        default:
+            panic("Invalid BinOp for IntCC");
+    }
+}
+
+static constexpr FloatCC get_float_cc(BinOp op) {
+    switch (op) {
+        case BinOp::Eq:
+            return FloatCC::Equal;
+        case BinOp::Ne:
+            return FloatCC::NotEqual;
+        case BinOp::Gt:
+            return FloatCC::GreaterThan;
+        case BinOp::Ge:
+            return FloatCC::GreaterEqual;
+        case BinOp::Lt:
+            return FloatCC::LessThan;
+        case BinOp::Le:
+            return FloatCC::LessEqual;
+        default:
+            panic("Invalid BinOp for FloatCC");
     }
 }
 
@@ -240,6 +272,11 @@ struct Operand {
 
     VReg& as_reg() { return std::get<VReg>(val); }
     [[nodiscard]] const VReg& as_reg() const { return std::get<VReg>(val); }
+
+    Immediate& as_imm() { return std::get<Immediate>(val); }
+    [[nodiscard]] const Immediate& as_imm() const {
+        return std::get<Immediate>(val);
+    }
 };
 
 struct Instruction {

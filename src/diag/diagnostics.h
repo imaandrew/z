@@ -86,7 +86,8 @@ enum class DiagnosticKind : std::uint8_t {
     MainFunctionReturnType,
     RecursiveStructDefiniton,
     BreakTypeMismatch,
-    InfiniteLoop
+    InfiniteLoop,
+    OperationOverflows
 };
 
 inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
@@ -164,7 +165,9 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
              "struct `{0}` cannot contain a field of its own type"},
             {DiagnosticKind::BreakTypeMismatch,
              "loop has type `{0}` but this statement returns a `{1}`"},
-            {DiagnosticKind::InfiniteLoop, "infinite loop never breaks"}};
+            {DiagnosticKind::InfiniteLoop, "infinite loop never breaks"},
+            {DiagnosticKind::OperationOverflows,
+             "operation overflows type `{0}`"}};
 
     if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
         return str->second;

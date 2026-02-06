@@ -103,6 +103,6 @@ class IRBuilder final : ast::ASTVisitor {
         insts.emplace_back(op, dest, ops, type);
     }
 
-    std::optional<ConstInt> fold_int_op(ast::BinOp op, const ConstInt& lhs, const ConstInt& rhs);
+   
 };
 } // namespace z::ir
