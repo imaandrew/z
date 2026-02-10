@@ -11,11 +11,9 @@
 #include <vector>
 
 namespace z {
-class ScopeID {
-    unsigned int id;
-    explicit ScopeID(unsigned int id) : id(id) {}
-    friend class SymbolTable;
-};
+
+struct ScopeTag {};
+using ScopeID = Index<ScopeTag>;
 
 class SymbolTable {
     std::deque<ScopeContext> scopes;

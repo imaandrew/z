@@ -479,7 +479,7 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
         for (const auto& field : required_fields) {
             ctxt->diag.emit(expr.get_span(),
                             DiagnosticKind::FieldNotInitialized,
-                            std::format("FIELD: {}", field.raw_id()));
+                            std::format("FIELD: {}", field.id));
         }
     }
 }

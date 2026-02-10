@@ -402,16 +402,16 @@ public:
              const std::unordered_map<StringID, TypeRef>& funcs) {
         std::size_t fields_hash = fields.size();
         for (const auto& [k, v] : fields) {
-            fields_hash ^= k.raw_id() + 0x9e3779b9 + (fields_hash << 6U) +
-                           (fields_hash >> 2U);
+            fields_hash ^=
+                k.id + 0x9e3779b9 + (fields_hash << 6U) + (fields_hash >> 2U);
             fields_hash ^= v.get_id() + 0x9e3779b9 + (fields_hash << 6U) +
                            (fields_hash >> 2U);
         }
 
         std::size_t funcs_hash = funcs.size();
         for (const auto& [k, v] : funcs) {
-            funcs_hash ^= k.raw_id() + 0x9e3779b9 + (funcs_hash << 6U) +
-                          (funcs_hash >> 2U);
+            funcs_hash ^=
+                k.id + 0x9e3779b9 + (funcs_hash << 6U) + (funcs_hash >> 2U);
             funcs_hash ^= v.get_id() + 0x9e3779b9 + (funcs_hash << 6U) +
                           (funcs_hash >> 2U);
         }
@@ -489,8 +489,8 @@ public:
         const std::unordered_map<StringID, std::vector<TypeRef>&>& fields) {
         std::size_t fields_hash = fields.size();
         for (const auto& [k, v] : fields) {
-            fields_hash ^= k.raw_id() + 0x9e3779b9 + (fields_hash << 6U) +
-                           (fields_hash >> 2U);
+            fields_hash ^=
+                k.id + 0x9e3779b9 + (fields_hash << 6U) + (fields_hash >> 2U);
             for (const auto& vv : v) {
                 fields_hash ^= vv.get_id() + 0x9e3779b9 + (fields_hash << 6U) +
                                (fields_hash >> 2U);

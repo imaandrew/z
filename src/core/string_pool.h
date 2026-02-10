@@ -1,34 +1,16 @@
 #pragma once
 
-#include <cstddef>
+#include "core/index.h"
 #include <cstdint>
 #include <deque>
-#include <functional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace z {
-class StringID {
-    std::uint32_t id;
-    explicit constexpr StringID(std::uint32_t id) : id(id) {}
-    friend class StringPool;
+struct StringTag {};
+using StringID = Index<StringTag>;
 
-public:
-    bool operator==(const StringID& other) const { return id == other.id; }
-    [[nodiscard]] std::uint32_t raw_id() const { return id; }
-};
-} // namespace z
-
-namespace std {
-template <> struct hash<z::StringID> {
-    size_t operator()(const z::StringID& id) const {
-        return hash<uint32_t>{}(id.raw_id());
-    }
-};
-} // namespace std
-
-namespace z {
 class StringPool {
     std::unordered_map<std::string_view, StringID> map;
     std::deque<std::string> strings;

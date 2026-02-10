@@ -53,7 +53,7 @@ template <typename T> constexpr std::uint64_t to_key_value(T val) {
     if constexpr (std::is_same_v<T, TypeRef>) {
         return val.get_id();
     } else if constexpr (std::is_same_v<T, StringID>) {
-        return val.raw_id();
+        return val.id;
     } else if constexpr (std::is_integral_v<T> || std::is_floating_point_v<T> ||
                          std::is_enum_v<T>) {
         return static_cast<std::uint64_t>(val);
