@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/index.h"
 #include "core/panic.h"
 #include "core/string_pool.h"
 #include "ir/condition_codes.h"
@@ -7,6 +8,7 @@
 #include "parser/ast.h"
 #include "type/type_ref.h"
 #include <cstdint>
+#include <functional>
 #include <initializer_list>
 #include <utility>
 #include <variant>
@@ -55,6 +57,9 @@ enum class IROp : std::uint8_t {
 
     Call,
     CallMethod,
+
+    Phi,
+    Dead
 };
 
 using ast::BinOp;
@@ -65,8 +70,10 @@ static constexpr IROp get_ir_op(UnOp kind) {
     case UnOp::BitNot:
     case UnOp::LogicNot:
         return IROp::Not;
-    default:
-        panic("Invalid op");
+    case UnOp::Inc:
+    case UnOp::Dec:
+    case UnOp::Neg:
+        panic("get_ir_op can't handle typed operations");
     }
 }
 
@@ -81,11 +88,8 @@ static constexpr IROp get_ir_op(BinOp kind) {
     case BinOp::BitOr:
     case BinOp::BitOrEq:
         return IROp::Or;
-    case BinOp::Shl:
-    case BinOp::ShlEq:
-        return IROp::Shl;
     default:
-        panic("Invalid op");
+        panic("get_ir_op can't handle typed operations");
     }
 }
 
@@ -95,12 +99,14 @@ static constexpr IROp get_int_ir_op(UnOp op) {
         return IROp::IAdd;
     case UnOp::Dec:
         return IROp::ISub;
+    case UnOp::Neg:
+        return IROp::INeg;
     default:
-        panic("Invalid op");
+        return get_ir_op(op);
     }
 }
 
-static constexpr IROp get_int_ir_op(BinOp kind) {
+static constexpr IROp get_int_ir_op(BinOp kind, bool is_signed) {
     switch (kind) {
     case BinOp::Add:
     case BinOp::AddEq:
@@ -114,8 +120,24 @@ static constexpr IROp get_int_ir_op(BinOp kind) {
     case BinOp::Mod:
     case BinOp::ModEq:
         return IROp::IMod;
+    case BinOp::EqEq:
+    case BinOp::Ne:
+    case BinOp::Gt:
+    case BinOp::Lt:
+    case BinOp::Ge:
+    case BinOp::Le:
+        return IROp::ICmp;
+    case BinOp::Shl:
+    case BinOp::ShlEq:
+        return IROp::Shl;
+    case BinOp::Div:
+    case BinOp::DivEq:
+        return is_signed ? IROp::SDiv : IROp::UDiv;
+    case BinOp::Shr:
+    case BinOp::ShrEq:
+        return is_signed ? IROp::Asr : IROp::Lsr;
     default:
-        panic("Invalid op");
+        return get_ir_op(kind);
     }
 }
 
@@ -125,8 +147,10 @@ static constexpr IROp get_float_ir_op(UnOp op) {
         return IROp::FAdd;
     case UnOp::Dec:
         return IROp::FSub;
+    case UnOp::Neg:
+        return IROp::FNeg;
     default:
-        panic("Invalid op");
+        return get_ir_op(op);
     }
 }
 
@@ -144,48 +168,55 @@ static constexpr IROp get_float_ir_op(BinOp op) {
     case BinOp::Div:
     case BinOp::DivEq:
         return IROp::FDiv;
+    case BinOp::EqEq:
+    case BinOp::Ne:
+    case BinOp::Gt:
+    case BinOp::Lt:
+    case BinOp::Ge:
+    case BinOp::Le:
+        return IROp::FCmp;
     default:
-        panic("Invalid op");
+        return get_ir_op(op);
     }
 }
 
 static constexpr IntCC get_int_cc(BinOp op, bool is_signed) {
     switch (op) {
-        case BinOp::Eq:
-            return IntCC::Equal;
-        case BinOp::Ne:
-            return IntCC::NotEqual;
-        case BinOp::Gt:
+    case BinOp::Eq:
+        return IntCC::Equal;
+    case BinOp::Ne:
+        return IntCC::NotEqual;
+    case BinOp::Gt:
         return is_signed ? IntCC::SignedGreaterThan
                          : IntCC::UnsignedGreaterThan;
-        case BinOp::Ge:
+    case BinOp::Ge:
         return is_signed ? IntCC::SignedGreaterEqual
                          : IntCC::UnsignedGreaterEqual;
-        case BinOp::Lt:
-            return is_signed ? IntCC::SignedLessThan : IntCC::UnsignedLessThan;
-        case BinOp::Le:
-            return is_signed ? IntCC::SignedLessEqual : IntCC::UnsignedLessEqual;
-        default:
-            panic("Invalid BinOp for IntCC");
+    case BinOp::Lt:
+        return is_signed ? IntCC::SignedLessThan : IntCC::UnsignedLessThan;
+    case BinOp::Le:
+        return is_signed ? IntCC::SignedLessEqual : IntCC::UnsignedLessEqual;
+    default:
+        panic("Invalid BinOp for IntCC");
     }
 }
 
 static constexpr FloatCC get_float_cc(BinOp op) {
     switch (op) {
-        case BinOp::Eq:
-            return FloatCC::Equal;
-        case BinOp::Ne:
-            return FloatCC::NotEqual;
-        case BinOp::Gt:
-            return FloatCC::GreaterThan;
-        case BinOp::Ge:
-            return FloatCC::GreaterEqual;
-        case BinOp::Lt:
-            return FloatCC::LessThan;
-        case BinOp::Le:
-            return FloatCC::LessEqual;
-        default:
-            panic("Invalid BinOp for FloatCC");
+    case BinOp::Eq:
+        return FloatCC::Equal;
+    case BinOp::Ne:
+        return FloatCC::NotEqual;
+    case BinOp::Gt:
+        return FloatCC::GreaterThan;
+    case BinOp::Ge:
+        return FloatCC::GreaterEqual;
+    case BinOp::Lt:
+        return FloatCC::LessThan;
+    case BinOp::Le:
+        return FloatCC::LessEqual;
+    default:
+        panic("Invalid BinOp for FloatCC");
     }
 }
 
@@ -199,6 +230,8 @@ enum class TerminatorKind : std::uint8_t {
 struct VReg {
     std::uint32_t id;
     type::TypeRef type;
+
+    bool operator==(const VReg&) const = default;
 };
 
 struct Immediate {
@@ -279,35 +312,66 @@ struct Operand {
     }
 };
 
+struct InstTag {};
+using InstId = Index<InstTag>;
+
 struct Instruction {
+    InstId id;
     IROp op;
     VReg dest;
     std::vector<Operand> operands;
-    type::TypeRef type;
 
-    Instruction(IROp op, VReg dest, std::initializer_list<Operand> operands,
-                type::TypeRef type)
-        : op(op), dest(dest), operands(operands), type(type) {}
+    Instruction(InstId id, IROp op, VReg dest,
+                std::initializer_list<Operand> operands)
+        : id(id), op(op), dest(dest), operands(operands) {}
 };
 
+struct BlockTag {};
+using BlockID = Index<BlockTag>;
+
+struct FuncTag {};
+using FuncID = Index<FuncTag>;
+
 struct BasicBlock {
-    std::uint32_t id;
-    std::uint32_t inst_start;
-    std::uint16_t inst_count;
-    TerminatorKind term;
+    BlockID id;
+    std::optional<TerminatorKind> term;
+    std::vector<InstId> insts;
+    std::vector<BlockID> predecessors;
+
+    explicit BasicBlock(BlockID id) : id(id) {};
 };
 
 struct IRFunction {
+    FuncID id;
     StringID name;
     type::TypeRef return_type;
     std::vector<VReg> params;
-    std::uint32_t block_start{};
-    std::uint16_t block_count{};
+    std::vector<BasicBlock> blocks;
+    std::vector<Instruction> insts;
 
-    IRFunction(StringID name, type::TypeRef return_type,
-               std::vector<VReg> params, std::uint32_t /*block_start*/,
-               std::uint16_t /*block_count*/)
-        : name(name), return_type(return_type), params(std::move(params)) {}
+    struct VRegInfo {
+        InstId def;
+        std::vector<std::pair<InstId, BlockID>> uses;
+
+        explicit VRegInfo(InstId def) : def(def) {}
+    };
+
+    std::vector<VRegInfo> vreg_info;
+
+    VRegInfo& get_reg_info(VReg reg) { return vreg_info[reg.id]; }
+
+    BasicBlock& get_block(BlockID id) { return blocks[id.id]; }
+
+    IRFunction(FuncID id, StringID name, type::TypeRef return_type,
+               std::vector<VReg> params)
+        : id(id), name(name), return_type(return_type),
+          params(std::move(params)) {}
 };
 
 } // namespace z::ir
+
+template <> struct std::hash<z::ir::VReg> {
+    std::size_t operator()(const z::ir::VReg& reg) const noexcept {
+        return std::hash<std::uint32_t>{}(reg.id);
+    }
+};

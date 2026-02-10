@@ -16,8 +16,7 @@ using ast::UnOp;
 namespace {
 std::optional<ConstInt> fold_int_op(IROp op, const ConstInt& lhs,
                                     const ConstInt& rhs, bool& overflow) {
-    auto with_overflow = [](auto fn) -> std::optional<ConstInt> {
-        bool overflow = false;
+    auto with_overflow = [&overflow](auto fn) -> std::optional<ConstInt> {
         auto res = fn();
         return overflow ? std::nullopt : std::optional(res);
     };
@@ -26,11 +25,11 @@ std::optional<ConstInt> fold_int_op(IROp op, const ConstInt& lhs,
     case IROp::IAdd:
         return with_overflow([&]() { return lhs.add(rhs, overflow); });
     case IROp::ISub:
-        return with_overflow([&]() { return lhs.add(rhs, overflow); });
+        return with_overflow([&]() { return lhs.sub(rhs, overflow); });
     case IROp::IMul:
-        return with_overflow([&]() { return lhs.add(rhs, overflow); });
+        return with_overflow([&]() { return lhs.mul(rhs, overflow); });
     case IROp::SDiv:
-        return with_overflow([&]() { return lhs.add(rhs, overflow); });
+        return with_overflow([&]() { return lhs.sdiv(rhs, overflow); });
     case IROp::UDiv:
         return lhs.udiv(rhs);
     case IROp::Shl:
@@ -60,26 +59,26 @@ std::optional<ConstFloat> fold_float_op(IROp op, const ConstFloat& lhs,
     }
 }
 
-std::optional<bool> float_bool_op(BinOp op, bool lhs, bool rhs) {
+std::optional<bool> fold_bool_op(BinOp op, bool lhs, bool rhs) {
     switch (op) {
-        case BinOp::Eq:
-            return lhs == rhs;
-        case BinOp::Ne:
-            return lhs != rhs;
-        case BinOp::BitAnd:
-            return lhs && rhs;
-        case BinOp::BitOr:
-            return lhs || rhs;
-        case BinOp::BitXor:
-            return lhs ^ rhs;
-        default:
-            return std::nullopt;
+    case BinOp::Eq:
+        return lhs == rhs;
+    case BinOp::Ne:
+        return lhs != rhs;
+    case BinOp::BitAnd:
+        return lhs && rhs;
+    case BinOp::BitOr:
+        return lhs || rhs;
+    case BinOp::BitXor:
+        return lhs ^ rhs;
+    default:
+        return std::nullopt;
     }
 }
 } // namespace
 
 void IRBuilder::visit(ast::Identifier& ident) {
-    last_result = Operand::reg(get_var(ident.get_id(), ident.node_type));
+    last_result = Operand::reg(read_var(ident.get_id()));
 }
 
 void IRBuilder::visit(ast::IntExpr& expr) {
@@ -101,7 +100,6 @@ void IRBuilder::visit(ast::BoolExpr& expr) {
 void IRBuilder::visit(ast::PrefixExpr& expr) {
     const auto var = emit_op(expr.expr.get());
     const auto reg = var.as_reg();
-    const auto dest = copy_reg(reg);
 
     const auto expr_op = expr.op;
 
@@ -110,32 +108,34 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
     case UnOp::Dec: {
         const auto* int_type = ctxt->ty->get_as<type::IntegerType>(reg.type);
 
-        emit_inst(get_int_ir_op(expr_op), dest,
-                  {var, Operand::imm(ConstInt(1, int_type->get_width(),
-                                              int_type->is_signed()),
-                                     reg.type)},
-                  reg.type);
+        auto dest =
+            emit_inst(get_int_ir_op(expr_op),
+                      {var, Operand::imm(ConstInt(1, int_type->get_width(),
+                                                  int_type->is_signed()),
+                                         reg.type)},
+                      reg.type);
 
+        write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
         last_result = Operand::reg(dest);
         break;
     }
     case UnOp::LogicNot:
     case UnOp::BitNot: {
-        emit_inst(get_ir_op(expr_op), dest, {var}, reg.type);
-
+        auto dest = emit_inst(get_ir_op(expr_op), {var}, reg.type);
         last_result = Operand::reg(dest);
         break;
     }
     case UnOp::Neg: {
         const auto* type = ctxt->ty->get(reg.type);
-        if (type->is_integral())
-            emit_inst(IROp::INeg, dest, {var}, reg.type);
-        else if (type->is_float())
-            emit_inst(IROp::FNeg, dest, {var}, reg.type);
-        else
+        if (type->is_integral()) {
+            auto dest = emit_inst(IROp::INeg, {var}, reg.type);
+            last_result = Operand::reg(dest);
+        } else if (type->is_float()) {
+            auto dest = emit_inst(IROp::FNeg, {var}, reg.type);
+            last_result = Operand::reg(dest);
+        } else
             panic("Invalid type for negation operator");
 
-        last_result = Operand::reg(dest);
         break;
     }
     default:
@@ -146,16 +146,15 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
 void IRBuilder::visit(ast::PostfixExpr& expr) {
     const auto var = emit_op(expr.expr.get());
     const auto reg = var.as_reg();
-    const auto dest = copy_reg(reg);
 
     const auto* int_type = ctxt->ty->get_as<type::IntegerType>(reg.type);
 
-    emit_inst(get_int_ir_op(expr.op), dest,
-              {var, Operand::imm(ConstInt(1, int_type->get_width(),
-                                          int_type->is_signed()),
-                                 reg.type)},
-              reg.type);
-
+    auto dest = emit_inst(get_int_ir_op(expr.op),
+                          {var, Operand::imm(ConstInt(1, int_type->get_width(),
+                                                      int_type->is_signed()),
+                                             reg.type)},
+                          reg.type);
+    write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
     last_result = var;
 }
 
@@ -171,19 +170,11 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         const auto* type = ctxt->ty->get(expr.node_type);
         if (type->is_integral()) {
             const auto* int_type = type::cast<type::IntegerType>(type);
-            switch (expr_op) {
-            case BinOp::DivEq:
-                return int_type->is_signed() ? IROp::SDiv : IROp::UDiv;
-            case BinOp::ShrEq:
-                return int_type->is_signed() ? IROp::Asr : IROp::Lsr;
-            default: {
-                auto op = get_int_ir_op(expr_op);
-                if (op == IROp::ICmp)
-                    int_cc = get_int_cc(expr_op, int_type->is_signed());
+            auto op = get_int_ir_op(expr_op, int_type->is_signed());
+            if (op == IROp::ICmp)
+                int_cc = get_int_cc(expr_op, int_type->is_signed());
 
-                return op;
-            }
-            }
+            return op;
         }
 
         if (type->is_float()) {
@@ -211,16 +202,16 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             auto res =
                 fold_int_op(op, lhs_imm.as_int(), rhs_imm.as_int(), overflow);
 
-            if (res) {
-                last_result = Operand::imm(*res, expr.node_type);
-                return;
-            }
-
             if (overflow) {
                 ctxt->diag.emit(
                     expr.get_span(), DiagnosticKind::OperationOverflows,
                     ctxt->ty->get(expr.node_type)->basic_name(ctxt));
                 // TODO: handle error
+                return;
+            }
+
+            if (res) {
+                last_result = Operand::imm(*res, expr.node_type);
                 return;
             }
         } else if (lhs_imm.is_float() && rhs_imm.is_float()) {
@@ -239,7 +230,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             }
         } else if (lhs_imm.is_bool() && rhs_imm.is_bool()) {
             auto res =
-                float_bool_op(expr_op, lhs_imm.as_bool(), rhs_imm.as_bool());
+                fold_bool_op(expr_op, lhs_imm.as_bool(), rhs_imm.as_bool());
             if (res) {
                 last_result = Operand::imm(*res, type::TypeArena::BOOL);
                 return;
@@ -258,9 +249,8 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::BitOrEq:
     case BinOp::ShlEq:
     case BinOp::ShrEq: {
-        const auto dest = copy_reg(lhs.as_reg());
-
-        emit_inst(op, dest, {lhs, rhs}, expr.lhs->node_type);
+        auto dest = emit_inst(op, {lhs, rhs}, expr.lhs->node_type);
+        write_var(ast::cast<ast::Identifier>(expr.lhs.get())->get_id(), dest);
         last_result = std::nullopt;
         break;
     }
@@ -281,8 +271,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Lt:
     case BinOp::Ge:
     case BinOp::Le: {
-        const auto dest = emit_reg(expr.node_type);
-        emit_inst(get_ir_op(expr_op), dest, {lhs, rhs}, expr.node_type);
+        auto dest = emit_inst(op, {lhs, rhs}, expr.node_type);
         last_result = Operand::reg(dest);
         break;
     }
@@ -309,8 +298,7 @@ void IRBuilder::visit(ast::StructInitExpr& expr) {}
 void IRBuilder::visit(ast::TupleExpr& expr) {
     const auto first = emit_op(expr.first.get());
     const auto second = emit_op(expr.second.get());
-    const auto dest = emit_reg(expr.node_type);
-    emit_inst(IROp::TupleInit, dest, {first, second}, expr.node_type);
+    auto dest = emit_inst(IROp::TupleInit, {first, second}, expr.node_type);
     last_result = Operand::reg(dest);
 }
 
@@ -335,7 +323,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
     auto params = std::vector<VReg>();
 
     for (const auto& param : func.params) {
-        params.push_back(emit_reg(param->name->get_id(), param->type));
+        // params.push_back(emit_reg(param->name->get_id(), param->type));
     }
 
     func.body->accept(*this);
