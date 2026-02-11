@@ -49,23 +49,14 @@ void dump_ir(const IRFunction& func, ZContext& ctxt, std::ostream& os) {
 }
 
 void dump_inst(const Instruction& inst, ZContext& ctxt, std::ostream& os) {
-    if (inst.dest)
-        std::print(os, "%{} = ", inst.dest.value().id);
-
-    os << ir_op_to_string(inst.op);
-    std::size_t i = 0;
-
-    if (!inst.operands.empty() && (inst.operands.front().is_intcc() ||
-                                   inst.operands.front().is_floatcc())) {
-        os << " ";
-        dump_operand(inst.operands.front(), os);
-        i++;
+    if (inst.dest) {
+        std::print(os, "%{}: {} = ", inst.dest.value().id,
+                   ctxt.ty->get(inst.dest->type)->basic_name(&ctxt));
     }
 
-    if (inst.dest)
-        os << " " << ctxt.ty->get(inst.dest->type)->basic_name(&ctxt);
+    os << ir_op_to_string(inst.op);
 
-    for (; i < inst.operands.size(); i++) {
+    for (std::size_t i = 0; i < inst.operands.size(); i++) {
         os << (i == 0 ? " " : ", ");
         dump_operand(inst.operands[i], os);
     }
