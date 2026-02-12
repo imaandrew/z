@@ -68,7 +68,7 @@ public:
 
     virtual void dump(ZContext* ctxt,
                       std::ostream& stream = std::cout) const = 0;
-    [[nodiscard]] virtual std::string basic_name(ZContext* ctxt) const = 0;
+    [[nodiscard]] virtual std::string basic_name(const ZContext* ctxt) const = 0;
 };
 
 template <typename T> bool isa(const Type* type) {
@@ -133,7 +133,7 @@ public:
                << ", is_signed: " << _signed << " }";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return std::format("{}{}", _signed ? "i" : "u", bit_width);
     }
 };
@@ -170,7 +170,7 @@ public:
         stream << "FloatType { bit_width: " << bit_width << " }";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return std::format("f{}", bit_width);
     }
 };
@@ -190,7 +190,7 @@ public:
         stream << "BooleanType";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return "bool";
     }
 };
@@ -210,7 +210,7 @@ public:
 
     [[nodiscard]] bool is_iterable() const override { return true; }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return "string";
     }
 };
@@ -228,7 +228,7 @@ public:
         stream << "CharType";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return "char";
     }
 };
@@ -254,7 +254,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class ArrayType final : public Type {
@@ -295,7 +295,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class UnknownType final : public Type {
@@ -331,7 +331,7 @@ public:
         stream << "UnknownType { ident: }";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return "unk";
     }
 };
@@ -380,7 +380,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class StructType final : public Type {
@@ -486,7 +486,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class EnumType final : public Type {
@@ -546,7 +546,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class EnumVariantType final : public Type {
@@ -573,7 +573,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class TupleType final : public Type {
@@ -600,7 +600,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class VoidType final : public Type {
@@ -618,7 +618,7 @@ public:
         stream << "VoidType";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return "()";
     }
 };
@@ -638,7 +638,7 @@ public:
         stream << "InvalidType";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return "invalid_type";
     }
 };
@@ -694,7 +694,7 @@ public:
                << " }";
     }
 
-    [[nodiscard]] std::string basic_name(ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
         return std::format("?{}", id);
     }
 };
@@ -718,7 +718,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class TraitType final : public Type {
@@ -740,7 +740,7 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 
 class TempType final : public Type {
@@ -759,6 +759,6 @@ public:
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
-    [[nodiscard]] std::string basic_name(ZContext* ctxt) const override;
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
 };
 } // namespace z::type

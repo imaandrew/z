@@ -73,8 +73,6 @@ int main(int argc, char** argv) {
     auto ir_code = ir_builder.lower_ast(file.get());
 
     if (dump_ir) {
-        for (const auto& func : ir_code) {
-            ir::dump_ir(func, ctxt, std::cout);
-        }
+        ir::IRPrinter().dump(ir_code, ctxt, std::cout);
     }
 }

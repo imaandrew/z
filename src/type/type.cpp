@@ -36,7 +36,7 @@ void PointerType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << " }";
 }
 
-std::string PointerType::basic_name(ZContext* ctxt) const {
+std::string PointerType::basic_name(const ZContext* ctxt) const {
     return ctxt->ty->get(type)->basic_name(ctxt) + "*";
 }
 
@@ -46,7 +46,7 @@ void ArrayType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << ", size: " << size.value_or(-1) << " }";
 }
 
-std::string ArrayType::basic_name(ZContext* ctxt) const {
+std::string ArrayType::basic_name(const ZContext* ctxt) const {
     return std::format("[{}]", ctxt->ty->get(type)->basic_name(ctxt));
 }
 
@@ -67,7 +67,7 @@ void FunctionType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << " }";
 }
 
-std::string FunctionType::basic_name(ZContext* ctxt) const {
+std::string FunctionType::basic_name(const ZContext* ctxt) const {
     std::string s = "(";
     if (!params.empty()) {
         for (size_t i = 0; i < params.size() - 1; i++) {
@@ -90,7 +90,7 @@ void StructType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << "StructType { name: " << ctxt->strings->get_string(name) << " }";
 }
 
-std::string StructType::basic_name(ZContext* ctxt) const {
+std::string StructType::basic_name(const ZContext* ctxt) const {
     return ctxt->strings->get_string(name);
 }
 
@@ -98,7 +98,7 @@ void EnumType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << "EnumType { name: " << ctxt->strings->get_string(name) << " }";
 }
 
-std::string EnumType::basic_name(ZContext* ctxt) const {
+std::string EnumType::basic_name(const ZContext* ctxt) const {
     return ctxt->strings->get_string(name);
 }
 
@@ -107,7 +107,7 @@ void EnumVariantType::dump(ZContext* ctxt, std::ostream& stream) const {
            << ctxt->strings->get_string(parent_enum) << " }";
 }
 
-std::string EnumVariantType::basic_name(ZContext* ctxt) const {
+std::string EnumVariantType::basic_name(const ZContext* ctxt) const {
     return ctxt->strings->get_string(parent_enum);
 }
 
@@ -115,7 +115,7 @@ void TupleType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << basic_name(ctxt);
 }
 
-std::string TupleType::basic_name(ZContext* ctxt) const {
+std::string TupleType::basic_name(const ZContext* ctxt) const {
     return std::format("({}, {})", ctxt->ty->get(first)->basic_name(ctxt),
                        ctxt->ty->get(second)->basic_name(ctxt));
 }
@@ -126,7 +126,7 @@ void TypeType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << " }";
 }
 
-std::string TypeType::basic_name(ZContext* ctxt) const {
+std::string TypeType::basic_name(const ZContext* ctxt) const {
     return std::format("type({})",
                        ctxt->ty->get(internal_type)->basic_name(ctxt));
 }
@@ -135,7 +135,7 @@ void TraitType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << "TraitType { name: " << ctxt->strings->get_string(name) << " }";
 }
 
-std::string TraitType::basic_name(ZContext* ctxt) const {
+std::string TraitType::basic_name(const ZContext* ctxt) const {
     return std::format("trait({})", ctxt->strings->get_string(name));
 }
 
@@ -143,7 +143,7 @@ void TempType::dump(ZContext* ctxt, std::ostream& stream) const {
     stream << "TempType { name: " << ctxt->strings->get_string(name) << " }";
 }
 
-std::string TempType::basic_name(ZContext* ctxt) const {
+std::string TempType::basic_name(const ZContext* ctxt) const {
     return std::format("temp({})", ctxt->strings->get_string(name));
 }
 

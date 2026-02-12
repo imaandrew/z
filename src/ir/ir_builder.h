@@ -15,6 +15,12 @@
 
 namespace z::ir {
 
+struct IRFile {
+    std::vector<IRFunction> funcs;
+
+    explicit IRFile(std::vector<IRFunction> funcs) : funcs(std::move(funcs)) {}
+};
+
 class IRBuilder final : public ast::ASTVisitor {
     struct BlockBuildState {
         std::unordered_map<StringID, VReg> var_map;
@@ -319,9 +325,9 @@ class IRBuilder final : public ast::ASTVisitor {
 public:
     explicit IRBuilder(ZContext& ctxt) : ctxt(&ctxt) {}
 
-    std::vector<IRFunction> lower_ast(ast::SourceFileDecl* ast) {
+    IRFile lower_ast(ast::SourceFileDecl* ast) {
         ast->accept(*this);
-        return std::move(funcs);
+        return IRFile(std::move(funcs));
     }
 };
 } // namespace z::ir

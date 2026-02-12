@@ -10,19 +10,27 @@
 
 namespace z::ir {
 
-void dump_ir(const IRFunction& func, ZContext& ctxt, std::ostream& os) {
-    std::print(os, "func @{}(", ctxt.strings->get_string(func.name));
+void IRPrinter::dump(const IRFile& ir, const ZContext& ctxt, std::ostream& os) {
+    this->ir = &ir;
+    this->ctxt = &ctxt;
+    for (const auto& func : ir.funcs) {
+        dump_ir(func, os);
+    }
+}
+
+void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
+    std::print(os, "func @{}(", ctxt->strings->get_string(func.name));
 
     for (std::size_t i = 0; i < func.params.size(); i++) {
         if (i > 0)
             os << ", ";
 
         std::print(os, "%{}: {}", func.params[i].id,
-                   ctxt.ty->get(func.params[i].type)->basic_name(&ctxt));
+                   ctxt->ty->get(func.params[i].type)->basic_name(ctxt));
     }
 
     std::print(os, ") -> {}",
-               ctxt.ty->get(func.return_type)->basic_name(&ctxt));
+               ctxt->ty->get(func.return_type)->basic_name(ctxt));
 
     os << " {\n";
     for (const auto& block : func.blocks) {
@@ -39,22 +47,49 @@ void dump_ir(const IRFunction& func, ZContext& ctxt, std::ostream& os) {
         for (auto inst_id : block.insts) {
             const auto& inst = func.insts[inst_id.id];
             os << "  ";
-            dump_inst(inst, ctxt, os);
+            dump_inst(inst, os);
             os << "\n";
         }
 
         os << "\n";
     }
-    os << "}\n";
+    os << "}\n\n";
 }
 
-void dump_inst(const Instruction& inst, ZContext& ctxt, std::ostream& os) {
+void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
     if (inst.dest) {
         std::print(os, "%{}: {} = ", inst.dest.value().id,
-                   ctxt.ty->get(inst.dest->type)->basic_name(&ctxt));
+                   ctxt->ty->get(inst.dest->type)->basic_name(ctxt));
     }
 
     os << ir_op_to_string(inst.op);
+
+    if (inst.op == IROp::Phi) {
+        for (std::size_t i = 0; i < inst.operands.size(); i += 2) {
+            os << (i == 0 ? " " : ", ");
+            os << "[ ";
+            dump_operand(inst.operands[i], os);
+            os << ", ";
+            dump_operand(inst.operands[i + 1], os);
+            os << " ]";
+        }
+        return;
+    }
+
+    if (inst.op == IROp::Call || inst.op == IROp::CallIndirect) {
+        os << " ";
+        dump_operand(inst.operands.front(), os);
+
+        os << "(";
+
+        for (std::size_t i = 1; i < inst.operands.size(); i++) {
+            os << (i == 1 ? "" : ", ");
+            dump_operand(inst.operands[i], os);
+        }
+
+        os << ")";
+        return;
+    }
 
     for (std::size_t i = 0; i < inst.operands.size(); i++) {
         os << (i == 0 ? " " : ", ");
@@ -62,7 +97,7 @@ void dump_inst(const Instruction& inst, ZContext& ctxt, std::ostream& os) {
     }
 }
 
-void dump_operand(const Operand& op, std::ostream& os) {
+void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
     if (op.is_reg())
         std::print(os, "%{}", op.as_reg().id);
     else if (op.is_imm())
@@ -118,10 +153,13 @@ void dump_operand(const Operand& op, std::ostream& os) {
             std::unreachable();
         }();
         os << string;
+    } else if (op.is_func()) {
+        std::print(os, "@{}",
+                   ctxt->strings->get_string(ir->funcs[op.as_func().id].name));
     }
 }
 
-void dump_immediate(const Immediate& imm, std::ostream& os) {
+void IRPrinter::dump_immediate(const Immediate& imm, std::ostream& os) {
     if (imm.is_int()) {
         const auto& i = imm.as_int();
         std::print(os, "{}", i.is_negative() ? i.get_signed() : i.get_bits());
@@ -134,7 +172,7 @@ void dump_immediate(const Immediate& imm, std::ostream& os) {
     }
 }
 
-void dump_terminator(TerminatorKind term, std::ostream& os) {
+void IRPrinter::dump_terminator(TerminatorKind term, std::ostream& os) {
     switch (term) {
     case TerminatorKind::Branch:
         os << "branch";
@@ -151,7 +189,7 @@ void dump_terminator(TerminatorKind term, std::ostream& os) {
     }
 }
 
-constexpr std::string ir_op_to_string(IROp op) {
+constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
     switch (op) {
     case IROp::IAdd:
         return "iadd";
@@ -227,6 +265,10 @@ constexpr std::string ir_op_to_string(IROp op) {
         return "br";
     case IROp::Jump:
         return "jump";
+    case IROp::Ret:
+        return "ret";
+    case IROp::Arg:
+        return "arg";
     case IROp::Phi:
         return "phi";
     case IROp::Dead:
