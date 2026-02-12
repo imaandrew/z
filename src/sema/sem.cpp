@@ -815,11 +815,11 @@ void SemChecker::check_expr_assignable(ast::Expr& expr) const {
 bool SemChecker::is_recursive_struct(const type::StructType* s,
                                      type::TypeRef orig) const {
     for (const auto& [_, field_type] : s->get_fields()) {
-        if (field_type == orig)
+        if (field_type.first == orig)
             return true;
 
         if (const auto* nested_struct =
-                ctxt->ty->get_as<type::StructType>(field_type)) {
+                ctxt->ty->get_as<type::StructType>(field_type.first)) {
             if (is_recursive_struct(nested_struct, orig))
                 return true;
         }

@@ -1,5 +1,7 @@
 sources = files(
   'core/zctxt.cpp',
+  'ir/ir_builder.cpp',
+  'ir/ir_printer.cpp', 
   'lexer/lexer.cpp',
   'parser/parser.cpp',
   'sema/scope.cpp',
@@ -9,7 +11,7 @@ sources = files(
   'type/constraint_solve.cpp',
   'type/type_res.cpp',
   'type/type.cpp',
-  )
+)
 
 
 zlib = library(

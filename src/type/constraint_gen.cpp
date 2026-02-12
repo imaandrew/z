@@ -4,6 +4,7 @@
 #include "type_arena.h"
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 
 namespace z::type {
@@ -199,18 +200,19 @@ void ConstraintGenerator::visit(ast::TupleExpr& expr) {
 void ConstraintGenerator::visit(ast::Block& block) {
     syms->enter_scope(block.get_scope_id());
 
-    block.node_type = new_type(InferType::Block);
-    push_block_type(block.node_type);
+    if (!block.node_type.is_initialized())
+        block.node_type = new_type(InferType::Block);
 
     for (auto& stmt : block.stmts)
         stmt->accept(*this);
 
-    if (!block.stmts.empty() &&
-        !isa<VoidType>(ty->get(block.stmts.back()->node_type))) {
-        eq(block.node_type, block.stmts.back()->node_type);
+    if (!block.stmts.empty()) {
+        if (!isa<VoidType>(ty->get(block.stmts.back()->node_type)))
+            eq(block.node_type, block.stmts.back()->node_type);
+        else
+            eq(block.node_type, TypeArena::VOID);
     }
 
-    pop_block_type();
     syms->exit_scope();
 }
 
@@ -233,7 +235,10 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
         scope.declare_var(param->name, param->type, false, true);
     }
 
+    func.body->node_type = new_type(InferType::Block);
+    func_type = func.body->node_type;
     func.body->accept(*this);
+    func_type = std::nullopt;
 
     resolve_type_name(func.ret);
     eq(func.body->node_type, func.ret);
@@ -302,9 +307,9 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
 void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
     if (stmt.expr) {
         stmt.expr->accept(*this);
-        eq(peek_block_type(), stmt.expr->node_type);
+        eq(func_type.value(), stmt.expr->node_type);
     } else {
-        eq(peek_block_type(), TypeArena::VOID);
+        eq(func_type.value(), TypeArena::VOID);
     }
 
     stmt.node_type = TypeArena::VOID;

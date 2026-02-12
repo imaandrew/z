@@ -7,9 +7,11 @@
 #include "ir/constants.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
+#include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -50,13 +52,19 @@ enum class IROp : std::uint8_t {
 
     GetElementPtr,
     GetFieldPtr,
+    ExtractField,
+    InsertField,
 
     ArrayInit,
     StructInit,
     TupleInit,
 
     Call,
-    CallMethod,
+    CallIndirect,
+    Branch,
+    Jump,
+    Ret,
+    Arg,
 
     Phi,
     Dead
@@ -182,7 +190,7 @@ static constexpr IROp get_float_ir_op(BinOp op) {
 
 static constexpr IntCC get_int_cc(BinOp op, bool is_signed) {
     switch (op) {
-    case BinOp::Eq:
+    case BinOp::EqEq:
         return IntCC::Equal;
     case BinOp::Ne:
         return IntCC::NotEqual;
@@ -203,7 +211,7 @@ static constexpr IntCC get_int_cc(BinOp op, bool is_signed) {
 
 static constexpr FloatCC get_float_cc(BinOp op) {
     switch (op) {
-    case BinOp::Eq:
+    case BinOp::EqEq:
         return FloatCC::Equal;
     case BinOp::Ne:
         return FloatCC::NotEqual;
@@ -265,16 +273,22 @@ template <typename T>
 concept ImmediateVal = requires(decltype(Immediate::val)& variant_ref,
                                 T value) { variant_ref = value; };
 
+struct BlockTag {};
+using BlockID = Index<BlockTag>;
+
+struct FuncTag {};
+using FuncID = Index<FuncTag>;
+
 struct Label {
-    std::uint32_t block_id;
+    BlockID block_id;
 };
 
 struct Field {
-    StringID name;
+    std::uint32_t idx;
 };
 
 struct Operand {
-    std::variant<VReg, Immediate, Label, Field> val;
+    std::variant<VReg, Immediate, Label, Field, IntCC, FloatCC, FuncID> val;
 
     static Operand reg(VReg reg) { return Operand{.val = reg}; }
 
@@ -282,13 +296,19 @@ struct Operand {
         return Operand{.val = Immediate{.val = val, .type = type}};
     }
 
-    static Operand label(std::uint32_t block_id) {
+    static Operand label(BlockID block_id) {
         return Operand{.val = Label{.block_id = block_id}};
     }
 
-    static Operand field(StringID field_name) {
-        return Operand{.val = Field{.name = field_name}};
+    static Operand field(std::uint32_t field_idx) {
+        return Operand{.val = Field{.idx = field_idx}};
     }
+
+    static Operand intcc(IntCC intcc) { return Operand{.val = intcc}; }
+
+    static Operand floatcc(FloatCC floatcc) { return Operand{.val = floatcc}; }
+
+    static Operand func(FuncID func) { return Operand{.val = func}; }
 
     [[nodiscard]] bool is_reg() const {
         return std::holds_alternative<VReg>(val);
@@ -302,6 +322,15 @@ struct Operand {
     [[nodiscard]] bool is_field() const {
         return std::holds_alternative<Field>(val);
     }
+    [[nodiscard]] bool is_intcc() const {
+        return std::holds_alternative<IntCC>(val);
+    }
+    [[nodiscard]] bool is_floatcc() const {
+        return std::holds_alternative<FloatCC>(val);
+    }
+    [[nodiscard]] bool is_func() const {
+        return std::holds_alternative<FuncID>(val);
+    }
 
     VReg& as_reg() { return std::get<VReg>(val); }
     [[nodiscard]] const VReg& as_reg() const { return std::get<VReg>(val); }
@@ -310,6 +339,18 @@ struct Operand {
     [[nodiscard]] const Immediate& as_imm() const {
         return std::get<Immediate>(val);
     }
+
+    Label& as_label() { return std::get<Label>(val); }
+    [[nodiscard]] const Label& as_label() const { return std::get<Label>(val); }
+
+    Field& as_field() { return std::get<Field>(val); }
+    [[nodiscard]] const Field& as_field() const { return std::get<Field>(val); }
+
+    [[nodiscard]] IntCC as_intcc() const { return std::get<IntCC>(val); }
+
+    [[nodiscard]] FloatCC as_floatcc() const { return std::get<FloatCC>(val); }
+
+    [[nodiscard]] FuncID as_func() const { return std::get<FuncID>(val); }
 };
 
 struct InstTag {};
@@ -318,19 +359,18 @@ using InstId = Index<InstTag>;
 struct Instruction {
     InstId id;
     IROp op;
-    VReg dest;
+    std::optional<VReg> dest;
     std::vector<Operand> operands;
 
     Instruction(InstId id, IROp op, VReg dest,
                 std::initializer_list<Operand> operands)
         : id(id), op(op), dest(dest), operands(operands) {}
+
+    Instruction(InstId id, IROp op, VReg dest, std::vector<Operand> operands)
+        : id(id), op(op), dest(dest), operands(std::move(operands)) {}
+    Instruction(InstId id, IROp op, std::initializer_list<Operand> operands)
+        : id(id), op(op), operands(operands) {}
 };
-
-struct BlockTag {};
-using BlockID = Index<BlockTag>;
-
-struct FuncTag {};
-using FuncID = Index<FuncTag>;
 
 struct BasicBlock {
     BlockID id;

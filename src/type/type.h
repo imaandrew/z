@@ -385,15 +385,16 @@ public:
 
 class StructType final : public Type {
     StringID name;
-    std::unordered_map<StringID, TypeRef> fields;
-    std::unordered_map<StringID, TypeRef> funcs;
+    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> fields;
+    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> funcs;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
 
-    explicit StructType(StringID name,
-                        std::unordered_map<StringID, TypeRef> fields,
-                        std::unordered_map<StringID, TypeRef> funcs)
+    explicit StructType(
+        StringID name,
+        std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> fields,
+        std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> funcs)
         : Type(Kind), name(name), fields(std::move(fields)),
           funcs(std::move(funcs)) {}
 
@@ -426,20 +427,35 @@ public:
         if (!fields.contains(field))
             return std::nullopt;
 
-        return fields.at(field);
+        return fields.at(field).first;
     }
 
-    const std::unordered_map<StringID, TypeRef>& get_fields() const {
+    const std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
+    get_fields() const {
         return fields;
     }
 
     bool has_field(StringID field) const { return fields.contains(field); }
 
+    std::optional<std::uint32_t> get_field_index(StringID field) const {
+        if (!fields.contains(field))
+            return std::nullopt;
+
+        return fields.at(field).second;
+    }
+
     std::optional<TypeRef> get_func_type(StringID func) const {
         if (!funcs.contains(func))
             return std::nullopt;
 
-        return funcs.at(func);
+        return funcs.at(func).first;
+    }
+
+    std::optional<std::uint32_t> get_func_index(StringID field) const {
+        if (!funcs.contains(field))
+            return std::nullopt;
+
+        return funcs.at(field).second;
     }
 
     bool operator==(const Type& other) const override {
@@ -457,13 +473,14 @@ public:
             return false;
 
         for (const auto& [field, type] : fields) {
-            if (const auto f = other_->get_field_type(field); f && *f != type)
+            if (const auto f = other_->get_field_type(field);
+                f && *f != type.first)
                 return false;
         }
 
         return std::ranges::all_of(
             funcs.begin(), funcs.end(), [&other_](const auto& f) {
-                return other_->get_func_type(f.first) == f.second;
+                return other_->get_func_type(f.first) == f.second.first;
             });
     }
 

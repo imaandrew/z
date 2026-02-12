@@ -19,9 +19,10 @@ class ConstraintGenerator : public ast::ASTVisitor {
     std::vector<Constraint> constraints;
     SymbolTable* syms;
     std::uint32_t type_id = 0;
-    std::vector<TypeRef> block_type_stack;
     std::vector<TypeRef> expected_type_stack;
     std::vector<TypeRef> loop_result_type_stack;
+
+    std::optional<TypeRef> func_type;
 
     TypeRef new_type(InferType type) {
         auto v = ty->make<InferredType>(type_id++, type);
@@ -36,12 +37,6 @@ class ConstraintGenerator : public ast::ASTVisitor {
     void eq(TypeRef lhs, TypeRef rhs) {
         emit(EqualityConstraint{.lhs = lhs, .rhs = rhs});
     }
-
-    void push_block_type(TypeRef type) { block_type_stack.push_back(type); }
-
-    void pop_block_type() { block_type_stack.pop_back(); }
-
-    TypeRef peek_block_type() { return block_type_stack.back(); }
 
     void push_expected(TypeRef type) { expected_type_stack.push_back(type); }
 

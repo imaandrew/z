@@ -3,6 +3,7 @@
 #include "ir/condition_codes.h"
 #include <cassert>
 #include <cstdint>
+#include <utility>
 namespace z::ir {
 
 class ConstInt {
@@ -20,19 +21,12 @@ class ConstInt {
     [[nodiscard]] std::int64_t sign_extend(std::uint64_t v) const {
         std::uint64_t const sign_bit = 1ULL
                                        << static_cast<std::uint64_t>(width - 1);
-        if ((v & sign_bit) != 0U)
+        if ((v & sign_bit) != 0U) {
+            assert(width < 64);
             return static_cast<std::int64_t>(v | ~((1ULL << width) - 1));
+        }
 
         return static_cast<std::int64_t>(v);
-    }
-
-    [[nodiscard]] bool is_negative() const {
-        std::uint64_t const sign_bit = 1ULL
-                                       << static_cast<std::uint64_t>(width - 1);
-        if (is_signed)
-            return (bits & sign_bit) != 0U;
-
-        return false;
     }
 
 public:
@@ -40,6 +34,18 @@ public:
         : bits(bits), width(width), is_signed(is_signed) {}
 
     [[nodiscard]] std::uint64_t get_bits() const { return bits; }
+
+    [[nodiscard]] std::int64_t get_signed() const { return sign_extend(bits); }
+
+    [[nodiscard]] bool is_negative() const {
+        if (is_signed) {
+            std::uint64_t const sign_bit =
+                1ULL << static_cast<std::uint64_t>(width - 1);
+            return (bits & sign_bit) != 0U;
+        }
+
+        return false;
+    }
 
     [[nodiscard]] ConstInt neg() const {
         return {mask(-bits), width, !is_signed};
@@ -136,7 +142,7 @@ public:
         auto lhs_signed = sign_extend(bits);
         auto rhs_signed = sign_extend(bits);
 
-        std::int64_t min_val = -static_cast<std::int64_t>(
+        std::int64_t const min_val = -static_cast<std::int64_t>(
             1ULL << static_cast<std::uint64_t>(width - 1));
         overflow = lhs_signed == min_val && rhs_signed == -1;
 
@@ -184,13 +190,15 @@ public:
             return bits <= other.bits;
         case IntCC::SignedGreaterThan:
             return lhs_signed > rhs_signed;
-        case IntCC::SignedGreaterEq:
+        case IntCC::SignedGreaterEqual:
             return lhs_signed >= rhs_signed;
         case IntCC::SignedLessThan:
             return lhs_signed < rhs_signed;
         case IntCC::SignedLessEqual:
             return lhs_signed <= rhs_signed;
         }
+
+        std::unreachable();
     }
 
     [[nodiscard]] bool cmp_imm(std::int64_t other, IntCC cc) const {
@@ -213,7 +221,7 @@ public:
             return bits <= rhs_bits;
         case IntCC::SignedGreaterThan:
             return lhs_signed > other;
-        case IntCC::SignedGreaterEq:
+        case IntCC::SignedGreaterEqual:
             return lhs_signed >= other;
         case IntCC::SignedLessThan:
             return lhs_signed < other;

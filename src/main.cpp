@@ -1,4 +1,6 @@
 #include "core/zctxt.h"
+#include "ir/ir_builder.h"
+#include "ir/ir_printer.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "sema/sem.h"
@@ -15,6 +17,7 @@ int main(int argc, char** argv) {
     bool dump_ast_untyped = false;
     bool dump_ast = false;
     bool dump_constraints = false;
+    bool dump_ir = false;
     std::string input;
 
     auto z = argparse::ArgumentParser("z");
@@ -33,6 +36,7 @@ int main(int argc, char** argv) {
             .help("print type constraints")
             .flag()
             .store_into(dump_constraints);
+        z.add_argument("--dump-ir").help("print IR").flag().store_into(dump_ir);
         z.parse_args(argc, argv);
     } catch (const std::exception& err) {
         std::cerr << err.what() << '\n';
@@ -64,4 +68,13 @@ int main(int argc, char** argv) {
 
     if (ctxt.diag.has_error())
         return 1;
+
+    auto ir_builder = ir::IRBuilder(ctxt);
+    auto ir_code = ir_builder.lower_ast(file.get());
+
+    if (dump_ir) {
+        for (const auto& func : ir_code) {
+            ir::dump_ir(func, ctxt, std::cout);
+        }
+    }
 }

@@ -1291,15 +1291,21 @@ struct StructDecl final : Decl {
         if (!t)
             return;
 
-        std::unordered_map<StringID, type::TypeRef> field_types;
-        std::unordered_map<StringID, type::TypeRef> func_types;
+        std::unordered_map<StringID, std::pair<type::TypeRef, std::uint32_t>>
+            field_types;
+        std::unordered_map<StringID, std::pair<type::TypeRef, std::uint32_t>>
+            func_types;
+
+        std::uint32_t field_num = 0;
 
         ctxt->syms->enter_scope(scope);
 
         for (const auto& field : fields) {
             const auto is_unique =
                 field_types
-                    .insert(std::make_pair(field->ident->get_id(), field->type))
+                    .insert(std::make_pair(
+                        field->ident->get_id(),
+                        std::make_pair(field->type, field_num++)))
                     .second;
             if (!is_unique) {
                 ctxt->diag.emit(field->ident->get_span(),
@@ -1328,7 +1334,8 @@ struct StructDecl final : Decl {
             const auto is_unique =
                 func_types
                     .insert(
-                        std::make_pair(func_decl->name->get_id(), func_type))
+                        std::make_pair(func_decl->name->get_id(),
+                                       std::make_pair(func_type, field_num++)))
                     .second;
             if (!is_unique) {
                 ctxt->diag.emit(
