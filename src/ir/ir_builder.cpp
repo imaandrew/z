@@ -69,9 +69,9 @@ std::optional<bool> fold_bool_op(BinOp op, bool lhs, bool rhs) {
         return lhs == rhs;
     case BinOp::Ne:
         return lhs != rhs;
-    case BinOp::BitAnd:
+    case BinOp::LogicAnd:
         return lhs && rhs;
-    case BinOp::BitOr:
+    case BinOp::LogicOr:
         return lhs || rhs;
     case BinOp::BitXor:
         return lhs ^ rhs;
@@ -103,21 +103,27 @@ void IRBuilder::visit(ast::BoolExpr& expr) {
 
 void IRBuilder::visit(ast::PrefixExpr& expr) {
     const auto var = emit_op(expr.expr.get());
-    const auto reg = var.as_reg();
+    const auto expr_type = [&] {
+        if (var.is_reg())
+            return var.as_reg().type;
+        if (var.is_imm())
+            return var.as_imm().type;
+        panic("Invalid unary operand");
+    }();
 
     const auto expr_op = expr.op;
 
     switch (expr_op) {
     case UnOp::Inc:
     case UnOp::Dec: {
-        const auto* int_type = ctxt->ty->get_as<type::IntegerType>(reg.type);
+        const auto* int_type = ctxt->ty->get_as<type::IntegerType>(expr_type);
 
         auto dest =
             emit_inst(get_int_ir_op(expr_op),
                       {var, Operand::imm(ConstInt(1, int_type->get_width(),
                                                   int_type->is_signed()),
-                                         reg.type)},
-                      reg.type);
+                                         expr_type)},
+                      expr_type);
 
         write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
         last_result = Operand::reg(dest);
@@ -125,17 +131,17 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
     }
     case UnOp::LogicNot:
     case UnOp::BitNot: {
-        auto dest = emit_inst(get_ir_op(expr_op), {var}, reg.type);
+        auto dest = emit_inst(get_ir_op(expr_op), {var}, expr_type);
         last_result = Operand::reg(dest);
         break;
     }
     case UnOp::Neg: {
-        const auto* type = ctxt->ty->get(reg.type);
+        const auto* type = ctxt->ty->get(expr_type);
         if (type->is_integral()) {
-            auto dest = emit_inst(IROp::INeg, {var}, reg.type);
+            auto dest = emit_inst(IROp::INeg, {var}, expr_type);
             last_result = Operand::reg(dest);
         } else if (type->is_float()) {
-            auto dest = emit_inst(IROp::FNeg, {var}, reg.type);
+            auto dest = emit_inst(IROp::FNeg, {var}, expr_type);
             last_result = Operand::reg(dest);
         } else
             panic("Invalid type for negation operator");
@@ -149,15 +155,21 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
 
 void IRBuilder::visit(ast::PostfixExpr& expr) {
     const auto var = emit_op(expr.expr.get());
-    const auto reg = var.as_reg();
+    const auto expr_type = [&] {
+        if (var.is_reg())
+            return var.as_reg().type;
+        if (var.is_imm())
+            return var.as_imm().type;
+        panic("Invalid unary operand");
+    }();
 
-    const auto* int_type = ctxt->ty->get_as<type::IntegerType>(reg.type);
+    const auto* int_type = ctxt->ty->get_as<type::IntegerType>(expr_type);
 
     auto dest = emit_inst(get_int_ir_op(expr.op),
                           {var, Operand::imm(ConstInt(1, int_type->get_width(),
                                                       int_type->is_signed()),
-                                             reg.type)},
-                          reg.type);
+                                             expr_type)},
+                          expr_type);
     write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
     last_result = var;
 }

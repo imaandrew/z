@@ -494,7 +494,8 @@ void SemChecker::visit(ast::Block& block) {
     is_stmt_reachable = ReachableStatus::Reachable;
     for (auto& stmt : block.stmts) {
         if (is_stmt_reachable == ReachableStatus::Unreachable) {
-            ctxt->diag.emit(stmt->get_span(), DiagnosticKind::UnreachableStmt);
+            // ctxt->diag.emit(stmt->get_span(),
+            // DiagnosticKind::UnreachableStmt);
             is_stmt_reachable = ReachableStatus::WarningEmitted;
         }
         stmt->accept(*this);
