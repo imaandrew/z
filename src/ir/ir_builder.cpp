@@ -428,10 +428,8 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     auto ret_block = new_block();
     auto& exit_block = current_func->get_block(*current_block);
-    if (!exit_block.term) {
+    if (!exit_block.term)
         add_pending_return(last_result);
-        exit_block.term = TerminatorKind::Jump;
-    }
 
     switch_block(ret_block);
 
@@ -443,7 +441,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
         ret_reg = emit_phi(func.ret);
     }
 
-    for (auto& [from, val] : pending_returns) {
+    for (auto& [from, val] : deferred_returns) {
         switch_block(from);
         if (val && ret_phi_inst) {
             add_phi_operand(*ret_phi_inst, ensure_reg(*val).as_reg(), from);
@@ -460,7 +458,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
         ret_reg = simplified;
     }
 
-    pending_returns.clear();
+    deferred_returns.clear();
 
     switch_block(ret_block);
     if (ret_reg)
@@ -471,9 +469,14 @@ void IRBuilder::visit(ast::FuncDecl& func) {
     current_func->get_block(ret_block).term = TerminatorKind::Return;
 }
 
-void IRBuilder::visit(ast::BreakStmt& stmt) {}
+void IRBuilder::visit(ast::BreakStmt& stmt) {
+    if (stmt.expr)
+        add_deferred_break(emit_op(stmt.expr.get()));
+    else
+        add_deferred_break(std::nullopt);
+}
 
-void IRBuilder::visit(ast::ContinueStmt& stmt) {}
+void IRBuilder::visit(ast::ContinueStmt& /*stmt*/) { add_deferred_continue(); }
 
 void IRBuilder::visit(ast::ForExpr& expr) {}
 
@@ -495,8 +498,6 @@ void IRBuilder::visit(ast::IfExpr& expr) {
     auto then_block = new_block();
     auto branch_source = *current_block;
 
-    current_func->get_block(branch_source).term = TerminatorKind::Branch;
-    current_func->get_block(then_block).predecessors.push_back(branch_source);
     switch_block(then_block);
     seal_block(current_func->get_block(then_block));
 
@@ -512,8 +513,6 @@ void IRBuilder::visit(ast::IfExpr& expr) {
 
         // Else
         auto else_block = new_block();
-        current_func->get_block(else_block)
-            .predecessors.push_back(branch_source);
         switch_block(else_block);
         seal_block(current_func->get_block(else_block));
         expr.else_expr->accept(*this);
@@ -525,8 +524,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
             current_func->get_block(else_exit).term.has_value();
 
         switch_block(branch_source);
-        emit_inst(IROp::Branch, {cond, Operand::label(then_block),
-                                 Operand::label(else_block)});
+        emit_branch(cond, then_block, else_block);
 
         if (then_returned && else_returned) {
             last_result = std::nullopt;
@@ -536,19 +534,13 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         auto end_block = new_block();
 
         if (!then_returned) {
-            current_func->get_block(else_exit).term = TerminatorKind::Jump;
-            switch_block(then_block);
-            emit_inst(IROp::Jump, {Operand::label(end_block)});
-            current_func->get_block(end_block).predecessors.push_back(
-                else_exit);
+            switch_block(then_exit);
+            emit_jump(end_block);
         }
 
         if (!else_returned) {
-            current_func->get_block(else_exit).term = TerminatorKind::Jump;
-            switch_block(else_block);
-            emit_inst(IROp::Jump, {Operand::label(end_block)});
-            current_func->get_block(end_block).predecessors.push_back(
-                else_exit);
+            switch_block(else_exit);
+            emit_jump(end_block);
         }
 
         switch_block(end_block);
@@ -566,23 +558,13 @@ void IRBuilder::visit(ast::IfExpr& expr) {
 
     } else {
         expr.block->accept(*this);
-        current_func->get_block(*current_block).term = TerminatorKind::Jump;
 
         auto end_block = new_block();
 
+        emit_jump(end_block);
+
         switch_block(branch_source);
-        emit_inst(IROp::Branch, {cond, Operand::label(then_block),
-                                 Operand::label(end_block)});
-
-        if (!current_func->get_block(*current_block).term) {
-            emit_inst(IROp::Jump, {Operand::label(end_block)});
-            current_func->get_block(end_block).predecessors.push_back(
-                *current_block);
-            current_func->get_block(*current_block).term = TerminatorKind::Jump;
-        }
-
-        current_func->get_block(end_block).predecessors.push_back(
-            branch_source);
+        emit_branch(cond, then_block, end_block);
 
         switch_block(end_block);
         seal_block(current_func->get_block(end_block));
@@ -598,7 +580,43 @@ void IRBuilder::visit(ast::ElseExpr& expr) {
 
 void IRBuilder::visit(ast::LoopExpr& expr) {}
 
-void IRBuilder::visit(ast::WhileExpr& expr) {}
+void IRBuilder::visit(ast::WhileExpr& expr) {
+    auto cond_block = new_block();
+
+    seal_block(current_func->get_block(*current_block));
+    emit_jump(cond_block);
+    switch_block(cond_block);
+
+    auto cond = emit_op(expr.expr.get());
+
+    auto body_block = new_block();
+    switch_block(body_block);
+
+    expr.block->accept(*this);
+    emit_jump(cond_block);
+    switch_block(cond_block);
+
+    auto end_block = new_block();
+    emit_branch(cond, body_block, end_block);
+    seal_block(current_func->get_block(cond_block));
+    seal_block(current_func->get_block(body_block));
+
+    for (const auto& jump : deferred_loop_jumps) {
+        switch_block(jump.from_block);
+        if (jump.type == DeferredJumpType::Break) {
+            if (jump.value)
+                last_result = ensure_reg(*jump.value);
+
+            emit_jump(end_block);
+        } else {
+            emit_jump(cond_block);
+        }
+    }
+    deferred_loop_jumps.clear();
+
+    switch_block(end_block);
+    seal_block(current_func->get_block(end_block));
+}
 
 void IRBuilder::visit(ast::StringExpr& expr) {}
 

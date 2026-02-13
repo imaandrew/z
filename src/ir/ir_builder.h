@@ -28,11 +28,26 @@ class IRBuilder final : public ast::ASTVisitor {
         bool sealed = false;
     };
 
-    struct PendingReturn {
+    enum class DeferredJumpType : std::uint8_t {
+        Break,
+        Continue,
+    };
+
+    struct DeferredJump {
+        DeferredJumpType type;
         BlockID from_block;
         std::optional<Operand> value;
 
-        PendingReturn(BlockID from_block, std::optional<Operand> value)
+        DeferredJump(DeferredJumpType type, BlockID from_block,
+                     std::optional<Operand> value)
+            : type(type), from_block(from_block), value(value) {}
+    };
+
+    struct DeferredReturn {
+        BlockID from_block;
+        std::optional<Operand> value;
+
+        DeferredReturn(BlockID from_block, std::optional<Operand> value)
             : from_block(from_block), value(value) {}
     };
 
@@ -46,7 +61,8 @@ class IRBuilder final : public ast::ASTVisitor {
     std::optional<BlockID> current_block;
     BlockBuildState* current_block_state{};
 
-    std::vector<PendingReturn> pending_returns;
+    std::vector<DeferredReturn> deferred_returns;
+    std::vector<DeferredJump> deferred_loop_jumps;
 
     void visit(ast::Identifier& ident) override;
     void visit(ast::IntExpr& expr) override;
@@ -186,7 +202,37 @@ class IRBuilder final : public ast::ASTVisitor {
             val = std::make_optional<Operand>(ensure_reg(*val).as_reg());
         }
 
-        pending_returns.emplace_back(*current_block, val);
+        deferred_returns.emplace_back(*current_block, val);
+    }
+
+    void add_deferred_break(std::optional<Operand> val) {
+        deferred_loop_jumps.emplace_back(DeferredJumpType::Break,
+                                         *current_block, val);
+        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+    }
+
+    void add_deferred_continue() {
+        deferred_loop_jumps.emplace_back(DeferredJumpType::Continue,
+                                         *current_block, std::nullopt);
+        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+    }
+
+    void emit_jump(BlockID to) {
+        if (current_func->get_block(*current_block).term)
+            return;
+        emit_inst(IROp::Jump, {Operand::label(to)});
+        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+        current_func->get_block(to).predecessors.push_back(*current_block);
+    }
+
+    void emit_branch(Operand cond, BlockID _true, BlockID _false) {
+        if (current_func->get_block(*current_block).term)
+            return;
+        emit_inst(IROp::Branch,
+                  {cond, Operand::label(_true), Operand::label(_false)});
+        current_func->get_block(*current_block).term = TerminatorKind::Branch;
+        current_func->get_block(_true).predecessors.push_back(*current_block);
+        current_func->get_block(_false).predecessors.push_back(*current_block);
     }
 
     /*
@@ -230,6 +276,10 @@ class IRBuilder final : public ast::ASTVisitor {
         auto& state = block_state[block_id];
         auto& block = current_func->get_block(block_id);
 
+        auto saved_block = current_block;
+        auto* saved_state = current_block_state;
+        switch_block(block_id);
+
         if (!state.sealed) {
             auto id = get_inst_id();
             auto phi = emit_phi(*ctxt->syms->get_var(var));
@@ -243,8 +293,10 @@ class IRBuilder final : public ast::ASTVisitor {
             write_var(var, block_id, phi);
             val = add_phi_operands(var, block, inst_id);
         }
-
         write_var(var, block_id, val);
+
+        current_block = saved_block;
+        current_block_state = saved_state;
         return val;
     }
 
