@@ -370,9 +370,27 @@ void IRBuilder::visit(ast::ArrayInitExpr& expr) {
     last_result = Operand::reg(result);
 }
 
-void IRBuilder::visit(ast::StructExprField& expr) {}
+void IRBuilder::visit(ast::StructExprField& expr) { expr.val->accept(*this); }
 
-void IRBuilder::visit(ast::StructInitExpr& expr) {}
+void IRBuilder::visit(ast::StructInitExpr& expr) {
+    const auto* struct_type =
+        ctxt->ty->get_as<type::StructType>(expr.node_type);
+    assert(struct_type);
+
+    std::vector<Operand> fields;
+    fields.reserve(expr.fields.size() + 1);
+    const auto* ident = ast::cast<ast::Identifier>(expr.ident.get());
+    fields.push_back(Operand::imm(ident->get_id(), ident->node_type));
+
+    for (auto& field : expr.fields) {
+        field->accept(*this);
+        auto id = *struct_type->get_field_index(field->ident->get_id());
+        fields.insert(fields.begin() + id + 1, *last_result);
+    }
+
+    auto result = emit_inst(IROp::StructInit, fields, expr.node_type);
+    last_result = Operand::reg(result);
+}
 
 void IRBuilder::visit(ast::TupleExpr& expr) {
     const auto first = emit_op(expr.first.get());

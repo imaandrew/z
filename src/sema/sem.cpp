@@ -727,10 +727,10 @@ void SemChecker::visit(ast::StructField& /*field*/) {}
 
 void SemChecker::visit(ast::StructDecl& decl) {
     const auto* struct_type =
-        ctxt->ty->get_as<type::StructType>(decl.ident->node_type);
+        ctxt->ty->get_as<type::StructType>(decl.node_type);
     assert(struct_type && "StructDecl has type StructType");
 
-    if (is_recursive_struct(struct_type, decl.ident->node_type)) {
+    if (is_recursive_struct(struct_type, decl.node_type)) {
         ctxt->diag.emit(decl.ident->get_span(),
                         DiagnosticKind::RecursiveStructDefiniton,
                         ctxt->strings->get_string(decl.ident->get_id()));
