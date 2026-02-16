@@ -720,9 +720,13 @@ void IRBuilder::visit(ast::WhileExpr& expr) {
     seal_block(current_func->get_block(end_block));
 }
 
-void IRBuilder::visit(ast::StringExpr& expr) {}
+void IRBuilder::visit(ast::StringExpr& expr) {
+    last_result = Operand::imm(expr.string, expr.node_type);
+}
 
-void IRBuilder::visit(ast::CharExpr& expr) {}
+void IRBuilder::visit(ast::CharExpr& expr) {
+    last_result = Operand::imm(expr.c, expr.node_type);
+}
 
 void IRBuilder::visit(ast::StructField& field) {}
 

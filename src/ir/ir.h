@@ -243,7 +243,7 @@ struct VReg {
 };
 
 struct Immediate {
-    std::variant<ConstInt, ConstFloat, bool> val;
+    std::variant<ConstInt, ConstFloat, bool, StringID, unsigned char> val;
     type::TypeRef type;
 
     [[nodiscard]] bool is_int() const {
@@ -258,6 +258,14 @@ struct Immediate {
         return std::holds_alternative<bool>(val);
     }
 
+    [[nodiscard]] bool is_string() const {
+        return std::holds_alternative<StringID>(val);
+    }
+
+    [[nodiscard]] bool is_char() const {
+        return std::holds_alternative<unsigned char>(val);
+    }
+
     [[nodiscard]] const ConstInt& as_int() const {
         return std::get<ConstInt>(val);
     }
@@ -267,6 +275,12 @@ struct Immediate {
     }
 
     [[nodiscard]] bool as_bool() const { return std::get<bool>(val); }
+
+    [[nodiscard]] StringID as_string() const { return std::get<StringID>(val); }
+
+    [[nodiscard]] unsigned char as_char() const {
+        return std::get<unsigned char>(val);
+    }
 };
 
 template <typename T>

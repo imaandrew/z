@@ -16,7 +16,7 @@ class IRPrinter {
     void dump_ir(const IRFunction& func, std::ostream& os) const;
     void dump_inst(const Instruction& inst, std::ostream& os) const;
     void dump_operand(const Operand& op, std::ostream& os) const;
-    static void dump_immediate(const Immediate& imm, std::ostream& os);
+    void dump_immediate(const Immediate& imm, std::ostream& os) const;
     static void dump_terminator(TerminatorKind term, std::ostream& os);
     static constexpr std::string ir_op_to_string(IROp op);
     static std::string tolower(std::string_view s);

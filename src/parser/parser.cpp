@@ -697,12 +697,15 @@ ExprResult Parser::parse_expr(const int precedence,
         next_token();
         break;
     case TokenKind::String: {
-        lhs = std::make_unique<ast::StringExpr>(tok.get_span());
+        lhs = std::make_unique<ast::StringExpr>(
+            tok.get_span(),
+            strings->intern(source->get_string(tok.get_span())));
         next_token();
         break;
     }
     case TokenKind::Char:
-        lhs = std::make_unique<ast::CharExpr>(tok.get_span());
+        lhs = std::make_unique<ast::CharExpr>(
+            tok.get_span(), source->get_char(tok.get_span().index).value());
         next_token();
         break;
     case TokenKind::PlusPlus:

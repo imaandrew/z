@@ -159,7 +159,7 @@ void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
     }
 }
 
-void IRPrinter::dump_immediate(const Immediate& imm, std::ostream& os) {
+void IRPrinter::dump_immediate(const Immediate& imm, std::ostream& os) const {
     if (imm.is_int()) {
         const auto& i = imm.as_int();
         std::print(os, "{}", i.is_negative() ? i.get_signed() : i.get_bits());
@@ -169,6 +169,10 @@ void IRPrinter::dump_immediate(const Immediate& imm, std::ostream& os) {
     } else if (imm.is_bool()) {
         auto b = imm.as_bool();
         os << (b ? "true" : "false");
+    } else if (imm.is_string()) {
+        std::print(os, "\"{}\"", ctxt->strings->get_string(imm.as_string()));
+    } else if (imm.is_char()) {
+        std::print(os, "'{}'", imm.as_char());
     }
 }
 

@@ -1183,16 +1183,17 @@ struct WhileExpr final : Expr {
 };
 
 struct StringExpr final : Expr {
-    Span span;
+    StringID string;
 
     static constexpr ASTKind Kind = ASTKind::StringExpr;
 
-    explicit StringExpr(Span span) : Expr(Kind, span), span(span) {};
+    explicit StringExpr(Span span, StringID string)
+        : Expr(Kind, span), string(string) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "String '"
-               << ctxt->src->get_string(span) << '\'';
+               << ctxt->strings->get_string(string) << '\'';
         dump_type(ctxt, stream);
     }
 
@@ -1200,16 +1201,15 @@ struct StringExpr final : Expr {
 };
 
 struct CharExpr final : Expr {
-    Span span;
+    unsigned char c;
 
     static constexpr ASTKind Kind = ASTKind::CharExpr;
 
-    explicit CharExpr(Span span) : Expr(Kind, span), span(span) {};
+    explicit CharExpr(Span span, unsigned char c) : Expr(Kind, span), c(c) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Char '"
-               << ctxt->src->get_string(span) << '\'';
+        stream << std::string(indent, ' ') << "Char '" << c << '\'';
         dump_type(ctxt, stream);
     }
 
