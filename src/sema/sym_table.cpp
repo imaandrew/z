@@ -149,4 +149,16 @@ void SymbolTable::update_type(StringID name, type::TypeRef& new_type) {
 
     return false;
 }
+
+[[nodiscard]] bool SymbolTable::is_var_local(StringID name) const {
+    for (const auto* scope : stack) {
+        if (scope == stack.front())
+            continue;
+
+        if (scope->get_var(name))
+            return true;
+    }
+
+    return false;
+}
 } // namespace z

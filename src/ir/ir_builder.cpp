@@ -82,6 +82,12 @@ std::optional<bool> fold_bool_op(BinOp op, bool lhs, bool rhs) {
 } // namespace
 
 void IRBuilder::visit(ast::Identifier& ident) {
+    if (!ctxt->syms->is_var_local(ident.get_id()) &&
+        constants.contains(ident.get_id())) {
+        last_result = constants.at(ident.get_id());
+        return;
+    }
+
     last_result = Operand::reg(read_var(ident.get_id()));
 }
 
@@ -417,6 +423,9 @@ void IRBuilder::visit(ast::Param& param) {
 }
 
 void IRBuilder::visit(ast::SourceFileDecl& file) {
+    for (const auto& decl : file.const_decls)
+        decl->accept(*this);
+
     for (const auto& decl : file.decls) {
         decl->accept(*this);
     }
@@ -446,8 +455,12 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     auto ret_block = new_block();
     auto& exit_block = current_func->get_block(*current_block);
-    if (!exit_block.term)
+    if (!exit_block.term) {
+        if (func.body->node_type == type::TypeArena::VOID)
+            add_pending_return(std::nullopt);
+        else
         add_pending_return(last_result);
+    }
 
     switch_block(ret_block);
 
@@ -754,7 +767,10 @@ void IRBuilder::visit(ast::EnumField& field) {}
 
 void IRBuilder::visit(ast::EnumDecl& decl) {}
 
-void IRBuilder::visit(ast::ConstDecl& decl) {}
+void IRBuilder::visit(ast::ConstDecl& decl) {
+    const auto val = emit_op(decl.val.get());
+    constants.emplace(decl.ident->get_id(), val);
+}
 
 void IRBuilder::visit(ast::StaticDecl& decl) {}
 

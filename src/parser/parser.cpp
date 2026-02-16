@@ -85,10 +85,12 @@ std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
     auto span = tok.get_span();
 
     std::vector<std::unique_ptr<ast::Decl>> decls;
+    std::vector<std::unique_ptr<ast::Decl>> const_decls;
 
     DeclResult decl;
     while (!tok.is(TokenKind::Eof)) {
-        switch (tok.get_kind()) {
+        const auto kind = tok.get_kind();
+        switch (kind) {
         case TokenKind::KwStruct:
             decl = parse_struct_decl();
             break;
@@ -118,14 +120,18 @@ std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
         }
 
         if (decl.is_valid()) {
-            decls.push_back(decl.take());
+            if (kind == TokenKind::KwConst)
+                const_decls.push_back(decl.take());
+            else
+                decls.push_back(decl.take());
         } else {
             recover_decl();
         }
     }
 
     span += tok.get_span();
-    return std::make_unique<ast::SourceFileDecl>(span, std::move(decls));
+    return std::make_unique<ast::SourceFileDecl>(span, std::move(decls),
+                                                 std::move(const_decls));
 }
 
 DeclResult Parser::parse_struct_decl() {

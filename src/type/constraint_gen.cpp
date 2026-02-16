@@ -223,6 +223,9 @@ void ConstraintGenerator::visit(ast::Param& param) {
 }
 
 void ConstraintGenerator::visit(ast::SourceFileDecl& file) {
+    for (auto& decl : file.const_decls)
+        decl->accept(*this);
+
     for (auto& decl : file.decls)
         decl->accept(*this);
 }

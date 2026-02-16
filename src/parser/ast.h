@@ -826,16 +826,25 @@ struct Decl : ASTNode {
 
 struct SourceFileDecl : Decl {
     std::vector<std::unique_ptr<Decl>> decls;
+    std::vector<std::unique_ptr<Decl>> const_decls;
 
     static constexpr ASTKind Kind = ASTKind::SourceFileDecl;
 
-    SourceFileDecl(Span span, std::vector<std::unique_ptr<Decl>> decls)
-        : Decl(Kind, span), decls(std::move(decls)) {}
+    SourceFileDecl(Span span, std::vector<std::unique_ptr<Decl>> decls,
+                   std::vector<std::unique_ptr<Decl>> const_decls)
+        : Decl(Kind, span), decls(std::move(decls)),
+          const_decls(std::move(const_decls)) {}
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         stream << std::string(indent, ' ') << "SourceFileDecl";
         dump_type(ctxt, stream);
+        stream << std::string(indent + 2, ' ') << "Consts:";
+        for (const auto& decl : const_decls) {
+            decl->dump(ctxt, indent + 2, stream);
+        }
+        stream << std::string(indent + 2, ' ') << "----";
+
         for (const auto& decl : decls) {
             decl->dump(ctxt, indent + 2, stream);
         }
@@ -844,6 +853,9 @@ struct SourceFileDecl : Decl {
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     std::generator<ASTNode*> children() override {
+        for (const auto& decl : const_decls)
+            co_yield decl.get();
+
         for (const auto& decl : decls)
             co_yield decl.get();
     }

@@ -53,6 +53,7 @@ public:
     void update_type(StringID name, type::TypeRef& type);
     [[nodiscard]] bool is_var_initialized(StringID name) const;
     [[nodiscard]] bool is_var_const(StringID name) const;
+    [[nodiscard]] bool is_var_local(StringID name) const;
     ScopeContext* get_current_scope() { return stack.back(); }
     ScopeContext& get_scope(ScopeID scope) { return scopes[scope.id]; }
 };

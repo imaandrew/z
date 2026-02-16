@@ -506,6 +506,9 @@ void SemChecker::visit(ast::Block& block) {
 void SemChecker::visit(ast::Param& /*param*/) {}
 
 void SemChecker::visit(ast::SourceFileDecl& file) {
+    for (auto& decl : file.const_decls)
+        decl->accept(*this);
+
     for (auto& decl : file.decls)
         decl->accept(*this);
 }

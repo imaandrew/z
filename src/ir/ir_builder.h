@@ -64,6 +64,8 @@ class IRBuilder final : public ast::ASTVisitor {
     std::vector<DeferredReturn> deferred_returns;
     std::vector<DeferredJump> deferred_loop_jumps;
 
+    std::unordered_map<StringID, Operand> constants;
+
     void visit(ast::Identifier& ident) override;
     void visit(ast::IntExpr& expr) override;
     void visit(ast::FloatExpr& expr) override;

@@ -8,9 +8,15 @@
 namespace z::type {
 
 void TypeResolver::resolve_decls(const ast::SourceFileDecl* file) const {
+    for (const auto& decl : file->const_decls)
+        decl->declare_type(ctxt);
+
     for (const auto& decl : file->decls) {
         decl->declare_type(ctxt);
     }
+
+    for (const auto& decl : file->const_decls)
+        decl->resolve_sym(ctxt);
 
     for (const auto& decl : file->decls) {
         decl->resolve_sym(ctxt);
