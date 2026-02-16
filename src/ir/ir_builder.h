@@ -145,7 +145,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
     VReg emit_inst(IROp op, std::initializer_list<Operand> ops,
                    type::TypeRef dest_type) {
-        const auto inst_id = InstId(get_inst_id());
+        const auto inst_id = get_inst_id();
         const auto dest = emit_reg(dest_type, inst_id);
 
         for (const auto& op : ops) {
@@ -161,7 +161,7 @@ class IRBuilder final : public ast::ASTVisitor {
     }
 
     VReg emit_inst(IROp op, std::vector<Operand> ops, type::TypeRef dest_type) {
-        const auto inst_id = InstId(get_inst_id());
+        const auto inst_id = get_inst_id();
         const auto dest = emit_reg(dest_type, inst_id);
 
         for (const auto& op : ops) {
@@ -177,7 +177,7 @@ class IRBuilder final : public ast::ASTVisitor {
     }
 
     void emit_inst(IROp op, std::initializer_list<Operand> ops) {
-        const auto inst_id = InstId(get_inst_id());
+        const auto inst_id = get_inst_id();
 
         for (const auto& op : ops) {
             if (op.is_reg()) {

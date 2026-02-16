@@ -443,11 +443,11 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     for (auto& [from, val] : deferred_returns) {
         switch_block(from);
+        current_func->get_block(from).term = std::nullopt;
         if (val && ret_phi_inst) {
             add_phi_operand(*ret_phi_inst, ensure_reg(*val).as_reg(), from);
         }
-        emit_inst(IROp::Jump, {Operand::label(ret_block)});
-        current_func->get_block(ret_block).predecessors.push_back(from);
+        emit_jump(ret_block);
     }
 
     seal_block(current_func->get_block(ret_block));
@@ -480,7 +480,13 @@ void IRBuilder::visit(ast::ContinueStmt& /*stmt*/) { add_deferred_continue(); }
 
 void IRBuilder::visit(ast::ForExpr& expr) {}
 
-void IRBuilder::visit(ast::LetStmt& stmt) {}
+void IRBuilder::visit(ast::LetStmt& stmt) {
+    if (stmt.val) {
+        auto val = emit_op(stmt.val.get());
+        auto reg = ensure_reg(val).as_reg();
+        write_var(stmt.ident->get_id(), reg);
+    }
+}
 
 void IRBuilder::visit(ast::ReturnStmt& stmt) {
     std::optional<Operand> val;
@@ -578,7 +584,102 @@ void IRBuilder::visit(ast::ElseExpr& expr) {
         expr.block->accept(*this);
 }
 
-void IRBuilder::visit(ast::LoopExpr& expr) {}
+void IRBuilder::visit(ast::LoopExpr& expr) {
+    if (expr.expr) {
+        auto max_loop_cnt = ensure_reg(emit_op(expr.expr.get()));
+        auto loop_cnt = Operand::reg(emit_inst(
+            IROp::LoadConst,
+            {Operand::imm(ConstInt(0, 64, false), type::TypeArena::U64)},
+            type::TypeArena::U64));
+        auto entry_block = *current_block;
+
+        auto cond_block = new_block();
+        seal_block(current_func->get_block(*current_block));
+        emit_jump(cond_block);
+        switch_block(cond_block);
+
+        auto cnt_reg_id = get_inst_id();
+        auto cnt_reg = emit_phi(type::TypeArena::U64);
+
+        add_phi_operand(cnt_reg_id, loop_cnt.as_reg(), entry_block);
+
+        auto cond = emit_inst(IROp::ICmp,
+                              {Operand::intcc(IntCC::UnsignedLessThan),
+                               Operand::reg(cnt_reg), max_loop_cnt},
+                              type::TypeArena::BOOL);
+
+        auto body_block = new_block();
+        switch_block(body_block);
+        expr.block->accept(*this);
+
+        auto inc_block = new_block();
+        emit_jump(inc_block);
+
+        seal_block(current_func->get_block(inc_block));
+        switch_block(inc_block);
+
+        const auto new_loop_cnt =
+            emit_inst(IROp::IAdd,
+                      std::vector<Operand>{Operand::reg(cnt_reg),
+                                           Operand::imm(ConstInt(0, 64, false),
+                                                        type::TypeArena::U64)},
+                      type::TypeArena::U64);
+
+        add_phi_operand(cnt_reg_id, new_loop_cnt, *current_block);
+
+        emit_jump(cond_block);
+        switch_block(cond_block);
+        auto end_block = new_block();
+        emit_branch(Operand::reg(cond), body_block, end_block);
+        seal_block(current_func->get_block(cond_block));
+        seal_block(current_func->get_block(body_block));
+
+        for (const auto& jump : deferred_loop_jumps) {
+            switch_block(jump.from_block);
+            if (jump.type == DeferredJumpType::Break) {
+                if (jump.value)
+                    last_result = ensure_reg(*jump.value);
+
+                emit_jump(end_block);
+            } else {
+                emit_jump(cond_block);
+            }
+        }
+        deferred_loop_jumps.clear();
+
+        switch_block(end_block);
+        seal_block(current_func->get_block(end_block));
+    } else {
+        auto loop_body = new_block();
+
+        seal_block(current_func->get_block(*current_block));
+        emit_jump(loop_body);
+        switch_block(loop_body);
+
+        expr.block->accept(*this);
+        emit_jump(loop_body);
+        seal_block(current_func->get_block(loop_body));
+
+        auto end_block = new_block();
+
+        for (const auto& jump : deferred_loop_jumps) {
+            current_func->get_block(jump.from_block).term = std::nullopt;
+            switch_block(jump.from_block);
+            if (jump.type == DeferredJumpType::Break) {
+                if (jump.value)
+                    last_result = ensure_reg(*jump.value);
+
+                emit_jump(end_block);
+            } else {
+                emit_jump(loop_body);
+            }
+        }
+        deferred_loop_jumps.clear();
+
+        switch_block(end_block);
+        seal_block(current_func->get_block(end_block));
+    }
+}
 
 void IRBuilder::visit(ast::WhileExpr& expr) {
     auto cond_block = new_block();
@@ -603,6 +704,7 @@ void IRBuilder::visit(ast::WhileExpr& expr) {
 
     for (const auto& jump : deferred_loop_jumps) {
         switch_block(jump.from_block);
+        current_func->get_block(jump.from_block).term = std::nullopt;
         if (jump.type == DeferredJumpType::Break) {
             if (jump.value)
                 last_result = ensure_reg(*jump.value);
