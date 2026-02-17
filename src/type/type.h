@@ -68,7 +68,8 @@ public:
 
     virtual void dump(ZContext* ctxt,
                       std::ostream& stream = std::cout) const = 0;
-    [[nodiscard]] virtual std::string basic_name(const ZContext* ctxt) const = 0;
+    [[nodiscard]] virtual std::string
+    basic_name(const ZContext* ctxt) const = 0;
 };
 
 template <typename T> bool isa(const Type* type) {
@@ -100,24 +101,34 @@ template <typename T> const T* cast(const Type* type) {
 class IntegerType final : public Type {
     int bit_width;
     bool _signed;
+    bool _size_type = false;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Integer;
 
     IntegerType(const int bit_width, const bool is_signed)
-        : Type(Kind), bit_width(bit_width), _signed(is_signed) {};
+        : Type(Kind), bit_width(bit_width), _signed(is_signed) {}
 
-    static TypeKey make_key(const int bit_width, const bool is_signed) {
-        return make_type_key(Kind, bit_width, is_signed);
+    explicit IntegerType(const bool is_signed)
+        : Type(Kind), bit_width(sizeof(std::size_t)), _signed(is_signed),
+          _size_type(true) {}
+
+    static TypeKey make_key(const int bit_width, const bool is_signed,
+                            const bool size_type) {
+        return make_type_key(Kind, bit_width, is_signed, size_type);
     }
 
     [[nodiscard]] int get_width() const { return bit_width; }
 
     [[nodiscard]] bool is_signed() const { return _signed; }
 
+    [[nodiscard]] bool is_size_type() const { return _size_type; }
+
     bool operator==(const Type& other) const override {
         if (const auto* other_ = dyn_cast<IntegerType>(&other)) {
-            return bit_width == other_->bit_width && _signed == other_->_signed;
+            return bit_width == other_->bit_width &&
+                   _signed == other_->_signed &&
+                   _size_type == other_->_size_type;
         }
 
         return false;
@@ -133,7 +144,10 @@ public:
                << ", is_signed: " << _signed << " }";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
+        if (_size_type)
+            return std::format("{}size", _signed ? "i" : "u");
         return std::format("{}{}", _signed ? "i" : "u", bit_width);
     }
 };
@@ -170,7 +184,8 @@ public:
         stream << "FloatType { bit_width: " << bit_width << " }";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return std::format("f{}", bit_width);
     }
 };
@@ -190,7 +205,8 @@ public:
         stream << "BooleanType";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return "bool";
     }
 };
@@ -210,7 +226,8 @@ public:
 
     [[nodiscard]] bool is_iterable() const override { return true; }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return "string";
     }
 };
@@ -228,7 +245,8 @@ public:
         stream << "CharType";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return "char";
     }
 };
@@ -331,7 +349,8 @@ public:
         stream << "UnknownType { ident: }";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return "unk";
     }
 };
@@ -618,7 +637,8 @@ public:
         stream << "VoidType";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return "()";
     }
 };
@@ -638,7 +658,8 @@ public:
         stream << "InvalidType";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return "invalid_type";
     }
 };
@@ -694,7 +715,8 @@ public:
                << " }";
     }
 
-    [[nodiscard]] std::string basic_name(const ZContext* /*ctxt*/) const override {
+    [[nodiscard]] std::string
+    basic_name(const ZContext* /*ctxt*/) const override {
         return std::format("?{}", id);
     }
 };
