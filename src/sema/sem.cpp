@@ -101,28 +101,28 @@ void SemChecker::visit(ast::PrefixExpr& expr) {
                             DiagnosticKind::InvalidUnaryOperand, expr.op,
                             type->basic_name(ctxt));
         }
-        break;
+        return;
     case UnOp::LogicNot:
         if (!type->is_logical()) {
             ctxt->diag.emit(expr.expr->get_span(),
                             DiagnosticKind::InvalidUnaryOperand, expr.op,
                             type->basic_name(ctxt));
         }
-        break;
+        return;
     case UnOp::BitNot:
         if (!type->is_integral()) {
             ctxt->diag.emit(expr.expr->get_span(),
                             DiagnosticKind::InvalidUnaryOperand, expr.op,
                             type->basic_name(ctxt));
         }
-        break;
+        return;
     case UnOp::Neg:
         if (!type->is_numeric()) {
             ctxt->diag.emit(expr.expr->get_span(),
                             DiagnosticKind::InvalidUnaryOperand, expr.op,
                             type->basic_name(ctxt));
         }
-        break;
+        return;
     }
 
     std::unreachable();
@@ -144,7 +144,7 @@ void SemChecker::visit(ast::PostfixExpr& expr) {
                 expr.expr->get_span(), DiagnosticKind::InvalidUnaryOperand,
                 expr.op, ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt));
         }
-        break;
+        return;
     case ast::UnOp::Neg:
     case ast::UnOp::BitNot:
     case ast::UnOp::LogicNot:

@@ -49,9 +49,6 @@ public:
     }
 
     [[nodiscard]] Type* get(TypeRef ref) const {
-        expect(ref.is_valid(), "Tried to get invalid TypeRef: {}",
-               ref.get_id());
-
         return types[ref.get_id()].get();
     }
 

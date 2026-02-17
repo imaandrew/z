@@ -23,7 +23,7 @@ void ConstraintGenerator::visit(ast::FloatExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::BoolExpr& expr) {
-    expr.node_type = TypeArena::BOOL;
+    expr.node_type = builtin::BOOL;
 }
 
 void ConstraintGenerator::visit(ast::PrefixExpr& expr) {
@@ -56,8 +56,8 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case BinOp::ShrEq:
     case BinOp::Eq:
         eq(expr.lhs->node_type, expr.rhs->node_type);
-        expr.node_type = TypeArena::VOID;
-        break;
+        expr.node_type = builtin::VOID;
+        return;
     case BinOp::Range:
     case BinOp::RangeEq:
     case BinOp::BitOr:
@@ -73,11 +73,11 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
         expr.node_type = new_var();
         eq(expr.node_type, expr.lhs->node_type);
         eq(expr.node_type, expr.rhs->node_type);
-        break;
+        return;
     case BinOp::ColonColon:
         expr.node_type = new_var();
         eq(expr.node_type, expr.rhs->node_type);
-        break;
+        return;
     case BinOp::LogicOr:
     case BinOp::LogicAnd:
     case BinOp::EqEq:
@@ -87,8 +87,8 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case BinOp::Ge:
     case BinOp::Le:
         eq(expr.lhs->node_type, expr.rhs->node_type);
-        expr.node_type = TypeArena::BOOL;
-        break;
+        expr.node_type = builtin::BOOL;
+        return;
     }
 
     std::unreachable();
@@ -211,7 +211,7 @@ void ConstraintGenerator::visit(ast::Block& block) {
         if (!isa<VoidType>(ty->get(block.stmts.back()->node_type)))
             eq(block.node_type, block.stmts.back()->node_type);
         else
-            eq(block.node_type, TypeArena::VOID);
+            eq(block.node_type, builtin::VOID);
     }
 
     syms->exit_scope();
@@ -254,7 +254,7 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
 }
 
 void ConstraintGenerator::visit(ast::BreakStmt& stmt) {
-    TypeRef break_type = TypeArena::VOID;
+    TypeRef break_type = builtin::VOID;
     if (stmt.expr) {
         stmt.expr->accept(*this);
         break_type = stmt.expr->node_type;
@@ -263,11 +263,11 @@ void ConstraintGenerator::visit(ast::BreakStmt& stmt) {
     if (auto loop_result = peek_loop_result())
         eq(break_type, *loop_result);
 
-    stmt.node_type = TypeArena::VOID;
+    stmt.node_type = builtin::VOID;
 }
 
 void ConstraintGenerator::visit(ast::ContinueStmt& stmt) {
-    stmt.node_type = TypeArena::VOID;
+    stmt.node_type = builtin::VOID;
 }
 
 void ConstraintGenerator::visit(ast::ForExpr& expr) {
@@ -279,11 +279,11 @@ void ConstraintGenerator::visit(ast::ForExpr& expr) {
     // TODO: expr should be an iterator over some type T, ident should have type
     // T
 
-    push_loop_result(TypeArena::VOID);
+    push_loop_result(builtin::VOID);
     expr.block->accept(*this);
     pop_loop_result();
 
-    expr.node_type = TypeArena::VOID;
+    expr.node_type = builtin::VOID;
 }
 
 void ConstraintGenerator::visit(ast::LetStmt& stmt) {
@@ -305,7 +305,7 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
 
     syms->declare_var(stmt.ident, stmt.ident->node_type, false,
                       stmt.val != nullptr);
-    stmt.node_type = TypeArena::VOID;
+    stmt.node_type = builtin::VOID;
 }
 
 void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
@@ -314,15 +314,15 @@ void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
         stmt.expr->accept(*this);
         eq(func_type.value(), stmt.expr->node_type);
     } else {
-        eq(func_type.value(), TypeArena::VOID);
+        eq(func_type.value(), builtin::VOID);
     }
 
-    stmt.node_type = TypeArena::VOID;
+    stmt.node_type = builtin::VOID;
 }
 
 void ConstraintGenerator::visit(ast::IfExpr& expr) {
     expr.expr->accept(*this);
-    eq(expr.expr->node_type, TypeArena::BOOL);
+    eq(expr.expr->node_type, builtin::BOOL);
 
     expr.block->accept(*this);
 
@@ -364,19 +364,19 @@ void ConstraintGenerator::visit(ast::LoopExpr& expr) {
 void ConstraintGenerator::visit(ast::WhileExpr& expr) {
     expr.expr->accept(*this);
 
-    push_loop_result(TypeArena::VOID);
+    push_loop_result(builtin::VOID);
     expr.block->accept(*this);
     pop_loop_result();
 
-    expr.node_type = TypeArena::VOID;
+    expr.node_type = builtin::VOID;
 }
 
 void ConstraintGenerator::visit(ast::StringExpr& expr) {
-    expr.node_type = TypeArena::STR;
+    expr.node_type = builtin::STR;
 }
 
 void ConstraintGenerator::visit(ast::CharExpr& expr) {
-    expr.node_type = TypeArena::CHAR;
+    expr.node_type = builtin::CHAR;
 }
 
 void ConstraintGenerator::visit(ast::StructField& field) {
@@ -434,7 +434,7 @@ void ConstraintGenerator::visit(ast::EnumDecl& decl) {
 void ConstraintGenerator::visit(ast::ConstDecl& decl) {
     resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
-    decl.node_type = TypeArena::VOID;
+    decl.node_type = builtin::VOID;
 
     decl.val->accept(*this);
     eq(decl.val->node_type, decl.type);
@@ -443,7 +443,7 @@ void ConstraintGenerator::visit(ast::ConstDecl& decl) {
 void ConstraintGenerator::visit(ast::StaticDecl& decl) {
     resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
-    decl.node_type = TypeArena::VOID;
+    decl.node_type = builtin::VOID;
 
     decl.val->accept(*this);
     eq(decl.val->node_type, decl.type);
@@ -463,13 +463,13 @@ void ConstraintGenerator::visit(ast::TraitDecl& decl) {
 
     syms->exit_scope();
 
-    decl.node_type = TypeArena::VOID;
+    decl.node_type = builtin::VOID;
     decl.ident->node_type = ty->make<TraitType>(decl.ident->get_id());
 }
 void ConstraintGenerator::visit(ast::TypeAliasDecl& decl) {
     resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
-    decl.node_type = TypeArena::VOID;
+    decl.node_type = builtin::VOID;
 }
 void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
     for (auto& param : decl.params) {
@@ -499,7 +499,7 @@ void ConstraintGenerator::resolve_type_name(TypeRef& type) {
         if (t) {
             type = *t;
         } else {
-            type = TypeArena::INVALID;
+            type = builtin::INVALID;
         }
     }
 }

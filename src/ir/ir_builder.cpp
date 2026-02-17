@@ -133,13 +133,13 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
 
         write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
         last_result = Operand::reg(dest);
-        break;
+        return;
     }
     case UnOp::LogicNot:
     case UnOp::BitNot: {
         auto dest = emit_inst(get_ir_op(expr_op), {var}, expr_type);
         last_result = Operand::reg(dest);
-        break;
+        return;
     }
     case UnOp::Neg: {
         const auto* type = ctxt->ty->get(expr_type);
@@ -152,7 +152,7 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
         } else
             panic("Invalid type for negation operator");
 
-        break;
+        return;
     }
     }
     std::unreachable();
