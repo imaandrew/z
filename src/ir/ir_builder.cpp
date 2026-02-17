@@ -412,10 +412,11 @@ void IRBuilder::visit(ast::TupleExpr& expr) {
 void IRBuilder::visit(ast::Block& block) {
     ctxt->syms->enter_scope(block.get_scope_id());
 
-    for (const auto& stmts : block.stmts) {
-        stmts->accept(*this);
-        if (current_func->get_block(*current_block).term)
-            break;
+    for (const auto& stmt : block.stmts) {
+        stmt->accept(*this);
+        if (current_func->get_block(*current_block).term) {
+            ctxt->diag.emit(stmt->get_span(), DiagnosticKind::UnreachableStmt);
+        }
     }
     ctxt->syms->exit_scope();
 }
@@ -451,11 +452,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     last_result = std::nullopt;
 
-    ctxt->syms->enter_scope(func.body->get_scope_id());
-    for (const auto& stmts : func.body->stmts) {
-        stmts->accept(*this);
-    }
-    ctxt->syms->exit_scope();
+    func.body->accept(*this);
 
     auto ret_block = new_block();
     auto& exit_block = current_func->get_block(*current_block);

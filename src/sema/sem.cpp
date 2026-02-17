@@ -497,13 +497,7 @@ void SemChecker::visit(ast::TupleExpr& expr) {
 
 void SemChecker::visit(ast::Block& block) {
     ctxt->syms->enter_scope(block.get_scope_id());
-    is_stmt_reachable = ReachableStatus::Reachable;
     for (auto& stmt : block.stmts) {
-        if (is_stmt_reachable == ReachableStatus::Unreachable) {
-            // ctxt->diag.emit(stmt->get_span(),
-            // DiagnosticKind::UnreachableStmt);
-            is_stmt_reachable = ReachableStatus::WarningEmitted;
-        }
         stmt->accept(*this);
     }
     ctxt->syms->exit_scope();
@@ -557,8 +551,6 @@ void SemChecker::visit(ast::BreakStmt& stmt) {
         return;
     }
 
-    is_stmt_reachable = ReachableStatus::Unreachable;
-
     if (stmt.expr)
         stmt.expr->accept(*this);
 
@@ -581,8 +573,6 @@ void SemChecker::visit(ast::ContinueStmt& stmt) {
         ctxt->diag.emit(stmt.get_span(), DiagnosticKind::ContinueOutsideLoop);
         return;
     }
-
-    is_stmt_reachable = ReachableStatus::Unreachable;
 }
 
 void SemChecker::visit(ast::ForExpr& expr) {
@@ -634,8 +624,6 @@ void SemChecker::visit(ast::LetStmt& stmt) {
 void SemChecker::visit(ast::ReturnStmt& stmt) {
     if (stmt.expr)
         stmt.expr->accept(*this);
-
-    is_stmt_reachable = ReachableStatus::Unreachable;
 
     expect(current_return_type && (current_func_name != nullptr),
            "ReturnStmt outside function");

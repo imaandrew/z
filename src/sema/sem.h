@@ -12,12 +12,6 @@
 namespace z {
 
 class SemChecker : public ast::ASTVisitor {
-    enum class ReachableStatus : std::uint8_t {
-        Reachable,
-        Unreachable,
-        WarningEmitted
-    };
-
     struct LoopContext {
         type::TypeRef expected_type;
         Span first_break{};
@@ -28,7 +22,6 @@ class SemChecker : public ast::ASTVisitor {
     int loop_depth = 0;
     ast::Identifier* current_func_name = nullptr;
     std::optional<type::TypeRef> current_return_type;
-    ReachableStatus is_stmt_reachable = ReachableStatus::Reachable;
     std::vector<LoopContext> loop_stack;
 
 public:
