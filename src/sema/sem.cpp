@@ -521,8 +521,8 @@ void SemChecker::visit(ast::FuncDecl& func) {
                             DiagnosticKind::MainFunctionParams);
         }
 
-        if (func.ret.is_valid() && func.ret != type::TypeArena::VOID &&
-            func.ret != type::TypeArena::I32) {
+        if (func.ret.is_valid() && func.ret != type::builtin::VOID &&
+            func.ret != type::builtin::I32) {
             ctxt->diag.emit(func.name->get_span(),
                             DiagnosticKind::MainFunctionReturnType);
         }
@@ -555,7 +555,7 @@ void SemChecker::visit(ast::BreakStmt& stmt) {
         stmt.expr->accept(*this);
 
     auto& ctx = loop_stack.back();
-    auto break_type = stmt.expr ? stmt.expr->node_type : type::TypeArena::VOID;
+    auto break_type = stmt.expr ? stmt.expr->node_type : type::builtin::VOID;
 
     if (!ctx.has_break) {
         ctx.has_break = true;
@@ -629,7 +629,7 @@ void SemChecker::visit(ast::ReturnStmt& stmt) {
            "ReturnStmt outside function");
 
     const auto return_type =
-        stmt.expr ? stmt.expr->node_type : type::TypeArena::VOID;
+        stmt.expr ? stmt.expr->node_type : type::builtin::VOID;
     if (!return_type.is_valid())
         return;
 

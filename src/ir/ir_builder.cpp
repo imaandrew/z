@@ -104,7 +104,7 @@ void IRBuilder::visit(ast::FloatExpr& expr) {
 }
 
 void IRBuilder::visit(ast::BoolExpr& expr) {
-    last_result = Operand::imm(expr.val, type::TypeArena::BOOL);
+    last_result = Operand::imm(expr.val, type::builtin::BOOL);
 }
 
 void IRBuilder::visit(ast::PrefixExpr& expr) {
@@ -215,7 +215,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         if (lhs_imm.is_int() && rhs_imm.is_int()) {
             if (op == IROp::ICmp) {
                 auto res = lhs_imm.as_int().cmp(rhs_imm.as_int(), *int_cc);
-                last_result = Operand::imm(res, type::TypeArena::BOOL);
+                last_result = Operand::imm(res, type::builtin::BOOL);
                 return;
             }
 
@@ -239,7 +239,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             if (op == IROp::FCmp) {
                 auto res =
                     lhs_imm.as_float().cmp(rhs_imm.as_float(), *float_cc);
-                last_result = Operand::imm(res, type::TypeArena::BOOL);
+                last_result = Operand::imm(res, type::builtin::BOOL);
                 return;
             }
 
@@ -253,7 +253,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             auto res =
                 fold_bool_op(expr_op, lhs_imm.as_bool(), rhs_imm.as_bool());
             if (res) {
-                last_result = Operand::imm(*res, type::TypeArena::BOOL);
+                last_result = Operand::imm(*res, type::builtin::BOOL);
                 return;
             }
         }
@@ -457,7 +457,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
     auto ret_block = new_block();
     auto& exit_block = current_func->get_block(*current_block);
     if (!exit_block.term) {
-        if (func.body->node_type == type::TypeArena::VOID)
+        if (func.body->node_type == type::builtin::VOID)
             add_pending_return(std::nullopt);
         else
             add_pending_return(last_result);
@@ -468,7 +468,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
     std::optional<VReg> ret_reg;
     std::optional<InstId> ret_phi_inst;
 
-    if (func.ret != type::TypeArena::VOID) {
+    if (func.ret != type::builtin::VOID) {
         ret_phi_inst = get_inst_id();
         ret_reg = emit_phi(func.ret);
     }
@@ -542,7 +542,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
     if (expr.else_expr) {
         // Then
         expr.block->accept(*this);
-        auto then_result = expr.block->node_type != type::TypeArena::VOID
+        auto then_result = expr.block->node_type != type::builtin::VOID
                                ? std::make_optional(ensure_reg(*last_result))
                                : std::nullopt;
         auto then_exit = *current_block;
@@ -554,7 +554,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         switch_block(else_block);
         seal_block(current_func->get_block(else_block));
         expr.else_expr->accept(*this);
-        auto else_result = expr.else_expr->node_type != type::TypeArena::VOID
+        auto else_result = expr.else_expr->node_type != type::builtin::VOID
                                ? std::make_optional(ensure_reg(*last_result))
                                : std::nullopt;
         auto else_exit = *current_block;
@@ -619,10 +619,11 @@ void IRBuilder::visit(ast::ElseExpr& expr) {
 void IRBuilder::visit(ast::LoopExpr& expr) {
     if (expr.expr) {
         auto max_loop_cnt = ensure_reg(emit_op(expr.expr.get()));
-        auto loop_cnt = Operand::reg(emit_inst(
-            IROp::LoadConst,
-            {Operand::imm(ConstInt(0, 64, false), type::TypeArena::U64)},
-            type::TypeArena::U64));
+        auto loop_cnt = Operand::reg(
+            emit_inst(IROp::LoadConst,
+                      {Operand::imm(ConstInt(0, sizeof(std::size_t), false),
+                                    type::builtin::USIZE)},
+                      type::builtin::USIZE));
         auto entry_block = *current_block;
 
         auto cond_block = new_block();
@@ -631,14 +632,14 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         switch_block(cond_block);
 
         auto cnt_reg_id = get_inst_id();
-        auto cnt_reg = emit_phi(type::TypeArena::U64);
+        auto cnt_reg = emit_phi(type::builtin::USIZE);
 
         add_phi_operand(cnt_reg_id, loop_cnt.as_reg(), entry_block);
 
         auto cond = emit_inst(IROp::ICmp,
                               {Operand::intcc(IntCC::UnsignedLessThan),
                                Operand::reg(cnt_reg), max_loop_cnt},
-                              type::TypeArena::BOOL);
+                              type::builtin::BOOL);
 
         auto body_block = new_block();
         switch_block(body_block);
@@ -652,10 +653,11 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
 
         const auto new_loop_cnt =
             emit_inst(IROp::IAdd,
-                      std::vector<Operand>{Operand::reg(cnt_reg),
-                                           Operand::imm(ConstInt(0, 64, false),
-                                                        type::TypeArena::U64)},
-                      type::TypeArena::U64);
+                      std::vector<Operand>{
+                          Operand::reg(cnt_reg),
+                          Operand::imm(ConstInt(0, sizeof(std::size_t), false),
+                                       type::builtin::USIZE)},
+                      type::builtin::USIZE);
 
         add_phi_operand(cnt_reg_id, new_loop_cnt, *current_block);
 

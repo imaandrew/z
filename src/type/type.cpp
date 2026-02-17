@@ -11,7 +11,7 @@
 namespace z::type {
 
 TypeArena::TypeArena() {
-    types.reserve(16);
+    types.reserve(BT_COUNT);
     types.push_back(std::make_unique<InvalidType>());
     types.push_back(std::make_unique<IntegerType>(8, true));
     types.push_back(std::make_unique<IntegerType>(16, true));
@@ -21,6 +21,8 @@ TypeArena::TypeArena() {
     types.push_back(std::make_unique<IntegerType>(16, false));
     types.push_back(std::make_unique<IntegerType>(32, false));
     types.push_back(std::make_unique<IntegerType>(64, false));
+    types.push_back(std::make_unique<IntegerType>(sizeof(std::size_t), true));
+    types.push_back(std::make_unique<IntegerType>(sizeof(std::size_t), false));
     types.push_back(std::make_unique<FloatType>(32));
     types.push_back(std::make_unique<FloatType>(64));
     types.push_back(std::make_unique<BooleanType>());
@@ -28,6 +30,9 @@ TypeArena::TypeArena() {
     types.push_back(std::make_unique<CharType>());
     types.push_back(std::make_unique<VoidType>());
     types.push_back(std::make_unique<InvalidType>());
+
+    assert(types.size() == BT_COUNT &&
+           "TypeArena builtins out of sync with BuiltinTypeID enum");
 }
 
 void PointerType::dump(ZContext* ctxt, std::ostream& stream) const {

@@ -433,7 +433,7 @@ DeclResult Parser::parse_trait_func_decl() {
 
         ret = type.take();
     } else {
-        ret = type::TypeArena::VOID;
+        ret = type::builtin::VOID;
     }
 
     if (tok.is(TokenKind::LBrace)) {
@@ -475,7 +475,7 @@ DeclResult Parser::parse_func_decl() {
 
         ret = type.take();
     } else {
-        ret = type::TypeArena::VOID;
+        ret = type::builtin::VOID;
     }
 
     auto block = parse_block();
@@ -1121,36 +1121,40 @@ TypeResult Parser::parse_type() {
         if (const auto val_str = source->get_string(tok.get_span());
             val_str.at(0) == 'u') {
             if (val_str == "u8") {
-                type = type::TypeArena::U8;
+                type = type::builtin::U8;
             } else if (val_str == "u16") {
-                type = type::TypeArena::U16;
+                type = type::builtin::U16;
             } else if (val_str == "u32") {
-                type = type::TypeArena::U32;
+                type = type::builtin::U32;
             } else if (val_str == "u64") {
-                type = type::TypeArena::U64;
+                type = type::builtin::U64;
+            } else if (val_str == "usize") {
+                type = type::builtin::USIZE;
             }
         } else if (val_str.at(0) == 'i') {
             if (val_str == "i8") {
-                type = type::TypeArena::I8;
+                type = type::builtin::I8;
             } else if (val_str == "i16") {
-                type = type::TypeArena::I16;
+                type = type::builtin::I16;
             } else if (val_str == "i32") {
-                type = type::TypeArena::I32;
+                type = type::builtin::I32;
             } else if (val_str == "i64") {
-                type = type::TypeArena::I64;
+                type = type::builtin::I64;
+            } else if (val_str == "isize") {
+                type = type::builtin::ISIZE;
             }
         } else if (val_str.at(0) == 'f') {
             if (val_str == "f32") {
-                type = type::TypeArena::F32;
+                type = type::builtin::F32;
             } else if (val_str == "f64") {
-                type = type::TypeArena::F64;
+                type = type::builtin::F64;
             }
         } else if (val_str == "bool") {
-            type = type::TypeArena::BOOL;
+            type = type::builtin::BOOL;
         } else if (val_str == "str") {
-            type = type::TypeArena::STR;
+            type = type::builtin::STR;
         } else if (val_str == "char") {
-            type = type::TypeArena::CHAR;
+            type = type::builtin::CHAR;
         } else {
             auto tok = parse_ident_unchecked();
             type = ty->make<type::UnknownType>(tok->get_id(), tok->get_span());

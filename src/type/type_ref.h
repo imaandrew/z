@@ -7,19 +7,63 @@
 #include <functional>
 
 namespace z::type {
+enum BuiltInType : std::uint8_t {
+    BT_UNINITIALIZED = 0,
+    BT_I8,
+    BT_I16,
+    BT_I32,
+    BT_I64,
+    BT_U8,
+    BT_U16,
+    BT_U32,
+    BT_U64,
+    BT_ISIZE,
+    BT_USIZE,
+    BT_F32,
+    BT_F64,
+    BT_BOOL,
+    BT_STR,
+    BT_CHAR,
+    BT_VOID,
+    BT_INVALID,
+    BT_COUNT
+};
+
 class TypeRef {
     std::uint32_t id = 0;
-    constexpr explicit TypeRef(std::uint32_t id) : id(id) {}
-    friend class TypeArena;
 
 public:
     TypeRef() = default;
-    [[nodiscard]] bool is_initialized() const { return id != 0; }
-    [[nodiscard]] bool is_valid() const { return id != 0 && id != 15; }
+    constexpr explicit TypeRef(std::uint32_t id) : id(id) {}
+    [[nodiscard]] bool is_initialized() const { return id != BT_UNINITIALIZED; }
+    [[nodiscard]] bool is_valid() const {
+        return id != BT_UNINITIALIZED && id != BT_INVALID;
+    }
     [[nodiscard]] std::uint32_t get_id() const { return id; }
 
     bool operator==(const TypeRef& other) const { return id == other.id; }
 };
+
+namespace builtin {
+inline constexpr TypeRef UNINITALIZED{BT_UNINITIALIZED};
+inline constexpr TypeRef I8{BT_I8};
+inline constexpr TypeRef I16{BT_I16};
+inline constexpr TypeRef I32{BT_I32};
+inline constexpr TypeRef I64{BT_I64};
+inline constexpr TypeRef U8{BT_U8};
+inline constexpr TypeRef U16{BT_U16};
+inline constexpr TypeRef U32{BT_U32};
+inline constexpr TypeRef U64{BT_U64};
+inline constexpr TypeRef ISIZE{BT_ISIZE};
+inline constexpr TypeRef USIZE{BT_USIZE};
+inline constexpr TypeRef F32{BT_F32};
+inline constexpr TypeRef F64{BT_F64};
+inline constexpr TypeRef BOOL{BT_BOOL};
+inline constexpr TypeRef STR{BT_STR};
+inline constexpr TypeRef CHAR{BT_CHAR};
+inline constexpr TypeRef VOID{BT_VOID};
+inline constexpr TypeRef INVALID{BT_INVALID};
+} // namespace builtin
 
 enum class TypeKind : std::uint8_t {
     Integer,
