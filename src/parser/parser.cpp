@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "ast.h"
 #include "core/panic.h"
+#include "core/result.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
 #include "lexer/token.h"

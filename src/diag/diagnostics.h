@@ -6,7 +6,6 @@
 #include <iostream>
 #include <magic_enum/magic_enum_format.hpp> // NOLINT(misc-include-cleaner)
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -14,32 +13,6 @@
 #include <vector>
 
 namespace z {
-
-template <class T> class Result {
-    std::optional<T> val;
-
-public:
-    Result() = default;
-    explicit Result(T val) : val(std::move(val)) {}
-
-    [[nodiscard]] bool is_valid() const { return val.has_value(); }
-    const T& get() {
-        if (val.has_value()) {
-            return val.value();
-        }
-
-        throw std::runtime_error("Result does not hold value");
-    }
-    T take() {
-        if (val.has_value()) {
-            T tmp = std::move(val.value());
-            val.reset();
-            return tmp;
-        }
-
-        throw std::runtime_error("Result does not hold value");
-    }
-};
 
 enum class DiagnosticKind : std::uint8_t {
     ExpectedToken,

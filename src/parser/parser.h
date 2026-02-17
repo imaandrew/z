@@ -1,5 +1,6 @@
 #pragma once
 #include "ast.h"
+#include "core/result.h"
 #include "core/string_pool.h"
 #include "core/zctxt.h"
 #include "diag/diagnostics.h"
