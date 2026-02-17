@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstdlib>
 #include <format>
 #include <iostream>
 #include <source_location>
+#include <string_view>
 #include <type_traits>
 
 #ifdef ENABLE_STACKTRACE

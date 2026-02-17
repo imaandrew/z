@@ -154,9 +154,8 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
 
         break;
     }
-    default:
-        std::unreachable();
     }
+    std::unreachable();
 }
 
 void IRBuilder::visit(ast::PostfixExpr& expr) {
@@ -313,7 +312,10 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Range:
     case BinOp::RangeEq:
     case BinOp::ColonColon:
-        assert(false && "TODO");
+    case BinOp::LogicAnd:
+    case BinOp::LogicOr:
+    case BinOp::Eq:
+        panic("BinOp not handled in switch statement");
     }
 }
 
@@ -338,7 +340,7 @@ void IRBuilder::visit(ast::ArrayExpr& expr) {
 
     const auto* arr_type =
         ctxt->ty->get_as<type::ArrayType>(container.as_reg().type);
-    assert(arr_type);
+    expect(arr_type != nullptr, "ArrayExpr should have type ArrayType");
 
     auto result =
         emit_inst(IROp::ExtractField, {container, val}, arr_type->get_type());
@@ -349,11 +351,12 @@ void IRBuilder::visit(ast::FieldExpr& expr) {
     auto container = emit_op(expr.container.get());
     const auto* struct_type =
         ctxt->ty->get_as<type::StructType>(container.as_reg().type);
-    assert(struct_type);
+    expect(struct_type != nullptr,
+           "FieldExpr.container should have type StructType");
 
     auto field_type = struct_type->get_field_type(expr.field->get_id());
     auto field_idx = struct_type->get_field_index(expr.field->get_id());
-    assert(field_idx && field_type);
+    expect(field_idx && field_type, "Couldn't find field in StructType");
 
     auto result =
         emit_inst(IROp::ExtractField, {container, Operand::field(*field_idx)},
@@ -363,7 +366,7 @@ void IRBuilder::visit(ast::FieldExpr& expr) {
 
 void IRBuilder::visit(ast::ArrayInitExpr& expr) {
     const auto* arr_type = ctxt->ty->get_as<type::ArrayType>(expr.node_type);
-    assert(arr_type);
+    expect(arr_type != nullptr, "ArrayInitExpr should have type ArrayType");
 
     std::vector<Operand> vals;
 
@@ -381,7 +384,8 @@ void IRBuilder::visit(ast::StructExprField& expr) { expr.val->accept(*this); }
 void IRBuilder::visit(ast::StructInitExpr& expr) {
     const auto* struct_type =
         ctxt->ty->get_as<type::StructType>(expr.node_type);
-    assert(struct_type);
+    expect(struct_type != nullptr,
+           "StructInitExpr should have type StructType");
 
     std::vector<Operand> fields;
     fields.reserve(expr.fields.size() + 1);
@@ -459,7 +463,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
         if (func.body->node_type == type::TypeArena::VOID)
             add_pending_return(std::nullopt);
         else
-        add_pending_return(last_result);
+            add_pending_return(last_result);
     }
 
     switch_block(ret_block);
@@ -545,7 +549,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
                                ? std::make_optional(ensure_reg(*last_result))
                                : std::nullopt;
         auto then_exit = *current_block;
-        bool then_returned =
+        bool const then_returned =
             current_func->get_block(then_exit).term.has_value();
 
         // Else
@@ -557,7 +561,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
                                ? std::make_optional(ensure_reg(*last_result))
                                : std::nullopt;
         auto else_exit = *current_block;
-        bool else_returned =
+        bool const else_returned =
             current_func->get_block(else_exit).term.has_value();
 
         switch_block(branch_source);

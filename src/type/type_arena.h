@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/panic.h"
 #include "type_ref.h"
 #include <cassert>
 #include <cstdint>
@@ -65,7 +66,8 @@ public:
     }
 
     [[nodiscard]] Type* get(TypeRef ref) const {
-        assert(ref.is_valid() && "Tried to get invalid TypeRef");
+        expect(ref.is_valid(), "Tried to get invalid TypeRef: {}",
+               ref.get_id());
 
         return types[ref.id].get();
     }

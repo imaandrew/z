@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "ast.h"
+#include "core/panic.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
 #include "lexer/token.h"
@@ -709,11 +710,13 @@ ExprResult Parser::parse_expr(const int precedence,
         next_token();
         break;
     }
-    case TokenKind::Char:
-        lhs = std::make_unique<ast::CharExpr>(
-            tok.get_span(), source->get_char(tok.get_span().index).value());
+    case TokenKind::Char: {
+        const auto c = source->get_char(tok.get_span().index);
+        expect(c.has_value(), "Index");
+        lhs = std::make_unique<ast::CharExpr>(tok.get_span(), c.value());
         next_token();
         break;
+    }
     case TokenKind::PlusPlus:
     case TokenKind::MinusMinus:
     case TokenKind::LogicalNot:

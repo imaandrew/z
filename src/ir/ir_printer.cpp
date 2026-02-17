@@ -2,6 +2,7 @@
 #include "core/zctxt.h"
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
+#include "ir/ir_builder.h"
 #include <cstddef>
 #include <ostream>
 #include <print>

@@ -1,5 +1,6 @@
 #include "constraint_solve.h"
 #include "constraint.h"
+#include "core/panic.h"
 #include "type.h"
 #include "type_ref.h"
 #include <cassert>
@@ -104,7 +105,8 @@ TypeRef ConstraintSolver::pick_more_specific(const InferredType* a,
 bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
     const auto* a_inf = dyn_cast<InferredType>(a);
     const auto* b_inf = dyn_cast<InferredType>(b);
-    assert(a_inf || b_inf);
+    expect((a_inf != nullptr) || (b_inf != nullptr),
+           "One of a or b should be an InferredType");
 
     if (a_inf && b_inf) {
         const auto a_type = a_inf->get_infer_type();

@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
-#include <magic_enum/magic_enum_format.hpp>
+#include <magic_enum/magic_enum_format.hpp> // NOLINT(misc-include-cleaner)
 #include <memory>
 #include <optional>
 #include <stdexcept>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/index.h"
 #include "core/string_pool.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"

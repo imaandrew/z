@@ -5,6 +5,7 @@
 #include "sema/scope.h"
 #include "type/type.h"
 #include "type/type_ref.h"
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -151,14 +152,9 @@ void SymbolTable::update_type(StringID name, type::TypeRef& new_type) {
 }
 
 [[nodiscard]] bool SymbolTable::is_var_local(StringID name) const {
-    for (const auto* scope : stack) {
-        if (scope == stack.front())
-            continue;
-
-        if (scope->get_var(name))
-            return true;
-    }
-
-    return false;
+    return std::ranges::any_of(
+        stack.cbegin(), stack.cend(), [this, name](const auto* scope) {
+            return scope != stack.front() && scope->get_var(name);
+        });
 }
 } // namespace z

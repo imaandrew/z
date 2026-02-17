@@ -1,10 +1,12 @@
 #include "sem.h"
+#include "core/panic.h"
 #include "core/string_pool.h"
 #include "diag/diagnostics.h"
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_arena.h"
 #include "type/type_ref.h"
+#include <algorithm>
 #include <cassert>
 #include <cfloat>
 #include <cstddef>
@@ -32,10 +34,10 @@ void SemChecker::visit(ast::Identifier& ident) {
 
 void SemChecker::visit(ast::IntExpr& expr) {
     const auto* type = ctxt->ty->get_as<type::IntegerType>(expr.node_type);
-    assert(type && "IntExpr should have IntegerType");
+    expect(type != nullptr, "IntExpr should have IntegerType");
 
     std::uint64_t max = 0;
-    switch (type->get_width()) {
+    switch (auto width = type->get_width()) {
     case 8:
         max = type->is_signed() ? INT8_MAX : UINT8_MAX;
         break;
@@ -49,7 +51,7 @@ void SemChecker::visit(ast::IntExpr& expr) {
         max = type->is_signed() ? INT64_MAX : UINT64_MAX;
         break;
     default:
-        std::unreachable();
+        panic("Unexpected IntExpr width: {}", width);
     }
 
     if (expr.val > max) {
@@ -60,10 +62,10 @@ void SemChecker::visit(ast::IntExpr& expr) {
 
 void SemChecker::visit(ast::FloatExpr& expr) {
     const auto* type = ctxt->ty->get_as<type::FloatType>(expr.node_type);
-    assert(type && "FloatExpr should have FloatType");
+    expect(type != nullptr, "FloatExpr should have FloatType");
 
     double max = 0;
-    switch (type->get_width()) {
+    switch (auto width = type->get_width()) {
     case 32:
         max = FLT_MAX;
         break;
@@ -71,7 +73,7 @@ void SemChecker::visit(ast::FloatExpr& expr) {
         max = DBL_MAX;
         break;
     default:
-        std::unreachable();
+        panic("Unexpected FloatExpr width: {}", width);
     }
 
     if (expr.val > max) {
@@ -121,9 +123,9 @@ void SemChecker::visit(ast::PrefixExpr& expr) {
                             type->basic_name(ctxt));
         }
         break;
-    default:
-        std::unreachable();
     }
+
+    std::unreachable();
 }
 
 void SemChecker::visit(ast::PostfixExpr& expr) {
@@ -143,9 +145,13 @@ void SemChecker::visit(ast::PostfixExpr& expr) {
                 expr.op, ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt));
         }
         break;
-    default:
-        std::unreachable();
+    case ast::UnOp::Neg:
+    case ast::UnOp::BitNot:
+    case ast::UnOp::LogicNot:
+        panic("Invalid postfix operator");
     }
+
+    std::unreachable();
 }
 
 void SemChecker::visit(ast::BinaryExpr& expr) {
@@ -631,7 +637,8 @@ void SemChecker::visit(ast::ReturnStmt& stmt) {
 
     is_stmt_reachable = ReachableStatus::Unreachable;
 
-    assert(current_return_type && current_func_name);
+    expect(current_return_type && (current_func_name != nullptr),
+           "ReturnStmt outside function");
 
     const auto return_type =
         stmt.expr ? stmt.expr->node_type : type::TypeArena::VOID;
@@ -731,7 +738,7 @@ void SemChecker::visit(ast::StructField& /*field*/) {}
 void SemChecker::visit(ast::StructDecl& decl) {
     const auto* struct_type =
         ctxt->ty->get_as<type::StructType>(decl.node_type);
-    assert(struct_type && "StructDecl has type StructType");
+    expect(struct_type != nullptr, "StructDecl should have type StructType");
 
     if (is_recursive_struct(struct_type, decl.node_type)) {
         ctxt->diag.emit(decl.ident->get_span(),
@@ -818,17 +825,22 @@ void SemChecker::check_expr_assignable(ast::Expr& expr) const {
 
 bool SemChecker::is_recursive_struct(const type::StructType* s,
                                      type::TypeRef orig) const {
-    for (const auto& [_, field_type] : s->get_fields()) {
-        if (field_type.first == orig)
-            return true;
+    const auto& fields = s->get_fields();
 
-        if (const auto* nested_struct =
-                ctxt->ty->get_as<type::StructType>(field_type.first)) {
-            if (is_recursive_struct(nested_struct, orig))
+    return std::ranges::any_of(
+        fields.cbegin(), fields.cend(), [this, orig](const auto& field) {
+            const auto& field_type = field.second;
+
+            if (field_type.first == orig)
                 return true;
-        }
-    }
 
-    return false;
+            if (const auto* nested_struct =
+                    ctxt->ty->get_as<type::StructType>(field_type.first)) {
+                if (is_recursive_struct(nested_struct, orig))
+                    return true;
+            }
+
+            return false;
+        });
 }
 } // namespace z

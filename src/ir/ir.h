@@ -83,6 +83,8 @@ static constexpr IROp get_ir_op(UnOp kind) {
     case UnOp::Neg:
         panic("get_ir_op can't handle typed operations");
     }
+
+    std::unreachable();
 }
 
 static constexpr IROp get_ir_op(BinOp kind) {

@@ -228,6 +228,8 @@ public:
         case IntCC::SignedLessEqual:
             return lhs_signed <= other;
         }
+
+        std::unreachable();
     }
 };
 
@@ -279,6 +281,8 @@ public:
         case FloatCC::LessEqual:
             return bits <= other.bits;
         }
+
+        std::unreachable();
     }
 };
 } // namespace z::ir

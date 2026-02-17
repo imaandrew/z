@@ -1221,7 +1221,8 @@ struct CharExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Char '" << c << '\'';
+        stream << std::string(indent, ' ') << "Char '"
+               << static_cast<unsigned int>(c) << '\'';
         dump_type(ctxt, stream);
     }
 

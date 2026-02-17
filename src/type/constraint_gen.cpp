@@ -1,4 +1,5 @@
 #include "constraint_gen.h"
+#include "core/panic.h"
 #include "parser/ast.h"
 #include "type.h"
 #include "type_arena.h"
@@ -88,9 +89,9 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
         eq(expr.lhs->node_type, expr.rhs->node_type);
         expr.node_type = TypeArena::BOOL;
         break;
-    default:
-        std::unreachable();
     }
+
+    std::unreachable();
 }
 
 void ConstraintGenerator::visit(ast::CallExpr& expr) {
@@ -308,6 +309,7 @@ void ConstraintGenerator::visit(ast::LetStmt& stmt) {
 }
 
 void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
+    expect(func_type.has_value(), "Return outside function");
     if (stmt.expr) {
         stmt.expr->accept(*this);
         eq(func_type.value(), stmt.expr->node_type);
