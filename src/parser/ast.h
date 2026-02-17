@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/colour.h"
 #include "core/panic.h"
 #include "core/string_pool.h"
 #include "core/zctxt.h"
@@ -17,10 +18,13 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+inline void print_indent(std::ostream& os, int indent) {
+    std::print(os, "{:>{}}", "", indent);
+}
 
 namespace z::ast {
 
@@ -350,12 +354,19 @@ struct ASTNode {
     virtual std::generator<ASTNode*> children() { co_return; }
 
     void dump_type(ZContext* ctxt, std::ostream& stream = std::cout) const {
-        stream << " - type: ";
-        if (node_type.is_initialized())
-            ctxt->ty->get(node_type)->dump(ctxt);
-        else
-            stream << "null";
+        if (node_type.is_initialized()) {
+            std::print(stream, " {}<{}>{}", colour::CYAN,
+                       ctxt->ty->get(node_type)->basic_name(ctxt),
+                       colour::RESET);
+        }
         stream << '\n';
+    }
+
+    void print_header(std::ostream& stream, int indent, const char* name,
+                      z::ZContext* ctxt) const {
+        print_indent(stream, indent);
+        std::print(stream, "{}{}{}", colour::RESET, name, colour::RESET);
+        dump_type(ctxt, stream);
     }
 };
 
@@ -415,8 +426,10 @@ struct Identifier final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Identifier "
-               << ctxt->src->get_string(get_span());
+        print_indent(stream, indent);
+        std::print(stream, "{}Identifier{} {}'{}'{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW,
+                   ctxt->src->get_string(get_span()), colour::RESET);
         dump_type(ctxt, stream);
     }
 
@@ -440,7 +453,9 @@ struct IntExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "IntExpr " << val;
+        print_indent(stream, indent);
+        std::print(stream, "{}IntExpr{} {}{}{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW, val, colour::RESET);
         dump_type(ctxt, stream);
     }
 
@@ -456,7 +471,9 @@ struct FloatExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "FloatExpr " << val;
+        print_indent(stream, indent);
+        std::print(stream, "{}FloatExpr{} {}{}{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW, val, colour::RESET);
         dump_type(ctxt, stream);
     }
 
@@ -473,8 +490,9 @@ struct BoolExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "BoolExpr "
-               << (val ? "true" : "false");
+        print_indent(stream, indent);
+        std::print(stream, "{}BoolExpr{} {}{}{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW, val, colour::RESET);
         dump_type(ctxt, stream);
     }
 
@@ -497,8 +515,10 @@ struct PrefixExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "PrefixExpr "
-               << ctxt->src->get_string(op_span);
+        print_indent(stream, indent);
+        std::print(stream, "{}PrefixExpr{} {}'{}'{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW,
+                   ctxt->src->get_string(op_span), colour::RESET);
         dump_type(ctxt, stream);
         expr->dump(ctxt, indent + 2, stream);
     }
@@ -522,8 +542,10 @@ struct PostfixExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "PostfixExpr "
-               << ctxt->src->get_string(op_span);
+        print_indent(stream, indent);
+        std::print(stream, "{}PostfixExpr{} {}'{}'{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW,
+                   ctxt->src->get_string(op_span), colour::RESET);
         dump_type(ctxt, stream);
         expr->dump(ctxt, indent + 2, stream);
     }
@@ -549,8 +571,10 @@ struct BinaryExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "BinaryExpr "
-               << ctxt->src->get_string(op_span);
+        print_indent(stream, indent);
+        std::print(stream, "{}BinaryExpr{} {}'{}'{}", colour::BOLD_GREEN,
+                   colour::RESET, colour::YELLOW,
+                   ctxt->src->get_string(op_span), colour::RESET);
         dump_type(ctxt, stream);
         lhs->dump(ctxt, indent + 2, stream);
         rhs->dump(ctxt, indent + 2, stream);
@@ -578,8 +602,7 @@ struct CallExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "CallExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "CallExpr", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         for (const auto& arg : args) {
             arg->dump(ctxt, indent + 2, stream);
@@ -606,8 +629,7 @@ struct ArrayExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ArrayExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ArrayExpr", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         val->dump(ctxt, indent + 2, stream);
     }
@@ -635,8 +657,7 @@ struct FieldExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "FieldExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "FieldExpr", ctxt);
         container->dump(ctxt, indent + 2, stream);
         field->dump(ctxt, indent + 2, stream);
     }
@@ -661,8 +682,7 @@ struct ArrayInitExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ArrayInitExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ArrayInitExpr", ctxt);
         for (const auto& val : vals) {
             val->dump(ctxt, indent + 2, stream);
         }
@@ -689,8 +709,7 @@ struct StructExprField final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructExprField";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "StructExprField", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         val->dump(ctxt, indent + 2, stream);
     }
@@ -716,8 +735,7 @@ struct StructInitExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructInitExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "StructInitExpr", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         for (const auto& field : fields) {
             field->dump(ctxt, indent + 2, stream);
@@ -746,8 +764,7 @@ struct TupleExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "TupleExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "TupleExpr", ctxt);
         first->dump(ctxt, indent + 2, stream);
         second->dump(ctxt, indent + 2, stream);
     }
@@ -773,8 +790,7 @@ struct Block final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Block";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "Block", ctxt);
         for (const auto& stmt : stmts) {
             stmt->dump(ctxt, indent + 2, stream);
         }
@@ -798,11 +814,8 @@ struct Param final : Expr {
         : Expr(Kind, span), name(std::move(name)), type(type) {};
 
     void dump(ZContext* ctxt, int indent, std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Param";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "Param", ctxt);
         name->dump(ctxt, indent + 2, stream);
-        ctxt->ty->get(type)->dump(ctxt, stream);
-        stream << '\n';
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -837,14 +850,16 @@ struct SourceFileDecl : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "SourceFileDecl";
-        dump_type(ctxt, stream);
-        stream << std::string(indent + 2, ' ') << "Consts:";
+        print_header(stream, indent, "SourceFileDecl", ctxt);
+
+        print_indent(stream, indent + 2);
+        std::println(stream, "{}Consts:{}", colour::DIM, colour::RESET);
         for (const auto& decl : const_decls) {
             decl->dump(ctxt, indent + 2, stream);
         }
-        stream << std::string(indent + 2, ' ') << "----";
 
+        print_indent(stream, indent + 2);
+        std::println(stream, "{}Decls:{}", colour::DIM, colour::RESET);
         for (const auto& decl : decls) {
             decl->dump(ctxt, indent + 2, stream);
         }
@@ -880,8 +895,7 @@ struct FuncDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "FuncDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "FuncDecl", ctxt);
         name->dump(ctxt, indent + 2, stream);
         body->dump(ctxt, indent + 2, stream);
     }
@@ -942,8 +956,7 @@ struct BreakStmt final : Stmt {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "BreakStmt";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "BreakStmt", ctxt);
         if (expr)
             expr->dump(ctxt, indent + 2, stream);
     }
@@ -963,8 +976,7 @@ struct ContinueStmt final : Stmt {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ContinueStmt";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ContinueStmt", ctxt);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -984,8 +996,7 @@ struct ForExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ForExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ForExpr", ctxt);
         expr->dump(ctxt, indent + 2, stream);
         block->dump(ctxt, indent + 2, stream);
     }
@@ -1025,14 +1036,9 @@ struct LetStmt final : Stmt {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "LetStmt";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "LetStmt", ctxt);
+
         ident->dump(ctxt, indent + 2, stream);
-        if (type.is_initialized()) {
-            stream << std::string(indent + 2, ' ');
-            ctxt->ty->get(type)->dump(ctxt, stream);
-            stream << '\n';
-        }
         if (val)
             val->dump(ctxt, indent + 2, stream);
     }
@@ -1057,8 +1063,7 @@ struct ReturnStmt final : Stmt {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ReturnStmt";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ReturnStmt", ctxt);
         if (expr)
             expr->dump(ctxt, indent + 2, stream);
     }
@@ -1084,8 +1089,7 @@ struct ElseExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ElseExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ElseExpr", ctxt);
 
         if (if_expr) {
             if_expr->dump(ctxt, indent + 2, stream);
@@ -1120,8 +1124,7 @@ struct IfExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "IfExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "IfExpr", ctxt);
         expr->dump(ctxt, indent + 2, stream);
         block->dump(ctxt, indent + 2, stream);
         if (else_expr) {
@@ -1151,8 +1154,7 @@ struct LoopExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "LoopExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "LoopExpr", ctxt);
         if (expr) {
             expr->dump(ctxt, indent + 2, stream);
         }
@@ -1180,8 +1182,7 @@ struct WhileExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "WhileExpr";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "WhileExpr", ctxt);
         expr->dump(ctxt, indent + 2, stream);
         block->dump(ctxt, indent + 2, stream);
     }
@@ -1204,8 +1205,10 @@ struct StringExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "String '"
-               << ctxt->strings->get_string(string) << '\'';
+        print_indent(stream, indent);
+        stream << colour::BOLD_GREEN << "StringExpr" << colour::RESET << " "
+               << colour::YELLOW << "'" << ctxt->strings->get_string(string)
+               << "'" << colour::RESET;
         dump_type(ctxt, stream);
     }
 
@@ -1221,8 +1224,10 @@ struct CharExpr final : Expr {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "Char '"
-               << static_cast<unsigned int>(c) << '\'';
+        print_indent(stream, indent);
+        stream << colour::BOLD_GREEN << "CharExpr" << colour::RESET << " "
+               << colour::YELLOW << "'" << static_cast<unsigned int>(c) << "'"
+               << colour::RESET;
         dump_type(ctxt, stream);
     }
 
@@ -1241,12 +1246,8 @@ struct StructField final : ASTNode {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructField";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "StructField", ctxt);
         ident->dump(ctxt, indent + 2, stream);
-        stream << std::string(indent + 2, ' ');
-        ctxt->ty->get(type)->dump(ctxt, stream);
-        stream << '\n';
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
@@ -1270,8 +1271,7 @@ struct StructDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StructDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "StructDecl", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         for (const auto& field : fields)
             field->dump(ctxt, indent + 2, stream);
@@ -1385,8 +1385,7 @@ struct TraitDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "TraitDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "TraitDecl", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         for (const auto& c : consts)
             c->dump(ctxt, indent + 2, stream);
@@ -1453,8 +1452,7 @@ struct TypeAliasDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "TypeAliasDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "TypeAliasDecl", ctxt);
         ident->dump(ctxt, indent + 2, stream);
     }
 
@@ -1492,8 +1490,7 @@ struct TraitFuncDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "TraitFuncDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "TraitFuncDecl", ctxt);
         name->dump(ctxt, indent + 2, stream);
         if (body)
             body->dump(ctxt, indent + 2, stream);
@@ -1560,13 +1557,12 @@ struct EnumField final : ASTNode {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "EnumField";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "EnumField", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         for (const auto& t : types) {
-            stream << std::string(indent + 2, ' ');
-            ctxt->ty->get(t)->dump(ctxt, stream);
-            stream << '\n';
+            print_indent(stream, indent + 2);
+            stream << colour::CYAN << "<" << ctxt->ty->get(t)->basic_name(ctxt)
+                   << ">" << colour::RESET << '\n';
         }
     }
 
@@ -1588,8 +1584,7 @@ struct EnumDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "EnumDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "EnumDecl", ctxt);
         ident->dump(ctxt, indent + 2, stream);
         for (const auto& field : fields)
             field->dump(ctxt, indent + 2, stream);
@@ -1649,12 +1644,8 @@ struct ConstDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "ConstDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "ConstDecl", ctxt);
         ident->dump(ctxt, indent + 2, stream);
-        stream << std::string(indent + 2, ' ');
-        ctxt->ty->get(type)->dump(ctxt, stream);
-        stream << '\n';
         if (val)
             val->dump(ctxt, indent + 2, stream);
     }
@@ -1698,12 +1689,8 @@ struct StaticDecl final : Decl {
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
-        stream << std::string(indent, ' ') << "StaticDecl";
-        dump_type(ctxt, stream);
+        print_header(stream, indent, "StaticDecl", ctxt);
         ident->dump(ctxt, indent + 2, stream);
-        stream << std::string(indent + 2, ' ');
-        ctxt->ty->get(type)->dump(ctxt, stream);
-        stream << '\n';
         if (val)
             val->dump(ctxt, indent + 2, stream);
     }

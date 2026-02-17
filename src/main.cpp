@@ -1,3 +1,4 @@
+#include "core/colour.h"
 #include "core/zctxt.h"
 #include "ir/ir_builder.h"
 #include "ir/ir_printer.h"
@@ -18,6 +19,7 @@ int main(int argc, char** argv) {
     bool dump_ast = false;
     bool dump_constraints = false;
     bool dump_ir = false;
+    bool no_colour = false;
     std::string input;
 
     auto z = argparse::ArgumentParser("z");
@@ -37,6 +39,10 @@ int main(int argc, char** argv) {
             .flag()
             .store_into(dump_constraints);
         z.add_argument("--dump-ir").help("print IR").flag().store_into(dump_ir);
+        z.add_argument("--no-color")
+            .help("disable colored output")
+            .flag()
+            .store_into(no_colour);
         z.parse_args(argc, argv);
     } catch (const std::exception& err) {
         std::cerr << err.what() << '\n';
@@ -48,6 +54,9 @@ int main(int argc, char** argv) {
     if (!c)
         return 1;
     auto ctxt = std::move(*c);
+
+    if (no_colour)
+        colour::disable();
 
     auto lexer = Lexer(ctxt.src.get());
     auto parser = Parser(lexer, ctxt);

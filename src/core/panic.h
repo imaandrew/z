@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/colour.h"
 #include <cstdlib>
 #include <format>
 #include <iostream>
@@ -29,12 +30,13 @@ template <typename... Args>
 [[noreturn]] static void constexpr panic(
     PanicFormat<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept {
     try {
-        std::cerr << std::format(
-            "{}:{} panic: {}\n", fmt.loc.file_name(), fmt.loc.line(),
-            std::format(fmt.fmt, std::forward<Args>(args)...));
+        std::println(std::cerr, "{}:{} {}panic:{} {}", fmt.loc.file_name(),
+                     fmt.loc.line(), z::colour::RED, z::colour::RESET,
+                     std::format(fmt.fmt, std::forward<Args>(args)...));
     } catch (...) {
-        std::cerr << fmt.loc.file_name() << ":" << fmt.loc.line()
-                  << " panic: formatting failed\n";
+        std::println(std::cerr, "{}:{} {}panic:{} formatting failed",
+                     fmt.loc.file_name(), fmt.loc.line(), z::colour::RED,
+                     z::colour::RESET);
     }
 
 #ifdef ENABLE_STACKTRACE

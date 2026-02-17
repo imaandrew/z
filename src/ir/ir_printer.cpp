@@ -1,4 +1,5 @@
 #include "ir_printer.h"
+#include "core/colour.h"
 #include "core/zctxt.h"
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
@@ -20,27 +21,31 @@ void IRPrinter::dump(const IRFile& ir, const ZContext& ctxt, std::ostream& os) {
 }
 
 void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
-    std::print(os, "func @{}(", ctxt->strings->get_string(func.name));
+    std::print(os, "{}func{} {}@{}{}(", colour::BOLD, colour::RESET,
+               colour::BOLD_GREEN, ctxt->strings->get_string(func.name),
+               colour::RESET);
 
     for (std::size_t i = 0; i < func.params.size(); i++) {
         if (i > 0)
             os << ", ";
 
-        std::print(os, "%{}: {}", func.params[i].id,
+        std::print(os, "{}%{}{}: {}", colour::CYAN, func.params[i].id,
+                   colour::RESET,
                    ctxt->ty->get(func.params[i].type)->basic_name(ctxt));
     }
 
-    std::print(os, ") -> {}",
-               ctxt->ty->get(func.return_type)->basic_name(ctxt));
+    std::println(os, ") -> {}{{",
+                 ctxt->ty->get(func.return_type)->basic_name(ctxt));
 
-    os << " {\n";
     for (const auto& block : func.blocks) {
-        std::print(os, "bb{}:", block.id.id);
+        std::print(os, "{}bb{}:{}", colour::BOLD_YELLOW, block.id.id,
+                   colour::RESET);
 
         if (!block.predecessors.empty()) {
-            os << "    ; preds:";
+            std::print("    {}; preds:", colour::GRAY);
             for (auto pred : block.predecessors)
-                os << " bb" << pred.id;
+                std::print(os, " bb{}", pred.id);
+            os << colour::RESET;
         }
 
         os << "\n";
@@ -59,11 +64,12 @@ void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
 
 void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
     if (inst.dest) {
-        std::print(os, "%{}: {} = ", inst.dest.value().id,
+        std::print(os, "{}%{}{}: {} = ", colour::CYAN, inst.dest.value().id,
+                   colour::RESET,
                    ctxt->ty->get(inst.dest->type)->basic_name(ctxt));
     }
 
-    os << ir_op_to_string(inst.op);
+    os << colour::BOLD_MAGENTA << ir_op_to_string(inst.op) << colour::RESET;
 
     if (inst.op == IROp::Phi) {
         for (std::size_t i = 0; i < inst.operands.size(); i += 2) {
@@ -100,13 +106,15 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
 
 void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
     if (op.is_reg())
-        std::print(os, "%{}", op.as_reg().id);
+        std::print(os, "{}%{}{}", colour::CYAN, op.as_reg().id, colour::RESET);
     else if (op.is_imm())
         dump_immediate(op.as_imm(), os);
     else if (op.is_label())
-        std::print(os, "bb{}", op.as_label().block_id.id);
+        std::print(os, "{}bb{}{}", colour::YELLOW, op.as_label().block_id.id,
+                   colour::RESET);
     else if (op.is_field())
-        std::print(os, "#{}", op.as_field().idx);
+        std::print(os, "{}#{}{}", colour::YELLOW, op.as_field().idx,
+                   colour::RESET);
     else if (op.is_intcc()) {
         const auto* string = [&] {
             switch (op.as_intcc()) {
@@ -155,25 +163,30 @@ void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
         }();
         os << string;
     } else if (op.is_func()) {
-        std::print(os, "@{}",
-                   ctxt->strings->get_string(ir->funcs[op.as_func().id].name));
+        std::print(os, "{}@{}{}", colour::BOLD_GREEN,
+                   ctxt->strings->get_string(ir->funcs[op.as_func().id].name),
+                   colour::RESET);
     }
 }
 
 void IRPrinter::dump_immediate(const Immediate& imm, std::ostream& os) const {
     if (imm.is_int()) {
         const auto& i = imm.as_int();
-        std::print(os, "{}", i.is_negative() ? i.get_signed() : i.get_bits());
+        std::print(os, "{}{}{}", colour::YELLOW,
+                   i.is_negative() ? i.get_signed() : i.get_bits(),
+                   colour::RESET);
     } else if (imm.is_float()) {
         const auto& f = imm.as_float();
-        std::print(os, "{}", f.get_bits());
+        std::print(os, "{}{}{}", colour::YELLOW, f.get_bits(), colour::RESET);
     } else if (imm.is_bool()) {
         auto b = imm.as_bool();
-        os << (b ? "true" : "false");
+        os << colour::YELLOW << (b ? "true" : "false") << colour::RESET;
     } else if (imm.is_string()) {
-        std::print(os, "\"{}\"", ctxt->strings->get_string(imm.as_string()));
+        std::print(os, "{}\"{}\"{}", colour::YELLOW,
+                   ctxt->strings->get_string(imm.as_string()), colour::RESET);
     } else if (imm.is_char()) {
-        std::print(os, "'{}'", imm.as_char());
+        std::print(os, "{}'{}'{}", colour::YELLOW, imm.as_char(),
+                   colour::RESET);
     }
 }
 

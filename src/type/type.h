@@ -140,8 +140,10 @@ public:
 
     void dump(ZContext* /*ctxt*/,
               std::ostream& stream = std::cout) const override {
-        stream << "IntegerType { bit_width: " << bit_width
-               << ", is_signed: " << _signed << " }";
+        std::print(stream,
+                   "IntegerType {{ bit_width: {}, is_signed: {}, "
+                   "is_size_type: {} }}",
+                   bit_width, _signed, _size_type);
     }
 
     [[nodiscard]] std::string
@@ -181,7 +183,7 @@ public:
 
     void dump(ZContext* /*ctxt*/,
               std::ostream& stream = std::cout) const override {
-        stream << "FloatType { bit_width: " << bit_width << " }";
+        std::print(stream, "FloatType {{ bit_width: {} }}", bit_width);
     }
 
     [[nodiscard]] std::string
@@ -344,10 +346,7 @@ public:
 
     [[nodiscard]] bool is_unknown() const override { return true; }
 
-    void dump(ZContext* /*ctxt*/,
-              std::ostream& stream = std::cout) const override {
-        stream << "UnknownType { ident: }";
-    }
+    void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
     [[nodiscard]] std::string
     basic_name(const ZContext* /*ctxt*/) const override {
@@ -695,24 +694,22 @@ public:
 
     void dump(ZContext* /*ctxt*/,
               std::ostream& stream = std::cout) const override {
-        std::string i;
+        constexpr auto to_string = [](auto t) {
+            switch (t) {
+            case InferType::IntLiteral:
+                return "integer";
+            case InferType::FloatLiteral:
+                return "float";
+            case InferType::Block:
+                return "block";
+            case InferType::Var:
+                return "var";
+            }
+            return "unknown";
+        };
 
-        switch (infer_type) {
-        case InferType::IntLiteral:
-            i = "integer";
-            break;
-        case InferType::FloatLiteral:
-            i = "float";
-            break;
-        case InferType::Block:
-            i = "block";
-            break;
-        case InferType::Var:
-            i = "var";
-            break;
-        }
-        stream << "InferrableType { id: " << id << ", infer_type: " << i
-               << " }";
+        std::print(stream, "InferrableType {{ id: {}, infer_type: {} }}", id,
+                   to_string(infer_type));
     }
 
     [[nodiscard]] std::string
