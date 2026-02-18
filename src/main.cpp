@@ -62,6 +62,9 @@ int main(int argc, char** argv) {
     auto parser = Parser(lexer, ctxt);
     auto file = parser.parse();
 
+    if (ctxt.diag.has_error())
+        return 1;
+
     if (dump_ast_untyped)
         file->dump(&ctxt, 0, std::cout);
 
@@ -69,6 +72,9 @@ int main(int argc, char** argv) {
     auto sem = SemChecker(ctxt);
 
     type_res.resolve(file.get(), dump_constraints);
+
+    if (ctxt.diag.has_error())
+        return 1;
 
     if (dump_ast)
         file->dump(&ctxt, 0, std::cout);
@@ -80,6 +86,9 @@ int main(int argc, char** argv) {
 
     auto ir_builder = ir::IRBuilder(ctxt);
     auto ir_code = ir_builder.lower_ast(file.get());
+
+    if (ctxt.diag.has_error())
+        return 1;
 
     if (dump_ir) {
         ir::IRPrinter().dump(ir_code, ctxt, std::cout);

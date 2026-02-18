@@ -219,7 +219,6 @@ void ConstraintGenerator::visit(ast::Block& block) {
 }
 
 void ConstraintGenerator::visit(ast::Param& param) {
-    resolve_type_name(param.type);
     param.name->node_type = param.type;
     param.node_type = param.type;
 }
@@ -236,7 +235,6 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
     auto& scope = syms->get_scope(func.body->get_scope_id());
     for (auto& param : func.params) {
         param->accept(*this);
-        resolve_type_name(param->type);
         scope.declare_var(param->name, param->type, false, true);
     }
 
@@ -245,7 +243,6 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
     func.body->accept(*this);
     func_type = std::nullopt;
 
-    resolve_type_name(func.ret);
     eq(func.body->node_type, func.ret);
 
     if (const auto f = syms->get_func(func.name->get_id())) {
@@ -381,8 +378,6 @@ void ConstraintGenerator::visit(ast::CharExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::StructField& field) {
-    resolve_type_name(field.type);
-
     field.ident->node_type = field.type;
     field.node_type = field.type;
 }
@@ -414,11 +409,7 @@ void ConstraintGenerator::visit(ast::StructDecl& decl) {
     syms->exit_scope();
 }
 
-void ConstraintGenerator::visit(ast::EnumField& field) {
-    for (auto& type : field.types) {
-        resolve_type_name(type);
-    }
-}
+void ConstraintGenerator::visit(ast::EnumField& /*field*/) {}
 
 void ConstraintGenerator::visit(ast::EnumDecl& decl) {
     if (const auto t = syms->get_type(decl.ident->get_id()); t) {
@@ -433,7 +424,6 @@ void ConstraintGenerator::visit(ast::EnumDecl& decl) {
 }
 
 void ConstraintGenerator::visit(ast::ConstDecl& decl) {
-    resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
     decl.node_type = builtin::VOID;
 
@@ -442,7 +432,6 @@ void ConstraintGenerator::visit(ast::ConstDecl& decl) {
 }
 
 void ConstraintGenerator::visit(ast::StaticDecl& decl) {
-    resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
     decl.node_type = builtin::VOID;
 
@@ -468,20 +457,16 @@ void ConstraintGenerator::visit(ast::TraitDecl& decl) {
     decl.ident->node_type = ty->make<TraitType>(decl.ident->get_id());
 }
 void ConstraintGenerator::visit(ast::TypeAliasDecl& decl) {
-    resolve_type_name(decl.type);
     decl.ident->node_type = decl.type;
     decl.node_type = builtin::VOID;
 }
 void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
     for (auto& param : decl.params) {
         param->accept(*this);
-        resolve_type_name(param->type);
         if (decl.body)
             syms->get_scope(decl.body->get_scope_id())
                 .declare_var(param->name, param->type, false, true);
     }
-
-    resolve_type_name(decl.ret);
 
     if (decl.body) {
         decl.body->accept(*this);

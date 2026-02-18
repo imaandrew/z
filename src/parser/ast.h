@@ -923,18 +923,14 @@ struct FuncDecl final : Decl {
 
         auto param_types = std::vector<type::TypeRef>();
         for (const auto& param : params) {
-            if (ctxt->ty->get(param->type)->is_unknown()) {
-                if (!ctxt->resolve_unk_type(param->type)) {
-                    return;
-                }
+            if (!ctxt->resolve_unk_type(param->type)) {
+                return;
             }
             param_types.push_back(param->type);
         }
 
-        if (ctxt->ty->get(ret)->is_unknown()) {
-            if (!ctxt->resolve_unk_type(ret)) {
-                return;
-            }
+        if (!ctxt->resolve_unk_type(ret)) {
+            return;
         }
 
         ctxt->ty->replace<type::FunctionType>(*t, param_types, ret);
@@ -1310,6 +1306,9 @@ struct StructDecl final : Decl {
         ctxt->syms->enter_scope(scope);
 
         for (const auto& field : fields) {
+            if (!ctxt->resolve_unk_type(field->type))
+                return;
+
             const auto is_unique =
                 field_types
                     .insert(std::make_pair(
@@ -1339,13 +1338,13 @@ struct StructDecl final : Decl {
             auto* func_decl = cast<FuncDecl>(func.get());
             auto param_types = std::vector<type::TypeRef>();
             for (const auto& param : func_decl->params) {
-                if (ctxt->ty->get(param->type)->is_unknown()) {
-                    if (!ctxt->resolve_unk_type(param->type)) {
-                        return;
-                    }
-                }
+                if (!ctxt->resolve_unk_type(param->type))
+                    return;
                 param_types.push_back(param->type);
             }
+
+            if (!ctxt->resolve_unk_type(func_decl->ret))
+                return;
 
             const auto func_type =
                 ctxt->ty->make<type::FunctionType>(param_types, func_decl->ret);
@@ -1485,9 +1484,7 @@ struct TypeAliasDecl final : Decl {
         if (!valid)
             return;
 
-        if (ctxt->ty->get(type)->is_unknown()) {
-            ctxt->resolve_unk_type(type);
-        }
+        ctxt->resolve_unk_type(type);
     }
 };
 
@@ -1541,18 +1538,14 @@ struct TraitFuncDecl final : Decl {
 
         auto param_types = std::vector<type::TypeRef>();
         for (const auto& param : params) {
-            if (ctxt->ty->get(param->type)->is_unknown()) {
-                if (!ctxt->resolve_unk_type(param->type)) {
-                    return;
-                }
+            if (!ctxt->resolve_unk_type(param->type)) {
+                return;
             }
             param_types.push_back(param->type);
         }
 
-        if (ctxt->ty->get(ret)->is_unknown()) {
-            if (!ctxt->resolve_unk_type(ret)) {
-                return;
-            }
+        if (!ctxt->resolve_unk_type(ret)) {
+            return;
         }
 
         ctxt->ty->replace<type::FunctionType>(*t, param_types, ret);
@@ -1632,6 +1625,12 @@ struct EnumDecl final : Decl {
         std::unordered_map<StringID, std::vector<type::TypeRef>&> field_types;
 
         for (const auto& field : fields) {
+            for (auto& type : field->types) {
+                if (!ctxt->resolve_unk_type(type)) {
+                    return;
+                }
+            }
+
             const auto is_unique =
                 field_types.insert({field->ident->get_id(), field->types})
                     .second;
@@ -1691,10 +1690,6 @@ struct ConstDecl final : Decl {
         if (!valid)
             return;
 
-        if (!ctxt->ty->get(type)->is_unknown()) {
-            return;
-        }
-
         if (!ctxt->resolve_unk_type(type)) {
             return;
         }
@@ -1735,10 +1730,6 @@ struct StaticDecl final : Decl {
     void resolve_sym(ZContext* ctxt) override {
         if (!valid)
             return;
-
-        if (!ctxt->ty->get(type)->is_unknown()) {
-            return;
-        }
 
         if (!ctxt->resolve_unk_type(type)) {
             return;
