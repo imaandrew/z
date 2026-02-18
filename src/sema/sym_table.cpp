@@ -34,17 +34,17 @@ bool SymbolTable::declare_var(const std::unique_ptr<ast::Identifier>& name,
         stack.back()->declare_var(name, type, is_const, is_initialized);
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(name->get_span(),
-                                         DiagnosticKind::RedeclaredVar,
-                                         name->to_string(strings));
+        auto err = diag.error(name->get_span(), DiagnosticKind::RedeclaredVar,
+                              strings->get_string(name->get_id()));
+
+        err.add_primary_note("defined again here");
 
         for (const auto* scope : stack) {
             if (auto type = scope->get_var(name->get_id())) {
-                data.add_note(type->type.span, "first defined here");
+                err.add_note(type->type.span, "first defined here");
                 break;
             }
         }
-        diag.emit(data);
     }
 
     return is_unique;
@@ -55,17 +55,17 @@ bool SymbolTable::declare_func(const std::unique_ptr<ast::Identifier>& name,
     const bool is_unique = stack.back()->declare_func(name, type);
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(name->get_span(),
-                                         DiagnosticKind::RedeclaredFunc,
-                                         name->to_string(strings));
+        auto err = diag.error(name->get_span(), DiagnosticKind::RedeclaredFunc,
+                              strings->get_string(name->get_id()));
+
+        err.add_primary_note("defined again here");
 
         for (const auto* scope : stack) {
             if (auto type = scope->get_func(name->get_id())) {
-                data.add_note(type->span, "first defined here");
+                err.add_note(type->span, "first defined here");
                 break;
             }
         }
-        diag.emit(data);
     }
 
     return is_unique;
@@ -76,17 +76,17 @@ bool SymbolTable::declare_type(const std::unique_ptr<ast::Identifier>& name,
     const bool is_unique = stack.back()->declare_type(name, type);
 
     if (!is_unique) {
-        auto data = diag.emit_with_notes(name->get_span(),
-                                         DiagnosticKind::RedeclaredType,
-                                         name->to_string(strings));
+        auto err = diag.error(name->get_span(), DiagnosticKind::RedeclaredType,
+                              strings->get_string(name->get_id()));
+
+        err.add_primary_note("defined again here");
 
         for (const auto* scope : stack) {
             if (auto type = scope->get_type(name->get_id())) {
-                data.add_note(type->span, "first defined here");
+                err.add_note(type->span, "first defined here");
                 break;
             }
         }
-        diag.emit(data);
     }
 
     return is_unique;

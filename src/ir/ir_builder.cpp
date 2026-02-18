@@ -224,9 +224,10 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
                 fold_int_op(op, lhs_imm.as_int(), rhs_imm.as_int(), overflow);
 
             if (overflow) {
-                ctxt->diag.emit(
-                    expr.get_span(), DiagnosticKind::OperationOverflows,
-                    ctxt->ty->get(expr.node_type)->basic_name(ctxt));
+                const auto name =
+                    ctxt->ty->get(expr.node_type)->basic_name(ctxt);
+                ctxt->diag.error(expr.get_span(),
+                                 DiagnosticKind::OperationOverflows, name);
                 // TODO: handle error
                 return;
             }
@@ -415,7 +416,7 @@ void IRBuilder::visit(ast::Block& block) {
     for (const auto& stmt : block.stmts) {
         stmt->accept(*this);
         if (current_func->get_block(*current_block).term) {
-            ctxt->diag.emit(stmt->get_span(), DiagnosticKind::UnreachableStmt);
+            ctxt->diag.warn(stmt->get_span(), DiagnosticKind::UnreachableStmt);
         }
     }
     ctxt->syms->exit_scope();

@@ -1,16 +1,16 @@
 #pragma once
 
+#include "core/colour.h"
 #include "src_mgr.h"
 #include <cstdint>
 #include <format>
 #include <iostream>
 #include <magic_enum/magic_enum_format.hpp> // NOLINT(misc-include-cleaner)
-#include <memory>
+#include <map>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 namespace z {
 
@@ -149,117 +149,186 @@ inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
     throw std::runtime_error("Invalid DiagnosticKind");
 }
 
-class DiagnosticData {
-public:
-    DiagnosticData() = default;
-    virtual ~DiagnosticData() = default;
-    DiagnosticData(const DiagnosticData&) = delete;
-    DiagnosticData& operator=(const DiagnosticData&) = delete;
-    DiagnosticData(DiagnosticData&&) = delete;
-    DiagnosticData& operator=(DiagnosticData&&) = delete;
-    [[nodiscard]] virtual std::string format_message() const = 0;
-    virtual void add_note(Span /*span*/, const std::string& /*note*/) {}
-    [[nodiscard]] virtual std::vector<std::pair<Span, std::string>>
-    get_notes() const {
-        return {};
-    }
-};
-
-class SimpleDiagnosticData : public DiagnosticData {
-    std::string message;
-
-public:
-    explicit SimpleDiagnosticData(std::string msg) : message(std::move(msg)) {}
-    [[nodiscard]] std::string format_message() const override {
-        return message;
-    }
-};
-
-class MultiLocationDiagnosticData : public DiagnosticData {
-    std::string message;
-    std::vector<std::pair<Span, std::string>> notes;
-
-public:
-    explicit MultiLocationDiagnosticData(std::string msg)
-        : message(std::move(msg)) {}
-
-    void add_note(Span span, const std::string& note) override {
-        notes.emplace_back(span, note);
-    }
-
-    [[nodiscard]] std::string format_message() const override {
-        return message;
-    }
-    [[nodiscard]] std::vector<std::pair<Span, std::string>>
-    get_notes() const override {
-        return notes;
-    }
-};
+enum class DiagnosticCategory : std::uint8_t { Error, Warning };
 
 struct Diagnostic {
+    using Callback = std::function<void(const Diagnostic&)>;
+
+    DiagnosticCategory category;
     DiagnosticKind kind;
     Span primary_location;
-    std::unique_ptr<DiagnosticData> data;
+    std::string msg;
+    Callback print_callback;
 
-    Diagnostic(DiagnosticKind kind, Span loc,
-               std::unique_ptr<DiagnosticData> data)
-        : kind(kind), primary_location(loc), data(std::move(data)) {};
+    std::optional<std::string> primary_note;
+    std::map<Span, std::string> notes;
 
-    void add_note(Span span, const std::string& note) const {
-        data->add_note(span, note);
+    Diagnostic(DiagnosticCategory category, DiagnosticKind kind, Span loc,
+               std::string msg, Callback fn)
+        : category(category), kind(kind), primary_location(loc),
+          msg(std::move(msg)), print_callback(std::move(fn)) {};
+
+    ~Diagnostic() {
+        if (!print_callback)
+            panic("Diagnostic callback ptr is null");
+        print_callback(*this);
+    }
+
+    Diagnostic(Diagnostic&&) = delete;
+    Diagnostic& operator=(Diagnostic&&) = delete;
+
+    Diagnostic(const Diagnostic&) = delete;
+    Diagnostic& operator=(const Diagnostic&) = delete;
+
+    Diagnostic& add_primary_note(std::string_view note) {
+        primary_note = note;
+        return *this;
+    }
+
+    Diagnostic& add_note(Span span, std::string_view note) {
+        notes[span] = note;
+        return *this;
     }
 };
 
 class DiagnosticsEngine {
     SourceManager* source;
-    bool error = false;
+    bool has_err = false;
 
     void print_location(const LinePos& pos, std::ostream& out) const {
-        out << source->get_path() << ":" << pos.get_line() << ":"
-            << pos.get_col();
+        std::print(out, "{}:{}:{}", source->get_path(), pos.get_line(),
+                   pos.get_col());
+    }
+
+    static std::string make_prefix(std::size_t line) {
+        return std::format("  {}   ", line);
+    }
+
+    static void print_empty_prefix(std::ostream& out, std::size_t width) {
+        std::println(out, "{:>{}}|", "", width);
+    }
+
+    void print_source(std::ostream& out, const LinePos& pos) const {
+        const auto prefix = make_prefix(pos.get_line());
+        print_empty_prefix(out, prefix.length());
+        std::println(out, "{}|  {}", prefix, source->get_line(pos.get_line()));
+        std::print(out, "{:>{}}|", "", prefix.length());
+    }
+
+    static void print_underline(std::ostream& out, std::size_t col,
+                                std::size_t len, char fill,
+                                std::string_view colour, bool space,
+                                std::string_view msg) {
+        auto underline = std::string(len, fill);
+        std::println(out, "{:>{}}{}{}{}{}{}", "", col, colour, underline,
+                     space ? " " : "", msg, colour::RESET);
+    }
+
+    void print_note_info(std::ostream& out, const LinePos& pos,
+                         bool is_multiline, const char* colour,
+                         const Span& span, char underline,
+                         std::string_view msg) const {
+        print_source(out, pos);
+
+        if (is_multiline) {
+            print_underline(out, 2, pos.get_col(), '_', colour, false,
+                            std::string{underline});
+
+            const auto last_pos = source->get_last_line(span, pos);
+            const auto last_prefix = make_prefix(last_pos.get_line());
+            std::println(out, "{:>{}}| {}|{}", "", last_prefix.length(), colour,
+                         colour::RESET);
+            std::println(out, "{}| {}|{}{}", last_prefix, colour, colour::RESET,
+                         source->get_line(last_pos.get_line()));
+            std::print(out, "{:>{}}| {}|", "", last_prefix.length(), colour);
+            print_underline(out, 0, last_pos.get_col(), '_', colour, false,
+                            std::format("{} {}", underline, msg));
+
+        } else {
+            print_underline(out, pos.get_col() + 2, span.len, underline, colour,
+                            true, msg);
+        }
     }
 
     void print_diagnostic(const Diagnostic& diag,
                           std::ostream& out = std::cerr) const {
-        const auto pos = source->get_pos(diag.primary_location);
+        bool is_primary_span_multiline = false;
+        const auto pos =
+            source->get_pos(diag.primary_location, is_primary_span_multiline);
+        const auto [main_colour, msg] = [](const auto& cat) {
+            switch (cat) {
+            case DiagnosticCategory::Error:
+                return std::make_pair(colour::RED, "error");
+            case DiagnosticCategory::Warning:
+                return std::make_pair(colour::YELLOW, "warning");
+            }
+            std::unreachable();
+        }(diag.category);
+
         print_location(pos, out);
 
-        out << ": error: " << diag.data->format_message() << "\n";
+        std::println(out, ": {}{}:{} {}", main_colour, msg, colour::RESET,
+                     diag.msg);
 
-        for (const auto& [loc, note] : diag.data->get_notes()) {
-            print_location(source->get_pos(loc), out);
-            out << ": note: " << note << "\n";
+        if (!diag.notes.empty()) {
+            std::map<Span, std::pair<char, std::string>> spans;
+
+            for (const auto& [span, label] : diag.notes) {
+                spans[span] = {'~', label};
+            }
+
+            spans[diag.primary_location] = {'^',
+                                            diag.primary_note.value_or("")};
+
+            for (auto& [span, info] : spans) {
+                auto [fill, label] = info;
+                const auto* col = fill == '^' ? colour::RED : colour::BLUE;
+                bool is_note_span_multiline = false;
+                const auto note_pos =
+                    source->get_pos(span, is_note_span_multiline);
+
+                print_note_info(out, note_pos, is_note_span_multiline, col,
+                                span, fill, label);
+            }
+            print_empty_prefix(out, make_prefix(pos.get_line()).length());
+            return;
         }
+
+        print_note_info(out, pos, is_primary_span_multiline, main_colour,
+                        diag.primary_location, '^',
+                        diag.primary_note.value_or(""));
+        print_empty_prefix(out, make_prefix(pos.get_line()).length());
+    }
+
+    // NOLINTBEGIN(cppcoreguidelines-missing-std-forward)
+    template <typename... Args>
+    Diagnostic emit(DiagnosticCategory cat, const Span& span,
+                    const DiagnosticKind kind, Args&&... args) {
+        has_err = true;
+        return Diagnostic(
+            cat, kind, span,
+            std::vformat(get_diagnostic_string(kind),
+                         std::make_format_args(args...)),
+            [this](const Diagnostic& d) { this->print_diagnostic(d); });
     }
 
 public:
     explicit DiagnosticsEngine(SourceManager* source) : source(source) {};
 
-    // NOLINTBEGIN(cppcoreguidelines-missing-std-forward)
     template <typename... Args>
-    void emit(const Span& span, const DiagnosticKind kind, Args&&... args) {
-        error = true;
-        print_diagnostic(Diagnostic(
-            kind, span,
-            std::make_unique<SimpleDiagnosticData>(std::vformat(
-                get_diagnostic_string(kind), std::make_format_args(args...)))));
+    Diagnostic error(const Span& span, const DiagnosticKind kind,
+                     Args&&... args) {
+        has_err = true;
+        return emit(DiagnosticCategory::Error, span, kind, args...);
     }
 
     template <typename... Args>
-    Diagnostic emit_with_notes(const Span& span, DiagnosticKind kind,
-                               Args&&... args) {
-        error = true;
-        auto data = std::make_unique<MultiLocationDiagnosticData>(std::vformat(
-            get_diagnostic_string(kind), std::make_format_args(args...)));
-        return Diagnostic(kind, span, std::move(data));
+    Diagnostic warn(const Span& span, const DiagnosticKind kind,
+                    Args&&... args) {
+        return emit(DiagnosticCategory::Warning, span, kind, args...);
     }
     // NOLINTEND(cppcoreguidelines-missing-std-forward)
 
-    void emit(const Diagnostic& diag) {
-        error = true;
-        print_diagnostic(diag);
-    }
-
-    [[nodiscard]] bool has_error() const { return error; }
+    [[nodiscard]] bool has_error() const { return has_err; }
 };
 } // namespace z

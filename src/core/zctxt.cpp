@@ -12,8 +12,8 @@ bool ZContext::resolve_unk_type(type::TypeRef& type) {
             return true;
         }
 
-        diag.emit(unk_type->get_span(), DiagnosticKind::UndeclaredType,
-                  strings->get_string(unk_type->get_id()));
+        diag.error(unk_type->get_span(), DiagnosticKind::UndeclaredType,
+                   strings->get_string(unk_type->get_id()));
         return false;
     }
 

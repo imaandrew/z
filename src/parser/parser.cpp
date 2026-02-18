@@ -115,8 +115,8 @@ std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
             decl = parse_func_decl();
             break;
         default:
-            diag->emit(tok.get_span(), DiagnosticKind::ExpectedDecl,
-                       tok_kind_to_string(tok.get_kind()));
+            diag->error(tok.get_span(), DiagnosticKind::ExpectedDecl,
+                        tok_kind_to_string(tok.get_kind()));
             recover_decl();
             continue;
         }
@@ -952,7 +952,7 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
             double num = NAN;
             if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
                 std::errc::result_out_of_range) {
-                diag->emit(tok.get_span(), DiagnosticKind::FloatOutOfRange);
+                diag->error(tok.get_span(), DiagnosticKind::FloatOutOfRange);
                 return std::make_unique<ast::FloatExpr>(tok, num);
             }
 
@@ -984,13 +984,13 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
     if (base != 10) {
         if (std::from_chars(&val[2], val.end().base(), num, base).ec ==
             std::errc::result_out_of_range) {
-            diag->emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
+            diag->error(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
             return std::make_unique<ast::IntExpr>(tok, num);
         }
     } else {
         if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
             std::errc::result_out_of_range) {
-            diag->emit(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
+            diag->error(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
             return std::make_unique<ast::IntExpr>(tok, num);
         }
     }
@@ -1211,13 +1211,13 @@ bool Parser::kind(const TokenKind kind) {
 bool Parser::tok_assert(const TokenKind kind) {
     if (!tok.is(kind)) {
         if (kind == TokenKind::Semi) {
-            diag->emit(
+            diag->error(
                 Span(prev_tok.get_span().index + prev_tok.get_span().len, 1),
                 DiagnosticKind::ExpectedSemi);
         } else {
-            diag->emit(tok.get_span(), DiagnosticKind::ExpectedToken,
-                       tok_kind_to_string(kind),
-                       tok_kind_to_string(tok.get_kind()));
+            diag->error(tok.get_span(), DiagnosticKind::ExpectedToken,
+                        tok_kind_to_string(kind),
+                        tok_kind_to_string(tok.get_kind()));
         }
         return false;
     }

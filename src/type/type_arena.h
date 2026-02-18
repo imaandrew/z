@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/panic.h"
 #include "type_ref.h"
 #include <cassert>
 #include <cstdint>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <algorithm>
+#include "core/panic.h"
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -45,6 +45,10 @@ struct Span {
 
         return Span(index, end - index);
     }
+
+    friend bool operator<(const Span& l, const Span& r) {
+        return l.index < r.index;
+    }
 };
 
 class LinePos {
@@ -61,7 +65,7 @@ public:
 class SourceManager {
     std::vector<char> input;
     std::optional<std::filesystem::path> path;
-    std::vector<size_t> line_indices;
+    std::vector<std::pair<size_t, size_t>> lines;
 
     SourceManager(std::filesystem::path& path, std::vector<char> input)
         : input(std::move(input)), path(path) {
@@ -73,12 +77,15 @@ class SourceManager {
     };
 
     void calculate_line_indices() {
-        line_indices.clear();
-        for (size_t i = 0; i < input.size(); ++i) {
+        lines.clear();
+        std::size_t start = 0;
+        for (size_t i = 0; i < input.size(); i++) {
             if (input[i] == '\n') {
-                line_indices.push_back(i);
+                lines.emplace_back(start, i);
+                start = i + 1;
             }
         }
+        lines.emplace_back(start, input.size() - 1);
     }
 
 public:
@@ -119,17 +126,11 @@ public:
             return std::nullopt;
         }
 
-        if (input[index] == '\n' &&
-            (line_indices.empty() || line_indices.back() != index))
-            line_indices.push_back(index);
-
         return input[index];
     }
 
-    [[nodiscard]] std::optional<std::string>
-    get_line(const std::size_t line) const {
-        const std::size_t start = line_indices[line - 1] + 1;
-        const std::size_t end = line_indices[line] - 1;
+    [[nodiscard]] std::string get_line(const std::size_t line) const {
+        const auto [start, end] = lines[line - 1];
         return std::string(&input[start], end - start);
     }
 
@@ -156,12 +157,29 @@ public:
         return std::string_view(get_char_ptr(span.index), span.len);
     }
 
-    [[nodiscard]] LinePos get_pos(const Span& span) const {
-        auto line = std::ranges::lower_bound(line_indices, span.index) -
-                    line_indices.begin();
-        auto line_start = (line == 0) ? 0 : line_indices[line - 1] + 1;
+    [[nodiscard]] LinePos get_pos(const Span& span, bool& multiline) const {
+        for (std::size_t i = 0; i < lines.size(); i++) {
+            const auto& [start, end] = lines[i];
 
-        return LinePos(line + 1, span.index - line_start + 1);
+            if (span.index >= start && span.index <= end) {
+                multiline = span.index + span.len > end;
+                return LinePos(i + 1, span.index - start);
+            }
+        }
+
+        panic("Invalid span");
+    }
+
+    [[nodiscard]] LinePos get_last_line(const Span& span,
+                                        const LinePos& first) {
+        const auto end_idx = span.index + span.len - 1;
+        for (std::size_t i = first.get_line() - 1; i < lines.size(); i++) {
+            if (end_idx <= lines[i].second) {
+                return LinePos(i + 1, end_idx - lines[i].first);
+            }
+        }
+
+        panic("Invalid span");
     }
 };
 } // namespace z

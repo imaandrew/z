@@ -17,7 +17,6 @@
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -431,10 +430,6 @@ struct Identifier final : Expr {
                    colour::RESET, colour::YELLOW,
                    ctxt->src->get_string(get_span()), colour::RESET);
         dump_type(ctxt, stream);
-    }
-
-    [[nodiscard]] std::string to_string(StringPool* strings) const {
-        return strings->get_string(ident);
     }
 
     [[nodiscard]] StringID get_id() const { return ident; }
@@ -1321,10 +1316,19 @@ struct StructDecl final : Decl {
                         std::make_pair(field->type, field_num++)))
                     .second;
             if (!is_unique) {
-                ctxt->diag.emit(field->ident->get_span(),
-                                DiagnosticKind::DuplicateField,
-                                ident->to_string(ctxt->strings.get()),
-                                field->ident->to_string(ctxt->strings.get()));
+                auto err = ctxt->diag.error(
+                    field->ident->get_span(), DiagnosticKind::DuplicateField,
+                    ctxt->strings->get_string(ident->get_id()),
+                    ctxt->strings->get_string(field->ident->get_id()));
+                err.add_primary_note("defined again here");
+                for (const auto& f : fields) {
+                    if (f->ident->get_id() == field->ident->get_id() &&
+                        f.get() != field.get()) {
+                        err.add_note(f->ident->get_span(),
+                                     "first defined here");
+                        break;
+                    }
+                }
             } else {
                 ctxt->syms->declare_var(field->ident, field->type, false, true);
             }
@@ -1351,10 +1355,22 @@ struct StructDecl final : Decl {
                                        std::make_pair(func_type, field_num++)))
                     .second;
             if (!is_unique) {
-                ctxt->diag.emit(
+                auto err = ctxt->diag.error(
                     func_decl->name->get_span(), DiagnosticKind::DuplicateField,
-                    ident->to_string(ctxt->strings.get()),
-                    func_decl->name->to_string(ctxt->strings.get()));
+                    ctxt->strings->get_string(ident->get_id()),
+                    ctxt->strings->get_string(func_decl->name->get_id()));
+                err.add_primary_note("defined again here");
+                for (const auto& f : funcs) {
+                    if (f.get() == func.get()) {
+                        break;
+                    }
+                    auto* fd = cast<FuncDecl>(f.get());
+                    if (fd->name->get_id() == func_decl->name->get_id()) {
+                        err.add_note(fd->name->get_span(),
+                                     "first defined here");
+                        break;
+                    }
+                }
             } else {
                 ctxt->syms->declare_func(func_decl->name, func_type);
             }
@@ -1619,10 +1635,19 @@ struct EnumDecl final : Decl {
                 field_types.insert({field->ident->get_id(), field->types})
                     .second;
             if (!is_unique) {
-                ctxt->diag.emit(field->ident->get_span(),
-                                DiagnosticKind::DuplicateField,
-                                ident->to_string(ctxt->strings.get()),
-                                field->ident->to_string(ctxt->strings.get()));
+                auto err = ctxt->diag.error(
+                    field->ident->get_span(), DiagnosticKind::DuplicateField,
+                    ctxt->strings->get_string(ident->get_id()),
+                    ctxt->strings->get_string(field->ident->get_id()));
+                err.add_primary_note("defined again here");
+                for (const auto& f : fields) {
+                    if (f->ident->get_id() == field->ident->get_id() &&
+                        f.get() != field.get()) {
+                        err.add_note(f->ident->get_span(),
+                                     "first defined here");
+                        break;
+                    }
+                }
             }
         }
 
