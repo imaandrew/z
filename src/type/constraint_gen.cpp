@@ -208,7 +208,8 @@ void ConstraintGenerator::visit(ast::Block& block) {
         stmt->accept(*this);
 
     if (!block.stmts.empty()) {
-        if (!isa<VoidType>(ty->get(block.stmts.back()->node_type)))
+        if (!isa<VoidType>(ty->get(block.stmts.back()->node_type)) &&
+            !block.stmts.back()->semi_terminated)
             eq(block.node_type, block.stmts.back()->node_type);
         else
             eq(block.node_type, builtin::VOID);

@@ -396,6 +396,7 @@ template <typename T> const T* cast(const ASTNode* node) {
 }
 
 struct Stmt : ASTNode {
+    bool semi_terminated = false;
     Stmt(ASTKind kind, Span span) : ASTNode(kind, span) {};
     ~Stmt() override = default;
     Stmt(const Stmt&) = delete;

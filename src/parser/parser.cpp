@@ -546,26 +546,33 @@ Parser::parse_block(const bool implicit_return) {
         }
 
         auto res = parse_stmt();
-        if (res.is_valid()) {
-            stmts.push_back(res.take());
-        } else {
+        if (!res.is_valid()) {
             recover_stmt();
             if (tok.is(TokenKind::Eof))
                 return Result<std::unique_ptr<ast::Block>>();
             continue;
         }
 
+        auto stmt = res.take();
+
         if (implicit_return && tok.is(TokenKind::RBrace))
             break;
 
         if (required_semi) {
-            if (tok_assert(TokenKind::Semi))
+            if (tok_assert(TokenKind::Semi)) {
                 next_token();
-            else
+                stmt->semi_terminated = true;
+            } else {
                 is_valid = false;
+            }
         } else {
-            required_semi = true;
+            if (tok.is(TokenKind::Semi)) {
+                stmt->semi_terminated = true;
+                next_token();
+            }
         }
+
+        stmts.push_back(std::move(stmt));
     }
 
     span = span + tok.get_span();
