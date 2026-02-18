@@ -7,6 +7,7 @@
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_arena.h"
+#include "type/type_ref.h"
 #include <cassert>
 #include <optional>
 #include <utility>
@@ -180,12 +181,41 @@ void IRBuilder::visit(ast::PostfixExpr& expr) {
 }
 
 void IRBuilder::visit(ast::BinaryExpr& expr) {
-    const auto lhs = emit_op(expr.lhs.get());
-    const auto rhs = emit_op(expr.rhs.get());
     const auto expr_op = expr.op;
-
     std::optional<IntCC> int_cc{};
     std::optional<FloatCC> float_cc{};
+
+    if (expr_op == BinOp::LogicAnd || expr_op == BinOp::LogicOr) {
+        auto lhs = emit_op(expr.lhs.get());
+        auto lhs_reg = ensure_reg(lhs);
+        auto lhs_block = *current_block;
+
+        auto rhs_block = new_block();
+        auto end_block = new_block();
+
+        if (expr_op == BinOp::LogicAnd)
+            emit_branch(lhs_reg, rhs_block, end_block);
+        else
+            emit_branch(lhs_reg, end_block, rhs_block);
+
+        switch_block(rhs_block);
+        seal_block(current_func->get_block(rhs_block));
+        auto rhs = emit_op(expr.rhs.get());
+        auto rhs_reg = ensure_reg(rhs);
+        auto rhs_exit = *current_block;
+        emit_jump(end_block);
+
+        switch_block(end_block);
+        seal_block(current_func->get_block(end_block));
+
+        auto phi_inst = get_inst_id();
+        auto phi = emit_phi(type::builtin::BOOL);
+        add_phi_operand(phi_inst, lhs_reg.as_reg(), lhs_block);
+        add_phi_operand(phi_inst, rhs_reg.as_reg(), rhs_exit);
+
+        last_result = Operand::reg(phi);
+        return;
+    }
 
     auto op = [&] {
         const auto* type = ctxt->ty->get(expr.lhs->node_type);
@@ -208,6 +238,9 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         return get_ir_op(expr_op);
     }();
 
+    const auto lhs = emit_op(expr.lhs.get());
+    const auto rhs = emit_op(expr.rhs.get());
+
     if (lhs.is_imm() && rhs.is_imm()) {
         auto lhs_imm = lhs.as_imm();
         auto rhs_imm = rhs.as_imm();
@@ -228,7 +261,6 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
                     ctxt->ty->get(expr.node_type)->basic_name(ctxt);
                 ctxt->diag.error(expr.get_span(),
                                  DiagnosticKind::OperationOverflows, name);
-                // TODO: handle error
                 return;
             }
 
@@ -313,10 +345,12 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Range:
     case BinOp::RangeEq:
     case BinOp::ColonColon:
-    case BinOp::LogicAnd:
-    case BinOp::LogicOr:
     case BinOp::Eq:
         panic("BinOp not handled in switch statement");
+
+    case BinOp::LogicAnd:
+    case BinOp::LogicOr:
+        std::unreachable();
     }
 }
 
