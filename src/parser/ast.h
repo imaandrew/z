@@ -364,7 +364,7 @@ struct ASTNode {
     void print_header(std::ostream& stream, int indent, const char* name,
                       z::ZContext* ctxt) const {
         print_indent(stream, indent);
-        std::print(stream, "{}{}{}", colour::RESET, name, colour::RESET);
+        std::print(stream, "{}{}{}", colour::GREEN, name, colour::RESET);
         dump_type(ctxt, stream);
     }
 };
