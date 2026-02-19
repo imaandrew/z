@@ -272,6 +272,8 @@ public:
         return false;
     }
 
+    [[nodiscard]] TypeRef get_type() const { return type; }
+
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 
     [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
@@ -416,27 +418,6 @@ public:
         : Type(Kind), name(name), fields(std::move(fields)),
           funcs(std::move(funcs)) {}
 
-    static TypeKey
-    make_key(StringID name, const std::unordered_map<StringID, TypeRef>& fields,
-             const std::unordered_map<StringID, TypeRef>& funcs) {
-        std::size_t fields_hash = fields.size();
-        for (const auto& [k, v] : fields) {
-            fields_hash ^=
-                k.id + 0x9e3779b9 + (fields_hash << 6U) + (fields_hash >> 2U);
-            fields_hash ^= v.get_id() + 0x9e3779b9 + (fields_hash << 6U) +
-                           (fields_hash >> 2U);
-        }
-
-        std::size_t funcs_hash = funcs.size();
-        for (const auto& [k, v] : funcs) {
-            funcs_hash ^=
-                k.id + 0x9e3779b9 + (funcs_hash << 6U) + (funcs_hash >> 2U);
-            funcs_hash ^= v.get_id() + 0x9e3779b9 + (funcs_hash << 6U) +
-                          (funcs_hash >> 2U);
-        }
-        return make_type_key(Kind, name, fields_hash, funcs_hash);
-    }
-
     [[nodiscard]] bool is_struct() const override { return true; }
 
     StringID get_name() const { return name; }
@@ -453,6 +434,11 @@ public:
         return fields;
     }
 
+    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
+    get_fields_mut() {
+        return fields;
+    }
+
     bool has_field(StringID field) const { return fields.contains(field); }
 
     std::optional<std::uint32_t> get_field_index(StringID field) const {
@@ -460,6 +446,16 @@ public:
             return std::nullopt;
 
         return fields.at(field).second;
+    }
+
+    const std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
+    get_funcs() const {
+        return funcs;
+    }
+
+    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
+    get_funcs_mut() {
+        return funcs;
     }
 
     std::optional<TypeRef> get_func_type(StringID func) const {
@@ -509,29 +505,22 @@ public:
 
 class EnumType final : public Type {
     StringID name;
-    std::unordered_map<StringID, std::vector<TypeRef>&> fields;
+    std::unordered_map<StringID, std::vector<TypeRef>> fields;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Enum;
 
-    explicit EnumType(
-        StringID name,
-        std::unordered_map<StringID, std::vector<TypeRef>&> fields)
+    explicit EnumType(StringID name,
+                      std::unordered_map<StringID, std::vector<TypeRef>> fields)
         : Type(Kind), name(name), fields(std::move(fields)) {}
 
-    static TypeKey make_key(
-        StringID name,
-        const std::unordered_map<StringID, std::vector<TypeRef>&>& fields) {
-        std::size_t fields_hash = fields.size();
-        for (const auto& [k, v] : fields) {
-            fields_hash ^=
-                k.id + 0x9e3779b9 + (fields_hash << 6U) + (fields_hash >> 2U);
-            for (const auto& vv : v) {
-                fields_hash ^= vv.get_id() + 0x9e3779b9 + (fields_hash << 6U) +
-                               (fields_hash >> 2U);
-            }
-        }
-        return make_type_key(Kind, name, fields_hash);
+    const std::unordered_map<StringID, std::vector<TypeRef>>&
+    get_fields() const {
+        return fields;
+    }
+
+    std::unordered_map<StringID, std::vector<TypeRef>>& get_fields_mut() {
+        return fields;
     }
 
     bool operator==(const Type& other) const override {
@@ -614,6 +603,10 @@ public:
         }
 
         return false;
+    }
+
+    [[nodiscard]] std::pair<TypeRef, TypeRef> get_types() const {
+        return std::make_pair(first, second);
     }
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;

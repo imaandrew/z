@@ -1622,7 +1622,7 @@ struct EnumDecl final : Decl {
         if (!t)
             return;
 
-        std::unordered_map<StringID, std::vector<type::TypeRef>&> field_types;
+        std::unordered_map<StringID, std::vector<type::TypeRef>> field_types;
 
         for (const auto& field : fields) {
             for (auto& type : field->types) {

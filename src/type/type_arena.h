@@ -22,7 +22,9 @@ public:
     template <class T, typename... Args> TypeRef make(Args&&... args) {
         if constexpr (T::Kind == TypeKind::Inferred ||
                       T::Kind == TypeKind::Unknown ||
-                      T::Kind == TypeKind::Temp) {
+                      T::Kind == TypeKind::Temp ||
+                      T::Kind == TypeKind::Struct ||
+                      T::Kind == TypeKind::Enum) {
             TypeRef ref{static_cast<std::uint32_t>(types.size())};
             types.push_back(std::make_unique<T>(std::forward<Args>(args)...));
             return ref;

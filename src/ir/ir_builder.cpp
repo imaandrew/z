@@ -824,14 +824,6 @@ void IRBuilder::visit(ast::CharExpr& expr) {
     last_result = Operand::imm(expr.c, expr.node_type);
 }
 
-void IRBuilder::visit(ast::StructField& field) {}
-
-void IRBuilder::visit(ast::StructDecl& decl) {}
-
-void IRBuilder::visit(ast::EnumField& field) {}
-
-void IRBuilder::visit(ast::EnumDecl& decl) {}
-
 void IRBuilder::visit(ast::ConstDecl& decl) {
     const auto val = emit_op(decl.val.get());
     constants.emplace(decl.ident->get_id(), val);

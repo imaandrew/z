@@ -95,10 +95,10 @@ class IRBuilder final : public ast::ASTVisitor {
     void visit(ast::WhileExpr& expr) override;
     void visit(ast::StringExpr& expr) override;
     void visit(ast::CharExpr& expr) override;
-    void visit(ast::StructField& field) override;
-    void visit(ast::StructDecl& decl) override;
-    void visit(ast::EnumField& field) override;
-    void visit(ast::EnumDecl& decl) override;
+    void visit(ast::StructField& /*field*/) override {}
+    void visit(ast::StructDecl& /*decl*/) override {}
+    void visit(ast::EnumField& /*field*/) override {}
+    void visit(ast::EnumDecl& /*decl*/) override {}
     void visit(ast::ConstDecl& decl) override;
     void visit(ast::StaticDecl& decl) override;
     void visit(ast::TraitDecl& decl) override;
