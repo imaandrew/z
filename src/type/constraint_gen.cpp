@@ -3,6 +3,7 @@
 #include "parser/ast.h"
 #include "type.h"
 #include "type_arena.h"
+#include "type_ref.h"
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -114,7 +115,7 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
         if (func_ptr->get_params().size() != expr.args.size())
             return;
 
-        for (size_t i = 0; i < func_ptr->get_params().size(); i++)
+        for (std::size_t i = 0; i < func_ptr->get_params().size(); i++)
             eq(expr.args[i]->node_type, func_ptr->get_params()[i]);
     }
 }

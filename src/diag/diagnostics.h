@@ -1,14 +1,19 @@
 #pragma once
 
 #include "core/colour.h"
+#include "core/panic.h"
 #include "src_mgr.h"
+#include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <iostream>
 #include <magic_enum/magic_enum_format.hpp> // NOLINT(misc-include-cleaner)
 #include <map>
+#include <print>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 

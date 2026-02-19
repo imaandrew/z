@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <unordered_set>
 #include <utility>
 
 namespace z {

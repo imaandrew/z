@@ -5,7 +5,6 @@
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_ref.h"
-#include <cstdint>
 #include <optional>
 #include <vector>
 

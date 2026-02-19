@@ -9,7 +9,10 @@
 #include "type/type_arena.h"
 #include "type/type_ref.h"
 #include <cassert>
+#include <cstddef>
+#include <functional>
 #include <optional>
+#include <ranges>
 #include <utility>
 #include <vector>
 

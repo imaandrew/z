@@ -1,10 +1,13 @@
 #include "type.h"
 #include "core/zctxt.h"
 #include "type_arena.h"
+#include "type_ref.h"
+#include <cassert>
 #include <cstdlib>
 #include <format>
 #include <iostream>
 #include <memory>
+#include <print>
 #include <string>
 
 namespace z::type {
