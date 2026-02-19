@@ -120,10 +120,10 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::ArrayExpr& expr) {
-    expr.ident->accept(*this);
+    expr.array->accept(*this);
     expr.val->accept(*this);
 
-    if (const auto* type = ty->get_as<ArrayType>(expr.ident->node_type))
+    if (const auto* type = ty->get_as<ArrayType>(expr.array->node_type))
         expr.node_type = type->get_type();
 }
 

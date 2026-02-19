@@ -54,6 +54,8 @@ enum class IROp : std::uint8_t {
     GetFieldPtr,
     ExtractField,
     InsertField,
+    ExtractElement,
+    InsertElement,
 
     ArrayInit,
     StructInit,
@@ -299,12 +301,12 @@ struct Label {
     BlockID block_id;
 };
 
-struct Field {
+struct Index {
     std::uint32_t idx;
 };
 
 struct Operand {
-    std::variant<VReg, Immediate, Label, Field, IntCC, FloatCC, FuncID> val;
+    std::variant<VReg, Immediate, Label, Index, IntCC, FloatCC, FuncID> val;
 
     static Operand reg(VReg reg) { return Operand{.val = reg}; }
 
@@ -317,7 +319,7 @@ struct Operand {
     }
 
     static Operand field(std::uint32_t field_idx) {
-        return Operand{.val = Field{.idx = field_idx}};
+        return Operand{.val = Index{.idx = field_idx}};
     }
 
     static Operand intcc(IntCC intcc) { return Operand{.val = intcc}; }
@@ -335,8 +337,8 @@ struct Operand {
     [[nodiscard]] bool is_label() const {
         return std::holds_alternative<Label>(val);
     }
-    [[nodiscard]] bool is_field() const {
-        return std::holds_alternative<Field>(val);
+    [[nodiscard]] bool is_index() const {
+        return std::holds_alternative<Index>(val);
     }
     [[nodiscard]] bool is_intcc() const {
         return std::holds_alternative<IntCC>(val);
@@ -359,8 +361,8 @@ struct Operand {
     Label& as_label() { return std::get<Label>(val); }
     [[nodiscard]] const Label& as_label() const { return std::get<Label>(val); }
 
-    Field& as_field() { return std::get<Field>(val); }
-    [[nodiscard]] const Field& as_field() const { return std::get<Field>(val); }
+    Index& as_index() { return std::get<Index>(val); }
+    [[nodiscard]] const Index& as_index() const { return std::get<Index>(val); }
 
     [[nodiscard]] IntCC as_intcc() const { return std::get<IntCC>(val); }
 
@@ -370,7 +372,7 @@ struct Operand {
 };
 
 struct InstTag {};
-using InstId = Index<InstTag>;
+using InstId = z::Index<InstTag>;
 
 struct Instruction {
     InstId id;

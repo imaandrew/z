@@ -217,6 +217,17 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         return;
     }
 
+    if (expr_op == BinOp::Eq) {
+        auto* lhs = expr.lhs.get();
+        auto rhs = emit_op(expr.rhs.get());
+
+        if (ast::isa<ast::Identifier>(lhs))
+            write_var(ast::cast<ast::Identifier>(lhs)->get_id(), rhs.as_reg());
+        else
+            emit_aggregate_insert(lhs, rhs);
+        return;
+    }
+
     auto op = [&] {
         const auto* type = ctxt->ty->get(expr.lhs->node_type);
         if (type->is_integral()) {
@@ -345,11 +356,11 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Range:
     case BinOp::RangeEq:
     case BinOp::ColonColon:
-    case BinOp::Eq:
         panic("BinOp not handled in switch statement");
 
     case BinOp::LogicAnd:
     case BinOp::LogicOr:
+    case BinOp::Eq:
         std::unreachable();
     }
 }
@@ -370,7 +381,7 @@ void IRBuilder::visit(ast::CallExpr& expr) {
 }
 
 void IRBuilder::visit(ast::ArrayExpr& expr) {
-    auto container = emit_op(expr.ident.get());
+    auto container = emit_op(expr.array.get());
     auto val = emit_op(expr.val.get());
 
     const auto* arr_type =
@@ -378,7 +389,7 @@ void IRBuilder::visit(ast::ArrayExpr& expr) {
     expect(arr_type != nullptr, "ArrayExpr should have type ArrayType");
 
     auto result =
-        emit_inst(IROp::ExtractField, {container, val}, arr_type->get_type());
+        emit_inst(IROp::ExtractElement, {container, val}, arr_type->get_type());
     last_result = Operand::reg(result);
 }
 
@@ -448,10 +459,11 @@ void IRBuilder::visit(ast::Block& block) {
     ctxt->syms->enter_scope(block.get_scope_id());
 
     for (const auto& stmt : block.stmts) {
-        stmt->accept(*this);
         if (current_func->get_block(*current_block).term) {
             ctxt->diag.warn(stmt->get_span(), DiagnosticKind::UnreachableStmt);
+            break;
         }
+        stmt->accept(*this);
     }
     ctxt->syms->exit_scope();
 }
@@ -817,5 +829,77 @@ void IRBuilder::visit(ast::TraitDecl& decl) {}
 void IRBuilder::visit(ast::TypeAliasDecl& decl) {}
 
 void IRBuilder::visit(ast::TraitFuncDecl& decl) {}
+
+Operand IRBuilder::emit_aggregate_insert(ast::Expr* lhs, Operand new_val) {
+    std::vector<std::pair<Operand, Operand>> aggregate_types;
+    ast::Identifier* ident = nullptr;
+
+    std::function<void(ast::Expr*, bool)> extract_recursive;
+    extract_recursive = [&](ast::Expr* e, bool first) {
+        if (auto* f = ast::dyn_cast<ast::FieldExpr>(e)) {
+            extract_recursive(f->container.get(), false);
+
+            auto container = *last_result;
+
+            const auto* struct_type =
+                ctxt->ty->get_as<type::StructType>(container.as_reg().type);
+            expect(struct_type != nullptr,
+                   "FieldExpr.container should have type StructType");
+
+            auto field_type = struct_type->get_field_type(f->field->get_id());
+            auto field_idx = struct_type->get_field_index(f->field->get_id());
+            expect(field_idx && field_type,
+                   "Couldn't find field in StructType");
+
+            aggregate_types.emplace_back(container, Operand::field(*field_idx));
+
+            if (first)
+                return;
+
+            auto result =
+                emit_inst(IROp::ExtractField,
+                          {container, Operand::field(*field_idx)}, *field_type);
+            last_result = Operand::reg(result);
+        } else if (auto* a = ast::dyn_cast<ast::ArrayExpr>(e)) {
+            extract_recursive(a->array.get(), false);
+
+            auto array = *last_result;
+            auto val = emit_op(a->val.get());
+
+            aggregate_types.emplace_back(array, val);
+
+            if (first)
+                return;
+
+            auto result =
+                emit_inst(IROp::ExtractElement, {array, val}, e->node_type);
+            last_result = Operand::reg(result);
+        } else if (auto* i = ast::dyn_cast<ast::Identifier>(e)) {
+            emit_op(i);
+            ident = i;
+        }
+    };
+
+    extract_recursive(lhs, true);
+
+    Operand val = new_val;
+    for (auto& [op, idx] : std::ranges::reverse_view(aggregate_types)) {
+        expect(op.is_reg(), "Should be reg");
+        const auto* t = ctxt->ty->get(op.as_reg().type);
+        if (type::isa<type::StructType>(t)) {
+            auto result =
+                emit_inst(IROp::InsertField, {op, idx, val}, op.as_reg().type);
+            val = Operand::reg(result);
+        } else if (type::isa<type::ArrayType>(t)) {
+            auto result = emit_inst(IROp::InsertElement, {op, idx, val},
+                                    op.as_reg().type);
+            val = Operand::reg(result);
+        }
+    }
+
+    *last_result = val;
+    write_var(ident->get_id(), val.as_reg());
+    return val;
+}
 
 } // namespace z::ir

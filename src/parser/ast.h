@@ -615,25 +615,25 @@ struct CallExpr final : Expr {
 };
 
 struct ArrayExpr final : Expr {
-    std::unique_ptr<Expr> ident;
+    std::unique_ptr<Expr> array;
     std::unique_ptr<Expr> val;
 
     static constexpr ASTKind Kind = ASTKind::ArrayExpr;
 
     ArrayExpr(Span span, std::unique_ptr<Expr> ident, std::unique_ptr<Expr> val)
-        : Expr(Kind, span), ident(std::move(ident)), val(std::move(val)) {};
+        : Expr(Kind, span), array(std::move(ident)), val(std::move(val)) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
         print_header(stream, indent, "ArrayExpr", ctxt);
-        ident->dump(ctxt, indent + 2, stream);
+        array->dump(ctxt, indent + 2, stream);
         val->dump(ctxt, indent + 2, stream);
     }
 
     void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
 
     std::generator<ASTNode*> children() override {
-        co_yield ident.get();
+        co_yield array.get();
         co_yield val.get();
     }
 

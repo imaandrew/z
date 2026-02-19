@@ -555,8 +555,10 @@ Parser::parse_block(const bool implicit_return) {
 
         auto stmt = res.take();
 
-        if (implicit_return && tok.is(TokenKind::RBrace))
+        if (implicit_return && tok.is(TokenKind::RBrace)) {
+            stmts.push_back(std::move(stmt));
             break;
+        }
 
         if (required_semi) {
             if (tok_assert(TokenKind::Semi)) {

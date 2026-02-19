@@ -145,6 +145,8 @@ class IRBuilder final : public ast::ASTVisitor {
         return last_result.value();
     }
 
+    Operand emit_aggregate_insert(ast::Expr* lhs, Operand new_val);
+
     VReg emit_inst(IROp op, std::initializer_list<Operand> ops,
                    type::TypeRef dest_type) {
         const auto inst_id = get_inst_id();

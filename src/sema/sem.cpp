@@ -389,14 +389,13 @@ void SemChecker::visit(ast::CallExpr& expr) {
 }
 
 void SemChecker::visit(ast::ArrayExpr& expr) {
-    expr.ident->accept(*this);
+    expr.array->accept(*this);
     expr.val->accept(*this);
 
-    const auto* ident = dyn_cast<ast::Identifier>(expr.ident.get());
-    if (!ident || !ctxt->ty->get(ident->node_type)->is_array()) {
+    if (!ctxt->ty->get(expr.array->node_type)->is_array()) {
         ctxt->diag
             .error(expr.get_span(), DiagnosticKind::TypeCannotBeIndexed,
-                   ctxt->ty->get(expr.ident->node_type)->basic_name(ctxt))
+                   ctxt->ty->get(expr.array->node_type)->basic_name(ctxt))
             .add_primary_note("must be an array type");
     }
 

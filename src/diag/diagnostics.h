@@ -304,7 +304,6 @@ class DiagnosticsEngine {
     template <typename... Args>
     Diagnostic emit(DiagnosticCategory cat, const Span& span,
                     const DiagnosticKind kind, Args&&... args) {
-        has_err = true;
         return Diagnostic(
             cat, kind, span,
             std::vformat(get_diagnostic_string(kind),

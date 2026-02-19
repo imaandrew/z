@@ -112,8 +112,8 @@ void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
     else if (op.is_label())
         std::print(os, "{}bb{}{}", colour::YELLOW, op.as_label().block_id.id,
                    colour::RESET);
-    else if (op.is_field())
-        std::print(os, "{}#{}{}", colour::YELLOW, op.as_field().idx,
+    else if (op.is_index())
+        std::print(os, "{}#{}{}", colour::YELLOW, op.as_index().idx,
                    colour::RESET);
     else if (op.is_intcc()) {
         const auto* string = [&] {
@@ -269,6 +269,10 @@ constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
         return "extractfield";
     case IROp::InsertField:
         return "insertfield";
+    case IROp::ExtractElement:
+        return "extractelement";
+    case IROp::InsertElement:
+        return "insertelement";
     case IROp::ArrayInit:
         return "arrayinit";
     case IROp::StructInit:
