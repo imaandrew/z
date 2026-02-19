@@ -201,7 +201,7 @@ class IRBuilder final : public ast::ASTVisitor {
         return Operand::reg(emit_inst(IROp::LoadConst, {op}, imm.type));
     }
 
-    void add_pending_return(std::optional<Operand> val) {
+    void add_deferred_return(std::optional<Operand> val) {
         if (val) {
             val = std::make_optional<Operand>(ensure_reg(*val).as_reg());
         }

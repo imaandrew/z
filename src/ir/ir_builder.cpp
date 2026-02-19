@@ -501,14 +501,29 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     func.body->accept(*this);
 
-    auto ret_block = new_block();
     auto& exit_block = current_func->get_block(*current_block);
     if (!exit_block.term) {
         if (func.body->node_type == type::builtin::VOID)
-            add_pending_return(std::nullopt);
+            add_deferred_return(std::nullopt);
         else
-            add_pending_return(last_result);
+            add_deferred_return(last_result);
     }
+
+    if (deferred_returns.size() == 1) {
+        auto& [from, val] = deferred_returns.front();
+        assert(from == *current_block);
+
+        if (val)
+            emit_inst(IROp::Ret, {*val});
+        else
+            emit_inst(IROp::Ret, {});
+
+        deferred_returns.clear();
+        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+        return;
+    }
+
+    auto ret_block = new_block();
 
     switch_block(ret_block);
 
@@ -574,7 +589,7 @@ void IRBuilder::visit(ast::ReturnStmt& stmt) {
         val = emit_op(stmt.expr.get());
     }
 
-    add_pending_return(val);
+    add_deferred_return(val);
     current_func->get_block(*current_block).term = TerminatorKind::Jump;
 }
 
