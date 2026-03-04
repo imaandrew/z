@@ -226,7 +226,7 @@ class IRBuilder final : public ast::ASTVisitor {
             return;
         emit_inst(IROp::Jump, {Operand::label(to)});
         current_func->get_block(*current_block).term = TerminatorKind::Jump;
-        current_func->get_block(to).predecessors.push_back(*current_block);
+        current_func->get_block(to).add_predecessor(*current_block);
     }
 
     void emit_branch(Operand cond, BlockID _true, BlockID _false) {
@@ -235,8 +235,12 @@ class IRBuilder final : public ast::ASTVisitor {
         emit_inst(IROp::Branch,
                   {cond, Operand::label(_true), Operand::label(_false)});
         current_func->get_block(*current_block).term = TerminatorKind::Branch;
-        current_func->get_block(_true).predecessors.push_back(*current_block);
-        current_func->get_block(_false).predecessors.push_back(*current_block);
+        current_func->get_block(_true).add_predecessor(*current_block);
+        current_func->get_block(_false).add_predecessor(*current_block);
+    }
+
+    void link_blocks(BlockID from, BlockID to) {
+        current_func->get_block(to).add_predecessor(from);
     }
 
     /*

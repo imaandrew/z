@@ -397,6 +397,15 @@ struct BasicBlock {
     std::vector<BlockID> predecessors;
 
     explicit BasicBlock(BlockID id) : id(id) {};
+
+    void add_predecessor(BlockID pred) {
+        for (const auto p : predecessors) {
+            if (p == pred)
+                return;
+        }
+
+        predecessors.push_back(pred);
+    }
 };
 
 struct IRFunction {

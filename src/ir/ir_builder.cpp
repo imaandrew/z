@@ -603,6 +603,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
 
     switch_block(then_block);
     seal_block(current_func->get_block(then_block));
+    link_blocks(branch_source, then_block);
 
     if (expr.else_expr) {
         // Then
@@ -618,6 +619,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         auto else_block = new_block();
         switch_block(else_block);
         seal_block(current_func->get_block(else_block));
+        link_blocks(branch_source, else_block);
         expr.else_expr->accept(*this);
         auto else_result = expr.else_expr->node_type != type::builtin::VOID
                                ? std::make_optional(ensure_reg(*last_result))
@@ -707,6 +709,7 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
                               type::builtin::BOOL);
 
         auto body_block = new_block();
+        link_blocks(*current_block, body_block);
         switch_block(body_block);
         expr.block->accept(*this);
 
@@ -790,6 +793,7 @@ void IRBuilder::visit(ast::WhileExpr& expr) {
     auto cond = emit_op(expr.expr.get());
 
     auto body_block = new_block();
+    link_blocks(*current_block, body_block);
     switch_block(body_block);
 
     expr.block->accept(*this);
