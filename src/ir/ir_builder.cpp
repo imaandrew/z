@@ -96,15 +96,15 @@ void IRBuilder::visit(ast::Identifier& ident) {
 }
 
 void IRBuilder::visit(ast::IntExpr& expr) {
-    const auto* ty = ctxt->ty->get_as<type::IntegerType>(expr.node_type);
+    const auto* ty = ctxt->ty->get_as<type::IntegerType>(expr.get_type());
     last_result = Operand::imm(
-        ConstInt(expr.val, ty->get_width(), ty->is_signed()), expr.node_type);
+        ConstInt(expr.val, ty->get_width(), ty->is_signed()), expr.get_type());
 }
 
 void IRBuilder::visit(ast::FloatExpr& expr) {
-    const auto* ty = ctxt->ty->get_as<type::FloatType>(expr.node_type);
+    const auto* ty = ctxt->ty->get_as<type::FloatType>(expr.get_type());
     last_result =
-        Operand::imm(ConstFloat(expr.val, ty->get_width()), expr.node_type);
+        Operand::imm(ConstFloat(expr.val, ty->get_width()), expr.get_type());
 }
 
 void IRBuilder::visit(ast::BoolExpr& expr) {
@@ -232,7 +232,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     }
 
     auto op = [&] {
-        const auto* type = ctxt->ty->get(expr.lhs->node_type);
+        const auto* type = ctxt->ty->get(expr.lhs->get_type());
         if (type->is_integral()) {
             const auto* int_type = type::cast<const type::IntegerType>(type);
             auto op = get_int_ir_op(expr_op, int_type->is_signed());
@@ -272,14 +272,14 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
 
             if (overflow) {
                 const auto name =
-                    ctxt->ty->get(expr.node_type)->basic_name(ctxt);
+                    ctxt->ty->get(expr.get_type())->basic_name(ctxt);
                 ctxt->diag.error(expr.get_span(),
                                  DiagnosticKind::OperationOverflows, name);
                 return;
             }
 
             if (res) {
-                last_result = Operand::imm(*res, expr.node_type);
+                last_result = Operand::imm(*res, expr.get_type());
                 return;
             }
         } else if (lhs_imm.is_float() && rhs_imm.is_float()) {
@@ -293,7 +293,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             auto res =
                 fold_float_op(op, lhs_imm.as_float(), rhs_imm.as_float());
             if (res) {
-                last_result = Operand::imm(*res, expr.node_type);
+                last_result = Operand::imm(*res, expr.get_type());
                 return;
             }
         } else if (lhs_imm.is_bool() && rhs_imm.is_bool()) {
@@ -317,7 +317,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::BitOrEq:
     case BinOp::ShlEq:
     case BinOp::ShrEq: {
-        auto dest = emit_inst(op, {lhs, rhs}, expr.lhs->node_type);
+        auto dest = emit_inst(op, {lhs, rhs}, expr.lhs->get_type());
         write_var(ast::cast<ast::Identifier>(expr.lhs.get())->get_id(), dest);
         last_result = std::nullopt;
         break;
@@ -333,7 +333,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Sub:
     case BinOp::Mul:
     case BinOp::Div: {
-        auto dest = emit_inst(op, {lhs, rhs}, expr.node_type);
+        auto dest = emit_inst(op, {lhs, rhs}, expr.get_type());
         last_result = Operand::reg(dest);
         break;
     }
@@ -345,13 +345,13 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Le: {
         if (int_cc) {
             last_result = Operand::reg(emit_inst(
-                op, {Operand::intcc(*int_cc), lhs, rhs}, expr.node_type));
+                op, {Operand::intcc(*int_cc), lhs, rhs}, expr.get_type()));
         } else if (float_cc) {
             last_result = Operand::reg(emit_inst(
-                op, {Operand::floatcc(*float_cc), lhs, rhs}, expr.node_type));
+                op, {Operand::floatcc(*float_cc), lhs, rhs}, expr.get_type()));
         } else {
             last_result =
-                Operand::reg(emit_inst(op, {lhs, rhs}, expr.node_type));
+                Operand::reg(emit_inst(op, {lhs, rhs}, expr.get_type()));
         }
         break;
     }
@@ -414,7 +414,7 @@ void IRBuilder::visit(ast::FieldExpr& expr) {
 }
 
 void IRBuilder::visit(ast::ArrayInitExpr& expr) {
-    const auto* arr_type = ctxt->ty->get_as<type::ArrayType>(expr.node_type);
+    const auto* arr_type = ctxt->ty->get_as<type::ArrayType>(expr.get_type());
     expect(arr_type != nullptr, "ArrayInitExpr should have type ArrayType");
 
     std::vector<Operand> vals;
@@ -424,7 +424,7 @@ void IRBuilder::visit(ast::ArrayInitExpr& expr) {
         vals.push_back(v);
     }
 
-    auto result = emit_inst(IROp::ArrayInit, std::move(vals), expr.node_type);
+    auto result = emit_inst(IROp::ArrayInit, std::move(vals), expr.get_type());
     last_result = Operand::reg(result);
 }
 
@@ -432,14 +432,14 @@ void IRBuilder::visit(ast::StructExprField& expr) { expr.val->accept(*this); }
 
 void IRBuilder::visit(ast::StructInitExpr& expr) {
     const auto* struct_type =
-        ctxt->ty->get_as<type::StructType>(expr.node_type);
+        ctxt->ty->get_as<type::StructType>(expr.get_type());
     expect(struct_type != nullptr,
            "StructInitExpr should have type StructType");
 
     std::vector<Operand> fields;
     fields.reserve(expr.fields.size() + 1);
     const auto* ident = ast::cast<ast::Identifier>(expr.ident.get());
-    fields.push_back(Operand::imm(ident->get_id(), ident->node_type));
+    fields.push_back(Operand::imm(ident->get_id(), ident->get_type()));
 
     for (auto& field : expr.fields) {
         field->accept(*this);
@@ -447,14 +447,14 @@ void IRBuilder::visit(ast::StructInitExpr& expr) {
         fields.insert(fields.begin() + id + 1, *last_result);
     }
 
-    auto result = emit_inst(IROp::StructInit, fields, expr.node_type);
+    auto result = emit_inst(IROp::StructInit, fields, expr.get_type());
     last_result = Operand::reg(result);
 }
 
 void IRBuilder::visit(ast::TupleExpr& expr) {
     const auto first = emit_op(expr.first.get());
     const auto second = emit_op(expr.second.get());
-    auto dest = emit_inst(IROp::TupleInit, {first, second}, expr.node_type);
+    auto dest = emit_inst(IROp::TupleInit, {first, second}, expr.get_type());
     last_result = Operand::reg(dest);
 }
 
@@ -506,7 +506,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     auto& exit_block = current_func->get_block(*current_block);
     if (!exit_block.term) {
-        if (func.body->node_type == type::builtin::VOID)
+        if (func.body->get_type() == type::builtin::VOID)
             add_deferred_return(std::nullopt);
         else
             add_deferred_return(last_result);
@@ -608,7 +608,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
     if (expr.else_expr) {
         // Then
         expr.block->accept(*this);
-        auto then_result = expr.block->node_type != type::builtin::VOID
+        auto then_result = expr.block->get_type() != type::builtin::VOID
                                ? std::make_optional(ensure_reg(*last_result))
                                : std::nullopt;
         auto then_exit = *current_block;
@@ -621,7 +621,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         seal_block(current_func->get_block(else_block));
         link_blocks(branch_source, else_block);
         expr.else_expr->accept(*this);
-        auto else_result = expr.else_expr->node_type != type::builtin::VOID
+        auto else_result = expr.else_expr->get_type() != type::builtin::VOID
                                ? std::make_optional(ensure_reg(*last_result))
                                : std::nullopt;
         auto else_exit = *current_block;
@@ -652,7 +652,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         seal_block(current_func->get_block(end_block));
 
         if (then_result && else_result) {
-            auto phi = emit_phi(expr.node_type);
+            auto phi = emit_phi(expr.get_type());
             auto phi_inst = current_func->get_reg_info(phi).def;
             add_phi_operand(phi_inst, then_result->as_reg(), then_exit);
             add_phi_operand(phi_inst, else_result->as_reg(), else_exit);
@@ -824,11 +824,11 @@ void IRBuilder::visit(ast::WhileExpr& expr) {
 }
 
 void IRBuilder::visit(ast::StringExpr& expr) {
-    last_result = Operand::imm(expr.string, expr.node_type);
+    last_result = Operand::imm(expr.string, expr.get_type());
 }
 
 void IRBuilder::visit(ast::CharExpr& expr) {
-    last_result = Operand::imm(expr.c, expr.node_type);
+    last_result = Operand::imm(expr.c, expr.get_type());
 }
 
 void IRBuilder::visit(ast::ConstDecl& decl) {
@@ -886,7 +886,7 @@ Operand IRBuilder::emit_aggregate_insert(ast::Expr* lhs, Operand new_val) {
                 return;
 
             auto result =
-                emit_inst(IROp::ExtractElement, {array, val}, e->node_type);
+                emit_inst(IROp::ExtractElement, {array, val}, e->get_type());
             last_result = Operand::reg(result);
         } else if (auto* i = ast::dyn_cast<ast::Identifier>(e)) {
             emit_op(i);

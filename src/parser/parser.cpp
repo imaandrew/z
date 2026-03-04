@@ -1027,7 +1027,7 @@ ExprResult Parser::parse_for_expr() {
     if (!block.is_valid())
         return ExprError();
 
-    span += block.get()->span;
+    span += block.get()->get_span();
     return ExprResult(std::make_unique<ast::ForExpr>(
         span, std::move(ident), expr.take(), block.take()));
 }
@@ -1053,7 +1053,7 @@ ExprResult Parser::parse_if_expr() {
             if (!if_expr.is_valid())
                 return ExprError();
 
-            else_span += if_expr.get()->span;
+            else_span += if_expr.get()->get_span();
             else_expr =
                 std::make_unique<ast::ElseExpr>(else_span, if_expr.take());
         } else {
@@ -1061,7 +1061,7 @@ ExprResult Parser::parse_if_expr() {
             if (!else_block.is_valid())
                 return ExprError();
 
-            else_span += else_block.get()->span;
+            else_span += else_block.get()->get_span();
             else_expr =
                 std::make_unique<ast::ElseExpr>(else_span, else_block.take());
         }
@@ -1071,7 +1071,7 @@ ExprResult Parser::parse_if_expr() {
             span, expr.take(), block.take(), std::move(else_expr)));
     }
 
-    span += block.get()->span;
+    span += block.get()->get_span();
     return ExprResult(
         std::make_unique<ast::IfExpr>(span, expr.take(), block.take()));
 }
@@ -1092,7 +1092,7 @@ ExprResult Parser::parse_loop_expr() {
     if (!block.is_valid())
         return ExprError();
 
-    span += block.get()->span;
+    span += block.get()->get_span();
     if (expr.is_valid()) {
         return ExprResult(
             std::make_unique<ast::LoopExpr>(span, expr.take(), block.take()));
@@ -1114,7 +1114,7 @@ ExprResult Parser::parse_while_expr() {
     if (!block.is_valid())
         return ExprError();
 
-    span += block.get()->span;
+    span += block.get()->get_span();
     return ExprResult(
         std::make_unique<ast::WhileExpr>(span, expr.take(), block.take()));
 }

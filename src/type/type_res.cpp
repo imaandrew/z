@@ -44,7 +44,7 @@ void TypeResolver::resolve(ast::SourceFileDecl* file, bool dump_constraints) {
 
 void TypeResolver::resolve_subtree(ast::ASTNode* node) {
     if (node->has_type())
-        node->node_type = cs.resolve(node->node_type);
+        node->set_type(cs.resolve(node->get_type()));
 
     for (auto* child : node->children())
         resolve_subtree(child);

@@ -330,11 +330,12 @@ public:
     virtual void visit(TraitFuncDecl&) = 0;
 };
 
-struct ASTNode {
+class ASTNode {
     type::TypeRef node_type;
     Span span;
     const ASTKind kind;
 
+public:
     ASTNode(ASTKind kind, Span span) : span(span), kind(kind) {}
     virtual ~ASTNode() = default;
 
@@ -346,6 +347,9 @@ struct ASTNode {
     [[nodiscard]] bool has_type() const { return node_type.is_valid(); }
     [[nodiscard]] Span get_span() const { return span; }
     [[nodiscard]] ASTKind get_kind() const { return kind; }
+    [[nodiscard]] type::TypeRef get_type() const { return node_type; }
+    void set_type(type::TypeRef type) { node_type = type; }
+
     virtual void accept(ASTVisitor& visitor) = 0;
 
     virtual void dump(ZContext* ctxt, int indent = 0,
@@ -506,7 +510,7 @@ struct PrefixExpr final : Expr {
     static constexpr ASTKind Kind = ASTKind::PrefixExpr;
 
     PrefixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(Kind, op.get_span() + expr->span),
+        : Expr(Kind, op.get_span() + expr->get_span()),
           op(tok_kind_to_unop(op.get_kind())), op_span(op.get_span()),
           expr(std::move(expr)) {};
 
@@ -533,7 +537,7 @@ struct PostfixExpr final : Expr {
     static constexpr ASTKind Kind = ASTKind::PostfixExpr;
 
     PostfixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(Kind, op.get_span() + expr->span),
+        : Expr(Kind, op.get_span() + expr->get_span()),
           op(tok_kind_to_unop(op.get_kind())), op_span(op.get_span()),
           expr(std::move(expr)) {};
 
@@ -562,7 +566,7 @@ struct BinaryExpr final : Expr {
 
     BinaryExpr(const Token& op, std::unique_ptr<Expr> lhs,
                std::unique_ptr<Expr> rhs)
-        : Expr(Kind, lhs->span + rhs->span),
+        : Expr(Kind, lhs->get_span() + rhs->get_span()),
           op(tok_kind_to_binop(op.get_kind())), op_span(op.get_span()),
           lhs(std::move(lhs)), rhs(std::move(rhs)) {};
 

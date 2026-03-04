@@ -32,7 +32,7 @@ void SemChecker::visit(ast::Identifier& ident) {
 }
 
 void SemChecker::visit(ast::IntExpr& expr) {
-    const auto* type = ctxt->ty->get_as<type::IntegerType>(expr.node_type);
+    const auto* type = ctxt->ty->get_as<type::IntegerType>(expr.get_type());
     expect(type != nullptr, "IntExpr should have IntegerType");
 
     std::uint64_t max = 0;
@@ -60,7 +60,7 @@ void SemChecker::visit(ast::IntExpr& expr) {
 }
 
 void SemChecker::visit(ast::FloatExpr& expr) {
-    const auto* type = ctxt->ty->get_as<type::FloatType>(expr.node_type);
+    const auto* type = ctxt->ty->get_as<type::FloatType>(expr.get_type());
     expect(type != nullptr, "FloatExpr should have FloatType");
 
     double max = 0;
@@ -88,7 +88,7 @@ void SemChecker::visit(ast::PrefixExpr& expr) {
     if (!expr.expr->has_type())
         return;
 
-    const auto* type = ctxt->ty->get(expr.expr->node_type);
+    const auto* type = ctxt->ty->get(expr.expr->get_type());
     using ast::UnOp;
     switch (expr.op) {
     case UnOp::Inc:
@@ -142,11 +142,11 @@ void SemChecker::visit(ast::PostfixExpr& expr) {
     case UnOp::Dec:
         check_expr_assignable(*expr.expr);
 
-        if (!ctxt->ty->get(expr.expr->node_type)->is_integral()) {
+        if (!ctxt->ty->get(expr.expr->get_type())->is_integral()) {
             ctxt->diag
                 .error(expr.get_span(), DiagnosticKind::InvalidUnaryOperand,
                        expr.op,
-                       ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt))
+                       ctxt->ty->get(expr.expr->get_type())->basic_name(ctxt))
                 .add_primary_note("must have an integral type");
         }
         return;
@@ -166,8 +166,8 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
     if (!expr.lhs->has_type() || !expr.rhs->has_type())
         return;
 
-    auto* l_type = ctxt->ty->get(expr.lhs->node_type);
-    auto* r_type = ctxt->ty->get(expr.rhs->node_type);
+    auto* l_type = ctxt->ty->get(expr.lhs->get_type());
+    auto* r_type = ctxt->ty->get(expr.rhs->get_type());
 
     bool valid = true;
     using ast::BinOp;
@@ -356,12 +356,12 @@ void SemChecker::visit(ast::CallExpr& expr) {
         ctxt->diag
             .error(expr.ident->get_span(), DiagnosticKind::TypeMismatch,
                    "identifier",
-                   ctxt->ty->get(expr.ident->node_type)->basic_name(ctxt))
+                   ctxt->ty->get(expr.ident->get_type())->basic_name(ctxt))
             .add_primary_note("not callable");
         return;
     }
 
-    auto* func = ctxt->ty->get_as<type::FunctionType>(expr.ident->node_type);
+    auto* func = ctxt->ty->get_as<type::FunctionType>(expr.ident->get_type());
     if (!func) {
         ctxt->diag.error(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
                          ctxt->strings->get_string(ident->get_id()));
@@ -380,11 +380,11 @@ void SemChecker::visit(ast::CallExpr& expr) {
     }
 
     for (size_t i = 0; i < params.size(); i++) {
-        if (params[i] != expr.args[i]->node_type) {
+        if (params[i] != expr.args[i]->get_type()) {
             ctxt->diag.error(
                 expr.args[i]->get_span(), DiagnosticKind::TypeMismatch,
                 ctxt->ty->get(params[i])->basic_name(ctxt),
-                ctxt->ty->get(expr.args[i]->node_type)->basic_name(ctxt));
+                ctxt->ty->get(expr.args[i]->get_type())->basic_name(ctxt));
         }
     }
 }
@@ -393,14 +393,14 @@ void SemChecker::visit(ast::ArrayExpr& expr) {
     expr.array->accept(*this);
     expr.val->accept(*this);
 
-    if (!ctxt->ty->get(expr.array->node_type)->is_array()) {
+    if (!ctxt->ty->get(expr.array->get_type())->is_array()) {
         ctxt->diag
             .error(expr.get_span(), DiagnosticKind::TypeCannotBeIndexed,
-                   ctxt->ty->get(expr.array->node_type)->basic_name(ctxt))
+                   ctxt->ty->get(expr.array->get_type())->basic_name(ctxt))
             .add_primary_note("must be an array type");
     }
 
-    auto* val = ctxt->ty->get(expr.val->node_type);
+    auto* val = ctxt->ty->get(expr.val->get_type());
     if (val && !val->is_integral()) {
         ctxt->diag
             .error(expr.val->get_span(), DiagnosticKind::InvalidIndexType,
@@ -412,10 +412,10 @@ void SemChecker::visit(ast::ArrayExpr& expr) {
 void SemChecker::visit(ast::FieldExpr& expr) {
     expr.container->accept(*this);
 
-    const auto* container = ctxt->ty->get(expr.container->node_type);
+    const auto* container = ctxt->ty->get(expr.container->get_type());
 
     const auto* struct_var =
-        ctxt->ty->get_as<type::StructType>(expr.container->node_type);
+        ctxt->ty->get_as<type::StructType>(expr.container->get_type());
     if (!struct_var) {
         ctxt->diag
             .error(expr.container->get_span(), DiagnosticKind::TypeHasNoFields,
@@ -440,13 +440,13 @@ void SemChecker::visit(ast::ArrayInitExpr& expr) {
     if (expr.vals.empty())
         return;
 
-    const auto* valid_type = ctxt->ty->get(expr.vals.front()->node_type);
+    const auto* valid_type = ctxt->ty->get(expr.vals.front()->get_type());
 
     for (auto& val : expr.vals) {
-        if (expr.vals.front()->node_type != val->node_type) {
+        if (expr.vals.front()->get_type() != val->get_type()) {
             ctxt->diag.error(val->get_span(), DiagnosticKind::TypeMismatch,
                              valid_type->basic_name(ctxt),
-                             ctxt->ty->get(val->node_type)->basic_name(ctxt));
+                             ctxt->ty->get(val->get_type())->basic_name(ctxt));
         }
     }
 }
@@ -456,10 +456,11 @@ void SemChecker::visit(ast::StructExprField& expr) {
         return;
     }
 
-    if (expr.ident->node_type != expr.val->node_type) {
-        ctxt->diag.error(expr.get_span(), DiagnosticKind::TypeMismatch,
-                         ctxt->ty->get(expr.ident->node_type)->basic_name(ctxt),
-                         ctxt->ty->get(expr.val->node_type)->basic_name(ctxt));
+    if (expr.ident->get_type() != expr.val->get_type()) {
+        ctxt->diag.error(
+            expr.get_span(), DiagnosticKind::TypeMismatch,
+            ctxt->ty->get(expr.ident->get_type())->basic_name(ctxt),
+            ctxt->ty->get(expr.val->get_type())->basic_name(ctxt));
     }
 }
 
@@ -472,7 +473,7 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
     if (!ident) {
         ctxt->diag.error(
             expr.ident->get_span(), DiagnosticKind::TypeMismatch, "identifier",
-            ctxt->ty->get(expr.ident->node_type)->basic_name(ctxt));
+            ctxt->ty->get(expr.ident->get_type())->basic_name(ctxt));
 
         return;
     }
@@ -490,7 +491,7 @@ void SemChecker::visit(ast::StructInitExpr& expr) {
         ctxt->diag.error(
             expr.ident->get_span(), DiagnosticKind::NotAStruct,
             ctxt->strings->get_string(ident->get_id()),
-            ctxt->ty->get(expr.ident->node_type)->basic_name(ctxt));
+            ctxt->ty->get(expr.ident->get_type())->basic_name(ctxt));
 
         return;
     }
@@ -579,12 +580,12 @@ void SemChecker::visit(ast::FuncDecl& func) {
     current_return_type = std::nullopt;
     current_func_name = nullptr;
 
-    if (func.ret.is_valid() && func.ret != func.body->node_type) {
-        ctxt->diag.error(func.body->get_span(),
-                         DiagnosticKind::ReturnTypeMismatch,
-                         ctxt->strings->get_string(func.name->get_id()),
-                         ctxt->ty->get(func.ret)->basic_name(ctxt),
-                         ctxt->ty->get(func.body->node_type)->basic_name(ctxt));
+    if (func.ret.is_valid() && func.ret != func.body->get_type()) {
+        ctxt->diag.error(
+            func.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
+            ctxt->strings->get_string(func.name->get_id()),
+            ctxt->ty->get(func.ret)->basic_name(ctxt),
+            ctxt->ty->get(func.body->get_type())->basic_name(ctxt));
     }
 }
 
@@ -598,7 +599,7 @@ void SemChecker::visit(ast::BreakStmt& stmt) {
         stmt.expr->accept(*this);
 
     auto& ctx = loop_stack.back();
-    auto break_type = stmt.expr ? stmt.expr->node_type : type::builtin::VOID;
+    auto break_type = stmt.expr ? stmt.expr->get_type() : type::builtin::VOID;
 
     if (!ctx.has_break) {
         ctx.has_break = true;
@@ -623,10 +624,10 @@ void SemChecker::visit(ast::ContinueStmt& stmt) {
 void SemChecker::visit(ast::ForExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() &&
-        !ctxt->ty->get(expr.expr->node_type)->is_iterable()) {
+        !ctxt->ty->get(expr.expr->get_type())->is_iterable()) {
         ctxt->diag
             .error(expr.expr->get_span(), DiagnosticKind::TypeNotIterable,
-                   ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt))
+                   ctxt->ty->get(expr.expr->get_type())->basic_name(ctxt))
             .add_primary_note("must be an array or range type");
     }
 
@@ -661,10 +662,10 @@ void SemChecker::visit(ast::LetStmt& stmt) {
         if (!stmt.val->has_type())
             return;
 
-        if (stmt.type != stmt.val->node_type) {
+        if (stmt.type != stmt.val->get_type()) {
             ctxt->diag.error(
                 stmt.val->get_span(), DiagnosticKind::InvalidAssignment,
-                ctxt->ty->get(stmt.val->node_type)->basic_name(ctxt),
+                ctxt->ty->get(stmt.val->get_type())->basic_name(ctxt),
                 ctxt->ty->get(stmt.type)->basic_name(ctxt));
         }
     }
@@ -678,7 +679,7 @@ void SemChecker::visit(ast::ReturnStmt& stmt) {
            "ReturnStmt outside function");
 
     const auto return_type =
-        stmt.expr ? stmt.expr->node_type : type::builtin::VOID;
+        stmt.expr ? stmt.expr->get_type() : type::builtin::VOID;
     if (!return_type.is_valid())
         return;
 
@@ -693,10 +694,10 @@ void SemChecker::visit(ast::ReturnStmt& stmt) {
 void SemChecker::visit(ast::IfExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() &&
-        !ctxt->ty->get(expr.expr->node_type)->is_logical()) {
+        !ctxt->ty->get(expr.expr->get_type())->is_logical()) {
         ctxt->diag
             .error(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
-                   ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt))
+                   ctxt->ty->get(expr.expr->get_type())->basic_name(ctxt))
             .add_primary_note("condition must have a boolean type");
     }
 
@@ -707,12 +708,12 @@ void SemChecker::visit(ast::IfExpr& expr) {
         if (!expr.else_expr->has_type())
             return;
 
-        if (expr.block->node_type != expr.else_expr->node_type) {
+        if (expr.block->get_type() != expr.else_expr->get_type()) {
             ctxt->diag.error(
                 expr.else_expr->get_span(),
                 DiagnosticKind::ElseExprTypeMismatch,
-                ctxt->ty->get(expr.block->node_type)->basic_name(ctxt),
-                ctxt->ty->get(expr.else_expr->node_type)->basic_name(ctxt));
+                ctxt->ty->get(expr.block->get_type())->basic_name(ctxt),
+                ctxt->ty->get(expr.else_expr->get_type())->basic_name(ctxt));
         }
     }
 }
@@ -728,10 +729,10 @@ void SemChecker::visit(ast::LoopExpr& expr) {
     if (expr.expr) {
         expr.expr->accept(*this);
         if (expr.expr->has_type() &&
-            !ctxt->ty->get(expr.expr->node_type)->is_integral()) {
+            !ctxt->ty->get(expr.expr->get_type())->is_integral()) {
             ctxt->diag.error(
                 expr.expr->get_span(), DiagnosticKind::ExpectedInteger,
-                ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt));
+                ctxt->ty->get(expr.expr->get_type())->basic_name(ctxt));
         }
     }
 
@@ -751,10 +752,10 @@ void SemChecker::visit(ast::LoopExpr& expr) {
 void SemChecker::visit(ast::WhileExpr& expr) {
     expr.expr->accept(*this);
     if (expr.expr->has_type() &&
-        !ctxt->ty->get(expr.expr->node_type)->is_logical()) {
+        !ctxt->ty->get(expr.expr->get_type())->is_logical()) {
         ctxt->diag
             .error(expr.expr->get_span(), DiagnosticKind::TypeMismatch, "bool",
-                   ctxt->ty->get(expr.expr->node_type)->basic_name(ctxt))
+                   ctxt->ty->get(expr.expr->get_type())->basic_name(ctxt))
             .add_primary_note("condition must be a `bool`");
     }
 
@@ -768,7 +769,7 @@ void SemChecker::visit(ast::WhileExpr& expr) {
 void SemChecker::visit(ast::StringExpr& /*expr*/) {}
 
 void SemChecker::visit(ast::CharExpr& expr) {
-    if (ctxt->src->get_string(expr.span).length() > 1) {
+    if (ctxt->src->get_string(expr.get_span()).length() > 1) {
         ctxt->diag.error(expr.get_span(), DiagnosticKind::MoreThanOneChar);
     }
 }
@@ -777,10 +778,10 @@ void SemChecker::visit(ast::StructField& /*field*/) {}
 
 void SemChecker::visit(ast::StructDecl& decl) {
     const auto* struct_type =
-        ctxt->ty->get_as<type::StructType>(decl.node_type);
+        ctxt->ty->get_as<type::StructType>(decl.get_type());
     expect(struct_type != nullptr, "StructDecl should have type StructType");
 
-    if (is_recursive_struct(struct_type, decl.node_type)) {
+    if (is_recursive_struct(struct_type, decl.get_type())) {
         ctxt->diag.error(decl.ident->get_span(),
                          DiagnosticKind::RecursiveStructDefiniton,
                          ctxt->strings->get_string(decl.ident->get_id()));
@@ -797,10 +798,10 @@ void SemChecker::visit(ast::ConstDecl& decl) {
     if (!decl.type.is_valid() || !decl.val->has_type())
         return;
 
-    if (decl.type != decl.val->node_type) {
+    if (decl.type != decl.val->get_type()) {
         ctxt->diag.error(decl.val->get_span(),
                          DiagnosticKind::InvalidAssignment,
-                         ctxt->ty->get(decl.val->node_type)->basic_name(ctxt),
+                         ctxt->ty->get(decl.val->get_type())->basic_name(ctxt),
                          ctxt->ty->get(decl.type)->basic_name(ctxt));
     }
 }
@@ -811,10 +812,10 @@ void SemChecker::visit(ast::StaticDecl& decl) {
     if (!decl.type.is_valid() || !decl.val->has_type())
         return;
 
-    if (decl.type != decl.val->node_type) {
+    if (decl.type != decl.val->get_type()) {
         ctxt->diag.error(decl.val->get_span(),
                          DiagnosticKind::InvalidAssignment,
-                         ctxt->ty->get(decl.val->node_type)->basic_name(ctxt),
+                         ctxt->ty->get(decl.val->get_type())->basic_name(ctxt),
                          ctxt->ty->get(decl.type)->basic_name(ctxt));
     }
 }
@@ -846,12 +847,12 @@ void SemChecker::visit(ast::TraitFuncDecl& decl) {
 
         decl.body->accept(*this);
 
-        if (decl.body->has_type() && decl.ret != decl.body->node_type) {
+        if (decl.body->has_type() && decl.ret != decl.body->get_type()) {
             ctxt->diag.error(
                 decl.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
                 ctxt->strings->get_string(decl.name->get_id()),
                 ctxt->ty->get(decl.ret)->basic_name(ctxt),
-                ctxt->ty->get(decl.body->node_type)->basic_name(ctxt));
+                ctxt->ty->get(decl.body->get_type())->basic_name(ctxt));
         }
 
         current_return_type = std::nullopt;

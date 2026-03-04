@@ -12,31 +12,31 @@
 namespace z::type {
 void ConstraintGenerator::visit(ast::Identifier& ident) {
     if (const auto type = syms->get_var(ident.get_id()))
-        ident.node_type = *type;
+        ident.set_type(*type);
 }
 
 void ConstraintGenerator::visit(ast::IntExpr& expr) {
-    expr.node_type = new_type(InferType::IntLiteral);
+    expr.set_type(new_type(InferType::IntLiteral));
 }
 
 void ConstraintGenerator::visit(ast::FloatExpr& expr) {
-    expr.node_type = new_type(InferType::FloatLiteral);
+    expr.set_type(new_type(InferType::FloatLiteral));
 }
 
 void ConstraintGenerator::visit(ast::BoolExpr& expr) {
-    expr.node_type = builtin::BOOL;
+    expr.set_type(builtin::BOOL);
 }
 
 void ConstraintGenerator::visit(ast::PrefixExpr& expr) {
     expr.expr->accept(*this);
 
-    expr.node_type = expr.expr->node_type;
+    expr.set_type(expr.expr->get_type());
 }
 
 void ConstraintGenerator::visit(ast::PostfixExpr& expr) {
     expr.expr->accept(*this);
 
-    expr.node_type = expr.expr->node_type;
+    expr.set_type(expr.expr->get_type());
 }
 
 void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
@@ -56,8 +56,8 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case BinOp::ShlEq:
     case BinOp::ShrEq:
     case BinOp::Eq:
-        eq(expr.lhs->node_type, expr.rhs->node_type);
-        expr.node_type = builtin::VOID;
+        eq(expr.lhs->get_type(), expr.rhs->get_type());
+        expr.set_type(builtin::VOID);
         return;
     case BinOp::Range:
     case BinOp::RangeEq:
@@ -71,13 +71,13 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case BinOp::Sub:
     case BinOp::Mul:
     case BinOp::Div:
-        expr.node_type = new_var();
-        eq(expr.node_type, expr.lhs->node_type);
-        eq(expr.node_type, expr.rhs->node_type);
+        expr.set_type(new_var());
+        eq(expr.get_type(), expr.lhs->get_type());
+        eq(expr.get_type(), expr.rhs->get_type());
         return;
     case BinOp::ColonColon:
-        expr.node_type = new_var();
-        eq(expr.node_type, expr.rhs->node_type);
+        expr.set_type(new_var());
+        eq(expr.get_type(), expr.rhs->get_type());
         return;
     case BinOp::LogicOr:
     case BinOp::LogicAnd:
@@ -87,8 +87,8 @@ void ConstraintGenerator::visit(ast::BinaryExpr& expr) {
     case BinOp::Lt:
     case BinOp::Ge:
     case BinOp::Le:
-        eq(expr.lhs->node_type, expr.rhs->node_type);
-        expr.node_type = builtin::BOOL;
+        eq(expr.lhs->get_type(), expr.rhs->get_type());
+        expr.set_type(builtin::BOOL);
         return;
     }
 
@@ -104,19 +104,19 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
         if (!func)
             return;
 
-        expr.ident->node_type = *func;
+        expr.ident->set_type(*func);
 
         const auto* func_ptr = ty->get_as<FunctionType>(*func);
         if (!func_ptr)
             return;
 
-        expr.node_type = func_ptr->get_return_val();
+        expr.set_type(func_ptr->get_return_val());
 
         if (func_ptr->get_params().size() != expr.args.size())
             return;
 
         for (std::size_t i = 0; i < func_ptr->get_params().size(); i++)
-            eq(expr.args[i]->node_type, func_ptr->get_params()[i]);
+            eq(expr.args[i]->get_type(), func_ptr->get_params()[i]);
     }
 }
 
@@ -124,14 +124,14 @@ void ConstraintGenerator::visit(ast::ArrayExpr& expr) {
     expr.array->accept(*this);
     expr.val->accept(*this);
 
-    if (const auto* type = ty->get_as<ArrayType>(expr.array->node_type))
-        expr.node_type = type->get_type();
+    if (const auto* type = ty->get_as<ArrayType>(expr.array->get_type()))
+        expr.set_type(type->get_type());
 }
 
 void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     expr.container->accept(*this);
 
-    auto* struct_type = ty->get_as<StructType>(expr.container->node_type);
+    auto* struct_type = ty->get_as<StructType>(expr.container->get_type());
     if (!struct_type)
         return;
 
@@ -139,8 +139,8 @@ void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     if (!field)
         return;
 
-    expr.field->node_type = *field;
-    expr.node_type = *field;
+    expr.field->set_type(*field);
+    expr.set_type(*field);
 }
 
 void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
@@ -153,10 +153,10 @@ void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
 
     for (auto& val : expr.vals) {
         val->accept(*this);
-        eq(array_type, val->node_type);
+        eq(array_type, val->get_type());
     }
 
-    expr.node_type = ty->make<ArrayType>(array_type, expr.vals.size());
+    expr.set_type(ty->make<ArrayType>(array_type, expr.vals.size()));
 }
 
 void ConstraintGenerator::visit(ast::StructExprField& expr) {
@@ -172,8 +172,8 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
     if (!type)
         return;
 
-    expr.node_type = *type;
-    expr.ident->node_type = ty->make<TypeType>(*type);
+    expr.set_type(*type);
+    expr.ident->set_type(ty->make<TypeType>(*type));
 
     auto* struct_type = ty->get_as<StructType>(*type);
     if (!struct_type)
@@ -185,8 +185,8 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
         if (const auto field_type =
                 struct_type->get_field_type(field->ident->get_id());
             field_type) {
-            field->ident->node_type = *field_type;
-            eq(field->val->node_type, *field_type);
+            field->ident->set_type(*field_type);
+            eq(field->val->get_type(), *field_type);
         }
     }
 }
@@ -195,33 +195,33 @@ void ConstraintGenerator::visit(ast::TupleExpr& expr) {
     expr.first->accept(*this);
     expr.second->accept(*this);
 
-    expr.node_type =
-        ty->make<TupleType>(expr.first->node_type, expr.second->node_type);
+    expr.set_type(
+        ty->make<TupleType>(expr.first->get_type(), expr.second->get_type()));
 }
 
 void ConstraintGenerator::visit(ast::Block& block) {
     syms->enter_scope(block.get_scope_id());
 
-    if (!block.node_type.is_initialized())
-        block.node_type = new_type(InferType::Block);
+    if (!block.get_type().is_initialized())
+        block.set_type(new_type(InferType::Block));
 
     for (auto& stmt : block.stmts)
         stmt->accept(*this);
 
     if (!block.stmts.empty()) {
-        if (!isa<VoidType>(ty->get(block.stmts.back()->node_type)) &&
+        if (!isa<VoidType>(ty->get(block.stmts.back()->get_type())) &&
             !block.stmts.back()->semi_terminated)
-            eq(block.node_type, block.stmts.back()->node_type);
+            eq(block.get_type(), block.stmts.back()->get_type());
         else
-            eq(block.node_type, builtin::VOID);
+            eq(block.get_type(), builtin::VOID);
     }
 
     syms->exit_scope();
 }
 
 void ConstraintGenerator::visit(ast::Param& param) {
-    param.name->node_type = param.type;
-    param.node_type = param.type;
+    param.name->set_type(param.type);
+    param.set_type(param.type);
 }
 
 void ConstraintGenerator::visit(ast::SourceFileDecl& file) {
@@ -239,16 +239,16 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
         scope.declare_var(param->name, param->type, false, true);
     }
 
-    func.body->node_type = new_type(InferType::Block);
-    func_type = func.body->node_type;
+    func.body->set_type(new_type(InferType::Block));
+    func_type = func.body->get_type();
     func.body->accept(*this);
     func_type = std::nullopt;
 
-    eq(func.body->node_type, func.ret);
+    eq(func.body->get_type(), func.ret);
 
     if (const auto f = syms->get_func(func.name->get_id())) {
-        func.node_type = *f;
-        func.name->node_type = *f;
+        func.set_type(*f);
+        func.name->set_type(*f);
     }
 }
 
@@ -256,23 +256,23 @@ void ConstraintGenerator::visit(ast::BreakStmt& stmt) {
     TypeRef break_type = builtin::VOID;
     if (stmt.expr) {
         stmt.expr->accept(*this);
-        break_type = stmt.expr->node_type;
+        break_type = stmt.expr->get_type();
     }
 
     if (auto loop_result = peek_loop_result())
         eq(break_type, *loop_result);
 
-    stmt.node_type = builtin::VOID;
+    stmt.set_type(builtin::VOID);
 }
 
 void ConstraintGenerator::visit(ast::ContinueStmt& stmt) {
-    stmt.node_type = builtin::VOID;
+    stmt.set_type(builtin::VOID);
 }
 
 void ConstraintGenerator::visit(ast::ForExpr& expr) {
-    expr.ident->node_type = new_var();
+    expr.ident->set_type(new_var());
     syms->get_scope(expr.block->get_scope_id())
-        .declare_var(expr.ident, expr.ident->node_type, false, true);
+        .declare_var(expr.ident, expr.ident->get_type(), false, true);
 
     expr.expr->accept(*this);
     // TODO: expr should be an iterator over some type T, ident should have type
@@ -282,67 +282,67 @@ void ConstraintGenerator::visit(ast::ForExpr& expr) {
     expr.block->accept(*this);
     pop_loop_result();
 
-    expr.node_type = builtin::VOID;
+    expr.set_type(builtin::VOID);
 }
 
 void ConstraintGenerator::visit(ast::LetStmt& stmt) {
-    stmt.ident->node_type = new_var();
+    stmt.ident->set_type(new_var());
 
     if (stmt.type.is_valid()) {
         resolve_type_name(stmt.type);
-        eq(stmt.ident->node_type, stmt.type);
+        eq(stmt.ident->get_type(), stmt.type);
         push_expected(stmt.type);
     }
 
     if (stmt.val) {
         stmt.val->accept(*this);
-        eq(stmt.ident->node_type, stmt.val->node_type);
+        eq(stmt.ident->get_type(), stmt.val->get_type());
     }
 
     if (stmt.type.is_valid())
         pop_expected();
 
-    syms->declare_var(stmt.ident, stmt.ident->node_type, false,
+    syms->declare_var(stmt.ident, stmt.ident->get_type(), false,
                       stmt.val != nullptr);
-    stmt.node_type = builtin::VOID;
+    stmt.set_type(builtin::VOID);
 }
 
 void ConstraintGenerator::visit(ast::ReturnStmt& stmt) {
     expect(func_type.has_value(), "Return outside function");
     if (stmt.expr) {
         stmt.expr->accept(*this);
-        eq(func_type.value(), stmt.expr->node_type);
+        eq(func_type.value(), stmt.expr->get_type());
     } else {
         eq(func_type.value(), builtin::VOID);
     }
 
-    stmt.node_type = builtin::VOID;
+    stmt.set_type(builtin::VOID);
 }
 
 void ConstraintGenerator::visit(ast::IfExpr& expr) {
     expr.expr->accept(*this);
-    eq(expr.expr->node_type, builtin::BOOL);
+    eq(expr.expr->get_type(), builtin::BOOL);
 
     expr.block->accept(*this);
 
     if (expr.else_expr) {
         expr.else_expr->accept(*this);
 
-        expr.node_type = new_var();
-        eq(expr.node_type, expr.block->node_type);
-        eq(expr.block->node_type, expr.else_expr->node_type);
+        expr.set_type(new_var());
+        eq(expr.get_type(), expr.block->get_type());
+        eq(expr.block->get_type(), expr.else_expr->get_type());
     } else {
-        expr.node_type = expr.block->node_type;
+        expr.set_type(expr.block->get_type());
     }
 }
 
 void ConstraintGenerator::visit(ast::ElseExpr& expr) {
     if (expr.if_expr) {
         expr.if_expr->accept(*this);
-        expr.node_type = expr.if_expr->node_type;
+        expr.set_type(expr.if_expr->get_type());
     } else if (expr.block) {
         expr.block->accept(*this);
-        expr.node_type = expr.block->node_type;
+        expr.set_type(expr.block->get_type());
     }
 }
 
@@ -357,7 +357,7 @@ void ConstraintGenerator::visit(ast::LoopExpr& expr) {
 
     pop_loop_result();
 
-    expr.node_type = loop_result;
+    expr.set_type(loop_result);
 }
 
 void ConstraintGenerator::visit(ast::WhileExpr& expr) {
@@ -367,20 +367,20 @@ void ConstraintGenerator::visit(ast::WhileExpr& expr) {
     expr.block->accept(*this);
     pop_loop_result();
 
-    expr.node_type = builtin::VOID;
+    expr.set_type(builtin::VOID);
 }
 
 void ConstraintGenerator::visit(ast::StringExpr& expr) {
-    expr.node_type = builtin::STR;
+    expr.set_type(builtin::STR);
 }
 
 void ConstraintGenerator::visit(ast::CharExpr& expr) {
-    expr.node_type = builtin::CHAR;
+    expr.set_type(builtin::CHAR);
 }
 
 void ConstraintGenerator::visit(ast::StructField& field) {
-    field.ident->node_type = field.type;
-    field.node_type = field.type;
+    field.ident->set_type(field.type);
+    field.set_type(field.type);
 }
 
 void ConstraintGenerator::visit(ast::StructDecl& decl) {
@@ -392,10 +392,10 @@ void ConstraintGenerator::visit(ast::StructDecl& decl) {
     if (!t)
         return;
 
-    decl.node_type = *t;
-    decl.ident->node_type = ty->make<TypeType>(*t);
+    decl.set_type(*t);
+    decl.ident->set_type(ty->make<TypeType>(*t));
 
-    const auto* struct_type = ty->get_as<StructType>(decl.node_type);
+    const auto* struct_type = ty->get_as<StructType>(decl.get_type());
 
     syms->enter_scope(decl.scope);
     for (auto& func : decl.funcs) {
@@ -403,8 +403,8 @@ void ConstraintGenerator::visit(ast::StructDecl& decl) {
         auto* func_decl = cast<ast::FuncDecl>(func.get());
         if (const auto t =
                 struct_type->get_func_type(func_decl->name->get_id())) {
-            func->node_type = *t;
-            func_decl->name->node_type = func->node_type;
+            func->set_type(*t);
+            func_decl->name->set_type(func->get_type());
         }
     }
     syms->exit_scope();
@@ -414,30 +414,30 @@ void ConstraintGenerator::visit(ast::EnumField& /*field*/) {}
 
 void ConstraintGenerator::visit(ast::EnumDecl& decl) {
     if (const auto t = syms->get_type(decl.ident->get_id()); t) {
-        decl.node_type = *t;
-        decl.ident->node_type = ty->make<TypeType>(decl.node_type);
+        decl.set_type(*t);
+        decl.ident->set_type(ty->make<TypeType>(decl.get_type()));
     }
 
     for (auto& field : decl.fields) {
         field->accept(*this);
-        field->node_type = decl.node_type;
+        field->set_type(decl.get_type());
     }
 }
 
 void ConstraintGenerator::visit(ast::ConstDecl& decl) {
-    decl.ident->node_type = decl.type;
-    decl.node_type = builtin::VOID;
+    decl.ident->set_type(decl.type);
+    decl.set_type(builtin::VOID);
 
     decl.val->accept(*this);
-    eq(decl.val->node_type, decl.type);
+    eq(decl.val->get_type(), decl.type);
 }
 
 void ConstraintGenerator::visit(ast::StaticDecl& decl) {
-    decl.ident->node_type = decl.type;
-    decl.node_type = builtin::VOID;
+    decl.ident->set_type(decl.type);
+    decl.set_type(builtin::VOID);
 
     decl.val->accept(*this);
-    eq(decl.val->node_type, decl.type);
+    eq(decl.val->get_type(), decl.type);
 }
 
 void ConstraintGenerator::visit(ast::TraitDecl& decl) {
@@ -454,12 +454,12 @@ void ConstraintGenerator::visit(ast::TraitDecl& decl) {
 
     syms->exit_scope();
 
-    decl.node_type = builtin::VOID;
-    decl.ident->node_type = ty->make<TraitType>(decl.ident->get_id());
+    decl.set_type(builtin::VOID);
+    decl.ident->set_type(ty->make<TraitType>(decl.ident->get_id()));
 }
 void ConstraintGenerator::visit(ast::TypeAliasDecl& decl) {
-    decl.ident->node_type = decl.type;
-    decl.node_type = builtin::VOID;
+    decl.ident->set_type(decl.type);
+    decl.set_type(builtin::VOID);
 }
 void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
     for (auto& param : decl.params) {
@@ -471,12 +471,12 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
 
     if (decl.body) {
         decl.body->accept(*this);
-        eq(decl.body->node_type, decl.ret);
+        eq(decl.body->get_type(), decl.ret);
     }
 
     if (const auto t = syms->get_func(decl.name->get_id())) {
-        decl.node_type = *t;
-        decl.name->node_type = *t;
+        decl.set_type(*t);
+        decl.name->set_type(*t);
     }
 }
 
