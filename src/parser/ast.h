@@ -1,12 +1,10 @@
 #pragma once
 
 #include "core/colour.h"
-#include "core/panic.h"
 #include "core/string_pool.h"
 #include "core/zctxt.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
-#include "lexer/token.h"
 #include "sema/scope.h"
 #include "sema/sym_table.h"
 #include "type/type.h"
@@ -28,42 +26,7 @@ inline void print_indent(std::ostream& os, int indent) {
 
 namespace z::ast {
 
-enum class BinOpPrecedence : std::uint8_t {
-    Unknown,
-    Assignment,
-    Range,
-    LogicalOr,
-    LogicalAnd,
-    Equality,
-    Or,
-    Xor,
-    And,
-    Shift,
-    Addition,
-    Multiplication,
-    Prefix,
-    ScopeRes,
-    Postfix,
-};
-
 enum class UnOp : std::uint8_t { Inc, Dec, Neg, BitNot, LogicNot };
-
-static constexpr UnOp tok_kind_to_unop(TokenKind kind) {
-    switch (kind) {
-    case TokenKind::PlusPlus:
-        return UnOp::Inc;
-    case TokenKind::MinusMinus:
-        return UnOp::Dec;
-    case TokenKind::Minus:
-        return UnOp::Neg;
-    case TokenKind::Not:
-        return UnOp::BitNot;
-    case TokenKind::LogicalNot:
-        return UnOp::LogicNot;
-    default:
-        panic("Cannot convert TokenKind to unary operator");
-    }
-}
 
 enum class BinOp : std::uint8_t {
     Add,
@@ -99,108 +62,6 @@ enum class BinOp : std::uint8_t {
     Le,
     ColonColon,
 };
-
-static constexpr BinOp tok_kind_to_binop(TokenKind kind) {
-    switch (kind) {
-    case TokenKind::Plus:
-        return BinOp::Add;
-    case TokenKind::Minus:
-        return BinOp::Sub;
-    case TokenKind::Star:
-        return BinOp::Mul;
-    case TokenKind::Slash:
-        return BinOp::Div;
-    case TokenKind::Percent:
-        return BinOp::Mod;
-    case TokenKind::Caret:
-        return BinOp::BitXor;
-    case TokenKind::And:
-        return BinOp::BitAnd;
-    case TokenKind::Or:
-        return BinOp::BitOr;
-    case TokenKind::AndAnd:
-        return BinOp::LogicAnd;
-    case TokenKind::OrOr:
-        return BinOp::LogicOr;
-    case TokenKind::Shl:
-        return BinOp::Shl;
-    case TokenKind::Shr:
-        return BinOp::Shr;
-    case TokenKind::Range:
-        return BinOp::Range;
-    case TokenKind::RangeEq:
-        return BinOp::RangeEq;
-    case TokenKind::PlusEq:
-        return BinOp::AddEq;
-    case TokenKind::MinusEq:
-        return BinOp::SubEq;
-    case TokenKind::StarEq:
-        return BinOp::MulEq;
-    case TokenKind::SlashEq:
-        return BinOp::DivEq;
-    case TokenKind::PercentEq:
-        return BinOp::ModEq;
-    case TokenKind::CaretEq:
-        return BinOp::BitXorEq;
-    case TokenKind::AndEq:
-        return BinOp::BitAndEq;
-    case TokenKind::OrEq:
-        return BinOp::BitOrEq;
-    case TokenKind::ShlEq:
-        return BinOp::ShlEq;
-    case TokenKind::ShrEq:
-        return BinOp::ShrEq;
-    case TokenKind::Eq:
-        return BinOp::Eq;
-    case TokenKind::EqEq:
-        return BinOp::EqEq;
-    case TokenKind::Ne:
-        return BinOp::Ne;
-    case TokenKind::Gt:
-        return BinOp::Gt;
-    case TokenKind::Lt:
-        return BinOp::Lt;
-    case TokenKind::Ge:
-        return BinOp::Ge;
-    case TokenKind::Le:
-        return BinOp::Le;
-    case TokenKind::ColonColon:
-        return BinOp::ColonColon;
-    default:
-        panic("Cannot convert TokenKind to binary operator");
-    }
-}
-
-static constexpr bool is_assignment_op(BinOp op) {
-    switch (op) {
-    case BinOp::AddEq:
-    case BinOp::SubEq:
-    case BinOp::MulEq:
-    case BinOp::DivEq:
-    case BinOp::ModEq:
-    case BinOp::BitXorEq:
-    case BinOp::BitAndEq:
-    case BinOp::BitOrEq:
-    case BinOp::ShlEq:
-    case BinOp::ShrEq:
-    case BinOp::Eq:
-        return true;
-    default:
-        return false;
-    }
-}
-
-static constexpr bool is_division_op(BinOp op) {
-    switch (op) {
-    case BinOp::Div:
-    case BinOp::DivEq:
-    case BinOp::Mod:
-    case BinOp::ModEq:
-        return true;
-    default:
-        return false;
-    }
-}
 
 struct IntExpr;
 struct FloatExpr;
@@ -426,8 +287,7 @@ struct Identifier final : Expr {
 
     static constexpr ASTKind Kind = ASTKind::Identifier;
 
-    Identifier(const Token& tok, StringID ident)
-        : Expr(Kind, tok.get_span()), ident(ident) {};
+    Identifier(StringID ident, Span span) : Expr(Kind, span), ident(ident) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -449,8 +309,7 @@ struct IntExpr final : Expr {
     std::uint64_t val;
     static constexpr ASTKind Kind = ASTKind::IntExpr;
 
-    IntExpr(const Token& tok, std::uint64_t val)
-        : Expr(Kind, tok.get_span()), val(val) {};
+    IntExpr(std::uint64_t val, Span span) : Expr(Kind, span), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -467,8 +326,7 @@ struct FloatExpr final : Expr {
     double val;
     static constexpr ASTKind Kind = ASTKind::FloatExpr;
 
-    FloatExpr(const Token& tok, const double val)
-        : Expr(Kind, tok.get_span()), val(val) {};
+    FloatExpr(const double val, Span span) : Expr(Kind, span), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -486,8 +344,7 @@ struct BoolExpr final : Expr {
 
     static constexpr ASTKind Kind = ASTKind::BoolExpr;
 
-    BoolExpr(const Token& tok, const bool val)
-        : Expr(Kind, tok.get_span()), val(val) {};
+    BoolExpr(bool val, Span span) : Expr(Kind, span), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -509,9 +366,8 @@ struct PrefixExpr final : Expr {
 
     static constexpr ASTKind Kind = ASTKind::PrefixExpr;
 
-    PrefixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(Kind, op.get_span() + expr->get_span()),
-          op(tok_kind_to_unop(op.get_kind())), op_span(op.get_span()),
+    PrefixExpr(UnOp op, Span op_span, std::unique_ptr<Expr> expr)
+        : Expr(Kind, op_span + expr->get_span()), op(op), op_span(op_span),
           expr(std::move(expr)) {};
 
     void dump(ZContext* ctxt, const int indent,
@@ -536,9 +392,8 @@ struct PostfixExpr final : Expr {
 
     static constexpr ASTKind Kind = ASTKind::PostfixExpr;
 
-    PostfixExpr(const Token& op, std::unique_ptr<Expr> expr)
-        : Expr(Kind, op.get_span() + expr->get_span()),
-          op(tok_kind_to_unop(op.get_kind())), op_span(op.get_span()),
+    PostfixExpr(UnOp op, Span op_span, std::unique_ptr<Expr> expr)
+        : Expr(Kind, op_span + expr->get_span()), op(op), op_span(op_span),
           expr(std::move(expr)) {};
 
     void dump(ZContext* ctxt, const int indent,
@@ -564,11 +419,10 @@ struct BinaryExpr final : Expr {
 
     static constexpr ASTKind Kind = ASTKind::BinaryExpr;
 
-    BinaryExpr(const Token& op, std::unique_ptr<Expr> lhs,
+    BinaryExpr(BinOp op, Span op_span, std::unique_ptr<Expr> lhs,
                std::unique_ptr<Expr> rhs)
-        : Expr(Kind, lhs->get_span() + rhs->get_span()),
-          op(tok_kind_to_binop(op.get_kind())), op_span(op.get_span()),
-          lhs(std::move(lhs)), rhs(std::move(rhs)) {};
+        : Expr(Kind, lhs->get_span() + rhs->get_span()), op(op),
+          op_span(op_span), lhs(std::move(lhs)), rhs(std::move(rhs)) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {

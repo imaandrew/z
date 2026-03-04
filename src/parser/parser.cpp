@@ -23,7 +23,25 @@ namespace z {
 
 namespace {
 
-ast::BinOpPrecedence get_op_precedence(const TokenKind kind) {
+enum class BinOpPrecedence : std::uint8_t {
+    Unknown,
+    Assignment,
+    Range,
+    LogicalOr,
+    LogicalAnd,
+    Equality,
+    Or,
+    Xor,
+    And,
+    Shift,
+    Addition,
+    Multiplication,
+    Prefix,
+    ScopeRes,
+    Postfix,
+};
+
+BinOpPrecedence get_op_precedence(const TokenKind kind) {
     switch (kind) {
     case TokenKind::PlusEq:
     case TokenKind::MinusEq:
@@ -36,48 +54,136 @@ ast::BinOpPrecedence get_op_precedence(const TokenKind kind) {
     case TokenKind::ShlEq:
     case TokenKind::ShrEq:
     case TokenKind::Eq:
-        return ast::BinOpPrecedence::Assignment;
+        return BinOpPrecedence::Assignment;
     case TokenKind::Range:
     case TokenKind::RangeEq:
-        return ast::BinOpPrecedence::Range;
+        return BinOpPrecedence::Range;
     case TokenKind::OrOr:
-        return ast::BinOpPrecedence::LogicalOr;
+        return BinOpPrecedence::LogicalOr;
     case TokenKind::AndAnd:
-        return ast::BinOpPrecedence::LogicalAnd;
+        return BinOpPrecedence::LogicalAnd;
     case TokenKind::EqEq:
     case TokenKind::Ne:
     case TokenKind::Gt:
     case TokenKind::Lt:
     case TokenKind::Ge:
     case TokenKind::Le:
-        return ast::BinOpPrecedence::Equality;
+        return BinOpPrecedence::Equality;
     case TokenKind::Or:
-        return ast::BinOpPrecedence::Or;
+        return BinOpPrecedence::Or;
     case TokenKind::Caret:
-        return ast::BinOpPrecedence::Xor;
+        return BinOpPrecedence::Xor;
     case TokenKind::And:
-        return ast::BinOpPrecedence::And;
+        return BinOpPrecedence::And;
     case TokenKind::Shl:
     case TokenKind::Shr:
-        return ast::BinOpPrecedence::Shift;
+        return BinOpPrecedence::Shift;
     case TokenKind::Plus:
     case TokenKind::Minus:
-        return ast::BinOpPrecedence::Addition;
+        return BinOpPrecedence::Addition;
     case TokenKind::Star:
     case TokenKind::Slash:
     case TokenKind::Percent:
-        return ast::BinOpPrecedence::Multiplication;
+        return BinOpPrecedence::Multiplication;
     case TokenKind::ColonColon:
-        return ast::BinOpPrecedence::ScopeRes;
+        return BinOpPrecedence::ScopeRes;
     case TokenKind::LParen:
     case TokenKind::LBracket:
     case TokenKind::LBrace:
     case TokenKind::PlusPlus:
     case TokenKind::MinusMinus:
     case TokenKind::Dot:
-        return ast::BinOpPrecedence::Postfix;
+        return BinOpPrecedence::Postfix;
     default:
-        return ast::BinOpPrecedence::Unknown;
+        return BinOpPrecedence::Unknown;
+    }
+}
+
+constexpr ast::UnOp tok_kind_to_unop(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::PlusPlus:
+        return ast::UnOp::Inc;
+    case TokenKind::MinusMinus:
+        return ast::UnOp::Dec;
+    case TokenKind::Minus:
+        return ast::UnOp::Neg;
+    case TokenKind::Not:
+        return ast::UnOp::BitNot;
+    case TokenKind::LogicalNot:
+        return ast::UnOp::LogicNot;
+    default:
+        panic("Cannot convert TokenKind to unary operator");
+    }
+}
+
+constexpr ast::BinOp tok_kind_to_binop(TokenKind kind) {
+    switch (kind) {
+    case TokenKind::Plus:
+        return ast::BinOp::Add;
+    case TokenKind::Minus:
+        return ast::BinOp::Sub;
+    case TokenKind::Star:
+        return ast::BinOp::Mul;
+    case TokenKind::Slash:
+        return ast::BinOp::Div;
+    case TokenKind::Percent:
+        return ast::BinOp::Mod;
+    case TokenKind::Caret:
+        return ast::BinOp::BitXor;
+    case TokenKind::And:
+        return ast::BinOp::BitAnd;
+    case TokenKind::Or:
+        return ast::BinOp::BitOr;
+    case TokenKind::AndAnd:
+        return ast::BinOp::LogicAnd;
+    case TokenKind::OrOr:
+        return ast::BinOp::LogicOr;
+    case TokenKind::Shl:
+        return ast::BinOp::Shl;
+    case TokenKind::Shr:
+        return ast::BinOp::Shr;
+    case TokenKind::Range:
+        return ast::BinOp::Range;
+    case TokenKind::RangeEq:
+        return ast::BinOp::RangeEq;
+    case TokenKind::PlusEq:
+        return ast::BinOp::AddEq;
+    case TokenKind::MinusEq:
+        return ast::BinOp::SubEq;
+    case TokenKind::StarEq:
+        return ast::BinOp::MulEq;
+    case TokenKind::SlashEq:
+        return ast::BinOp::DivEq;
+    case TokenKind::PercentEq:
+        return ast::BinOp::ModEq;
+    case TokenKind::CaretEq:
+        return ast::BinOp::BitXorEq;
+    case TokenKind::AndEq:
+        return ast::BinOp::BitAndEq;
+    case TokenKind::OrEq:
+        return ast::BinOp::BitOrEq;
+    case TokenKind::ShlEq:
+        return ast::BinOp::ShlEq;
+    case TokenKind::ShrEq:
+        return ast::BinOp::ShrEq;
+    case TokenKind::Eq:
+        return ast::BinOp::Eq;
+    case TokenKind::EqEq:
+        return ast::BinOp::EqEq;
+    case TokenKind::Ne:
+        return ast::BinOp::Ne;
+    case TokenKind::Gt:
+        return ast::BinOp::Gt;
+    case TokenKind::Lt:
+        return ast::BinOp::Lt;
+    case TokenKind::Ge:
+        return ast::BinOp::Ge;
+    case TokenKind::Le:
+        return ast::BinOp::Le;
+    case TokenKind::ColonColon:
+        return ast::BinOp::ColonColon;
+    default:
+        panic("Cannot convert TokenKind to binary operator");
     }
 }
 } // namespace
@@ -702,11 +808,11 @@ ExprResult Parser::parse_expr(const int precedence,
         next_token();
         break;
     case TokenKind::KwTrue:
-        lhs = std::make_unique<ast::BoolExpr>(tok, true);
+        lhs = std::make_unique<ast::BoolExpr>(true, tok.get_span());
         next_token();
         break;
     case TokenKind::KwFalse:
-        lhs = std::make_unique<ast::BoolExpr>(tok, false);
+        lhs = std::make_unique<ast::BoolExpr>(false, tok.get_span());
         next_token();
         break;
     case TokenKind::Identifier:
@@ -733,12 +839,14 @@ ExprResult Parser::parse_expr(const int precedence,
     case TokenKind::Not:
     case TokenKind::Minus: {
         auto prefix_tok = tok;
-        auto expr = prime_parse_expr(
-            static_cast<int>(ast::BinOpPrecedence::Prefix), ignore);
+        auto expr =
+            prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix), ignore);
         if (!expr.is_valid())
             return ExprError();
 
-        lhs = std::make_unique<ast::PrefixExpr>(prefix_tok, expr.take());
+        lhs = std::make_unique<ast::PrefixExpr>(
+            tok_kind_to_unop(prefix_tok.get_kind()), prefix_tok.get_span(),
+            expr.take());
         break;
     }
     case TokenKind::LParen: {
@@ -814,7 +922,9 @@ ExprResult Parser::parse_expr(const int precedence,
         switch (tok.get_kind()) {
         case TokenKind::PlusPlus:
         case TokenKind::MinusMinus:
-            lhs = std::make_unique<ast::PostfixExpr>(tok, std::move(lhs));
+            lhs = std::make_unique<ast::PostfixExpr>(
+                tok_kind_to_unop(tok.get_kind()), tok.get_span(),
+                std::move(lhs));
             next_token();
             break;
         case TokenKind::LParen: {
@@ -902,7 +1012,8 @@ ExprResult Parser::parse_expr(const int precedence,
                 return ExprError();
 
             lhs = std::make_unique<ast::BinaryExpr>(
-                operator_tok, std::move(lhs), expr.take());
+                tok_kind_to_binop(operator_tok.get_kind()),
+                operator_tok.get_span(), std::move(lhs), expr.take());
             break;
         }
         default: {
@@ -916,7 +1027,8 @@ ExprResult Parser::parse_expr(const int precedence,
                 return ExprError();
 
             lhs = std::make_unique<ast::BinaryExpr>(
-                operator_tok, std::move(lhs), expr.take());
+                tok_kind_to_binop(operator_tok.get_kind()),
+                operator_tok.get_span(), std::move(lhs), expr.take());
             break;
         }
         }
@@ -944,7 +1056,7 @@ Parser::parse_struct_expr_field() {
 
 std::unique_ptr<ast::Identifier> Parser::parse_ident_unchecked() {
     return std::make_unique<ast::Identifier>(
-        tok, strings->intern(source->get_string(tok.get_span())));
+        strings->intern(source->get_string(tok.get_span())), tok.get_span());
 }
 
 std::unique_ptr<ast::Expr> Parser::parse_num() const {
@@ -962,10 +1074,10 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
             if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
                 std::errc::result_out_of_range) {
                 diag->error(tok.get_span(), DiagnosticKind::FloatOutOfRange);
-                return std::make_unique<ast::FloatExpr>(tok, num);
+                return std::make_unique<ast::FloatExpr>(num, tok.get_span());
             }
 
-            return std::make_unique<ast::FloatExpr>(tok, num);
+            return std::make_unique<ast::FloatExpr>(num, tok.get_span());
         }
     }
 
@@ -994,17 +1106,17 @@ std::unique_ptr<ast::Expr> Parser::parse_num() const {
         if (std::from_chars(&val[2], val.end().base(), num, base).ec ==
             std::errc::result_out_of_range) {
             diag->error(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
-            return std::make_unique<ast::IntExpr>(tok, num);
+            return std::make_unique<ast::IntExpr>(num, tok.get_span());
         }
     } else {
         if (std::from_chars(val.begin().base(), val.end().base(), num).ec ==
             std::errc::result_out_of_range) {
             diag->error(tok.get_span(), DiagnosticKind::IntegerOutOfRange);
-            return std::make_unique<ast::IntExpr>(tok, num);
+            return std::make_unique<ast::IntExpr>(num, tok.get_span());
         }
     }
 
-    return std::make_unique<ast::IntExpr>(tok, num);
+    return std::make_unique<ast::IntExpr>(num, tok.get_span());
 }
 
 ExprResult Parser::parse_for_expr() {

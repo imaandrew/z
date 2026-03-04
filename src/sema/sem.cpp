@@ -17,6 +17,39 @@
 
 namespace z {
 
+namespace {
+constexpr bool is_assignment_op(ast::BinOp op) {
+    switch (op) {
+    case ast::BinOp::AddEq:
+    case ast::BinOp::SubEq:
+    case ast::BinOp::MulEq:
+    case ast::BinOp::DivEq:
+    case ast::BinOp::ModEq:
+    case ast::BinOp::BitXorEq:
+    case ast::BinOp::BitAndEq:
+    case ast::BinOp::BitOrEq:
+    case ast::BinOp::ShlEq:
+    case ast::BinOp::ShrEq:
+    case ast::BinOp::Eq:
+        return true;
+    default:
+        return false;
+    }
+}
+
+constexpr bool is_division_op(ast::BinOp op) {
+    switch (op) {
+    case ast::BinOp::Div:
+    case ast::BinOp::DivEq:
+    case ast::BinOp::Mod:
+    case ast::BinOp::ModEq:
+        return true;
+    default:
+        return false;
+    }
+}
+} // namespace
+
 void SemChecker::visit(ast::Identifier& ident) {
     if (!ident.has_type()) {
         ctxt->diag.error(ident.get_span(), DiagnosticKind::UndefinedIdentifier,
