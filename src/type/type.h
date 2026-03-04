@@ -96,7 +96,7 @@ template <typename T> T* cast(Type* type) {
 
 template <typename T> const T* cast(const Type* type) {
     assert(isa<T>(type) && "Invalid cast");
-    return static_cast<T*>(type);
+    return static_cast<const T*>(type);
 }
 
 class IntegerType final : public Type {
