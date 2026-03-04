@@ -3,33 +3,36 @@
 #include "type/type.h"
 #include "type/type_ref.h"
 #include <functional>
-#include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 namespace z {
 bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
-    std::unordered_set<type::TypeRef> visited;
+    std::unordered_map<type::TypeRef, type::TypeRef> resolved_types;
 
     std::function<bool(type::TypeRef&)> resolve;
     resolve = [&](type::TypeRef& ref) -> bool {
-        if (visited.contains(ref))
+        // Prevent infinite recursion if we have self-referential types
+        if (auto it = resolved_types.find(ref); it != resolved_types.end()) {
+            ref = it->second;
             return true;
-        visited.insert(ref);
+        }
+
+        auto orig_type = ref;
+        resolved_types[orig_type] = ref;
 
         if (auto* unk_type = ty->get_as<type::UnknownType>(ref)) {
             const auto ident = unk_type->get_id();
-            if (const auto new_type = syms->get_type(ident); new_type) {
-                ref = *new_type;
-                return true;
+            const auto new_type = syms->get_type(ident);
+            if (!new_type) {
+                diag.error(unk_type->get_span(), DiagnosticKind::UndeclaredType,
+                           strings->get_string(unk_type->get_id()));
+                return false;
             }
 
-            diag.error(unk_type->get_span(), DiagnosticKind::UndeclaredType,
-                       strings->get_string(unk_type->get_id()));
-            return false;
-        }
-
-        if (auto* ptr_type = ty->get_as<type::PointerType>(ref)) {
+            ref = *new_type;
+        } else if (auto* ptr_type = ty->get_as<type::PointerType>(ref)) {
             auto inner = ptr_type->get_type();
             if (!resolve(inner))
                 return false;
@@ -37,10 +40,7 @@ bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
             if (inner != ptr_type->get_type()) {
                 ref = ty->make<type::PointerType>(inner);
             }
-            return true;
-        }
-
-        if (auto* array_type = ty->get_as<type::ArrayType>(ref)) {
+        } else if (auto* array_type = ty->get_as<type::ArrayType>(ref)) {
             auto inner = array_type->get_type();
             if (!resolve(inner))
                 return false;
@@ -48,10 +48,7 @@ bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
             if (inner != array_type->get_type()) {
                 ref = ty->make<type::ArrayType>(inner, array_type->get_size());
             }
-            return true;
-        }
-
-        if (auto* func_type = ty->get_as<type::FunctionType>(ref)) {
+        } else if (auto* func_type = ty->get_as<type::FunctionType>(ref)) {
             bool changed = false;
             std::vector<type::TypeRef> params;
             for (auto param : func_type->get_params()) {
@@ -74,10 +71,7 @@ bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
             if (changed) {
                 ref = ty->make<type::FunctionType>(std::move(params), ret);
             }
-            return true;
-        }
-
-        if (auto* tuple_type = ty->get_as<type::TupleType>(ref)) {
+        } else if (auto* tuple_type = ty->get_as<type::TupleType>(ref)) {
             auto old_types = tuple_type->get_types();
             auto [first, second] = old_types;
             if (!resolve(first))
@@ -89,10 +83,12 @@ bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
             if (first != old_types.first || second != old_types.second) {
                 ref = ty->make<type::TupleType>(first, second);
             }
-            return true;
-        }
-
-        if (auto* struct_type = ty->get_as<type::StructType>(ref)) {
+        } else if (auto* struct_type = ty->get_as<type::StructType>(ref)) {
+            // Since struct and enum types aren't internable, we are able to
+            // change
+            // which types they hold internally without having to worry about
+            // messing up their hash because equality is only based on their
+            // name
             auto& fields = struct_type->get_fields_mut();
             for (auto& [id, field] : fields) {
                 if (!resolve(field.first))
@@ -104,10 +100,7 @@ bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
                 if (!resolve(func.first))
                     return false;
             }
-            return true;
-        }
-
-        if (auto* enum_type = ty->get_as<type::EnumType>(ref)) {
+        } else if (auto* enum_type = ty->get_as<type::EnumType>(ref)) {
             auto& fields = enum_type->get_fields_mut();
             for (auto& [id, types] : fields) {
                 for (auto& t : types) {
@@ -115,9 +108,9 @@ bool ZContext::resolve_unk_type(type::TypeRef& root_type) {
                         return false;
                 }
             }
-            return true;
         }
 
+        resolved_types[orig_type] = ref;
         return true;
     };
 
