@@ -9,8 +9,8 @@
 namespace z {
 
 namespace {
-TokenKind get_keyword(const std::string& keyword) {
-    static std::unordered_map<std::string_view, TokenKind> keywords = {
+constexpr TokenKind get_keyword(std::string_view keyword) {
+    static std::unordered_map<std::string_view, TokenKind> const keywords = {
         {"as", TokenKind::KwAs},         {"break", TokenKind::KwBreak},
         {"const", TokenKind::KwConst},   {"continue", TokenKind::KwContinue},
         {"else", TokenKind::KwElse},     {"enum", TokenKind::KwEnum},
@@ -277,7 +277,6 @@ Token Lexer::lex_token() {
         return tok;
     }
     default: {
-        // NOLINTBEGIN(readability-implicit-bool-conversion)
         if (std::isalpha(static_cast<unsigned char>(cur_char)) ||
             cur_char == '_') {
             cur_char = peek();
@@ -310,7 +309,6 @@ Token Lexer::lex_token() {
 
             return make_token(TokenKind::Number);
         }
-        // NOLINTEND(readability-implicit-bool-conversion)
     }
     }
 

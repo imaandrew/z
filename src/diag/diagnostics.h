@@ -10,12 +10,12 @@
 #include <iostream>
 #include <magic_enum/magic_enum_format.hpp> // NOLINT(misc-include-cleaner)
 #include <map>
+#include <optional>
 #include <print>
-#include <stdexcept>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace z {
 
@@ -68,90 +68,104 @@ enum class DiagnosticKind : std::uint8_t {
     OperationOverflows
 };
 
-inline const std::string& get_diagnostic_string(const DiagnosticKind kind) {
-    static const std::unordered_map<DiagnosticKind, const std::string>
-        diag_strs = {
-            {DiagnosticKind::ExpectedToken, "expected `{0}`, found `{1}`"},
-            {DiagnosticKind::ExpectedSemi, "expected `;` after statement"},
-            {DiagnosticKind::ExpectedDecl, "expected declaration, found `{0}`"},
-            {DiagnosticKind::IntegerOutOfRange, "integer literal out of range"},
-            {DiagnosticKind::FloatOutOfRange, "float literal out of range"},
-            {DiagnosticKind::RedeclaredType, "redeclaration of type `{0}`"},
-            {DiagnosticKind::RedeclaredFunc, "redeclaration of function `{0}`"},
-            {DiagnosticKind::RedeclaredVar, "redeclaration of variable `{0}`"},
-            {DiagnosticKind::DuplicateField, "`{0}` has duplicate field `{1}`"},
-            {DiagnosticKind::UndeclaredType, "use of undeclared type `{0}`"},
-            {DiagnosticKind::UndefinedIdentifier, "`{0}` is undefined"},
-            {DiagnosticKind::ExpectedInteger,
-             "expected integral value, found `{0}`"},
-            {DiagnosticKind::ExpectedFloat,
-             "expected floating value, found `(0)`"},
-            {DiagnosticKind::TypeMismatch, "expected `{0}`, found `{1}`"},
-            {DiagnosticKind::UnassignableType,
-             "cannot assign value to unassignable type"},
-            {DiagnosticKind::InvalidAssignment, "cannot assign `{0}` to `{1}`"},
-            {DiagnosticKind::InvalidUnaryOperand,
-             "cannot apply unary operator `{0}` to type: `{1}`"},
-            {DiagnosticKind::InvalidBinaryOperand,
-             "cannot apply binary operator `{0}` to type: `{1}`"},
-            {DiagnosticKind::InvalidOperands,
-             "invalid operands to `{0}`: `{1}` and `{2}`"},
-            {DiagnosticKind::ExprNotAssignable,
-             "cannot assign value to expression"},
-            {DiagnosticKind::TypeHasNoFields,
-             "type `{0}` does not have fields"},
-            {DiagnosticKind::IncorrectArgQuantity,
-             "function takes {0} arguments but {1} were supplied"},
-            {DiagnosticKind::TypeCannotBeIndexed, "`{0}` cannot be indexed"},
-            {DiagnosticKind::InvalidIndexType,
-             "`{0}` is not a valid index type"},
-            {DiagnosticKind::ReturnTypeMismatch,
-             "`{0}` should return `{1}` but got `{2}`"},
-            {DiagnosticKind::NotAStruct,
-             "non struct type `{0}` used in struct initializer"},
-            {DiagnosticKind::TypeNotIterable, "type `{0}` is not iterable"},
-            {DiagnosticKind::ElseExprTypeMismatch,
-             "else clause should have same type as if clause, which has type "
-             "`{0}`, instead of `{1}`"},
-            {DiagnosticKind::UnknownField,
-             "type `{0}` doesn't have field `{1}`"},
-            {DiagnosticKind::DuplicateFieldInitialization,
-             "field `{0}` already initialized"},
-            {DiagnosticKind::FieldNotInitialized,
-             "required field `{0}` not initialized"},
-            {DiagnosticKind::MoreThanOneChar,
-             "char literal may contain at most one character"},
-            {DiagnosticKind::NumericLiteralTooBig,
-             "numeric literal too big for `{0}`"},
-            {DiagnosticKind::BreakOutsideLoop,
-             "break statement outside of loop"},
-            {DiagnosticKind::ContinueOutsideLoop,
-             "continue statement outside of loop"},
-            {DiagnosticKind::UnreachableStmt, "statement is unreachable"},
-            {DiagnosticKind::UninitializedVar,
-             "`{0}` should be initialized before use"},
-            {DiagnosticKind::AssignmentToConst,
-             "cannot reassign value of const variable `{0}`"},
-            {DiagnosticKind::DivisionByZero, "denominator cannot be zero"},
-            {DiagnosticKind::InvalidArraySize,
-             "size of array must be a positive integer"},
-            {DiagnosticKind::MainFunctionParams,
-             "main function cannot have parameters"},
-            {DiagnosticKind::MainFunctionReturnType,
-             "main function must either return `()` or `i32`"},
-            {DiagnosticKind::RecursiveStructDefiniton,
-             "struct `{0}` cannot contain a field of its own type"},
-            {DiagnosticKind::BreakTypeMismatch,
-             "loop has type `{0}` but this statement returns a `{1}`"},
-            {DiagnosticKind::InfiniteLoop, "infinite loop never breaks"},
-            {DiagnosticKind::OperationOverflows,
-             "operation overflows type `{0}`"}};
-
-    if (const auto str = diag_strs.find(kind); str != diag_strs.end()) {
-        return str->second;
+constexpr std::string_view get_diagnostic_string(DiagnosticKind kind) {
+    switch (kind) {
+    case DiagnosticKind::ExpectedToken:
+        return "expected `{0}`, found `{1}`";
+    case DiagnosticKind::ExpectedSemi:
+        return "expected `;` after statement";
+    case DiagnosticKind::ExpectedDecl:
+        return "expected declaration, found `{0}`";
+    case DiagnosticKind::IntegerOutOfRange:
+        return "integer literal out of range";
+    case DiagnosticKind::FloatOutOfRange:
+        return "float literal out of range";
+    case DiagnosticKind::RedeclaredType:
+        return "redeclaration of type `{0}`";
+    case DiagnosticKind::RedeclaredFunc:
+        return "redeclaration of function `{0}`";
+    case DiagnosticKind::RedeclaredVar:
+        return "redeclaration of variable `{0}`";
+    case DiagnosticKind::DuplicateField:
+        return "`{0}` has duplicate field `{1}`";
+    case DiagnosticKind::UndeclaredType:
+        return "use of undeclared type `{0}`";
+    case DiagnosticKind::UndefinedIdentifier:
+        return "`{0}` is undefined";
+    case DiagnosticKind::ExpectedInteger:
+        return "expected integral value, found `{0}`";
+    case DiagnosticKind::ExpectedFloat:
+        return "expected floating value, found `(0)`";
+    case DiagnosticKind::TypeMismatch:
+        return "expected `{0}`, found `{1}`";
+    case DiagnosticKind::UnassignableType:
+        return "cannot assign value to unassignable type";
+    case DiagnosticKind::InvalidAssignment:
+        return "cannot assign `{0}` to `{1}`";
+    case DiagnosticKind::InvalidUnaryOperand:
+        return "cannot apply unary operator `{0}` to type: `{1}`";
+    case DiagnosticKind::InvalidBinaryOperand:
+        return "cannot apply binary operator `{0}` to type: `{1}`";
+    case DiagnosticKind::InvalidOperands:
+        return "invalid operands to `{0}`: `{1}` and `{2}`";
+    case DiagnosticKind::ExprNotAssignable:
+        return "cannot assign value to expression";
+    case DiagnosticKind::TypeHasNoFields:
+        return "type `{0}` does not have fields";
+    case DiagnosticKind::IncorrectArgQuantity:
+        return "function takes {0} arguments but {1} were supplied";
+    case DiagnosticKind::TypeCannotBeIndexed:
+        return "`{0}` cannot be indexed";
+    case DiagnosticKind::InvalidIndexType:
+        return "`{0}` is not a valid index type";
+    case DiagnosticKind::ReturnTypeMismatch:
+        return "`{0}` should return `{1}` but got `{2}`";
+    case DiagnosticKind::NotAStruct:
+        return "non struct type `{0}` used in struct initializer";
+    case DiagnosticKind::TypeNotIterable:
+        return "type `{0}` is not iterable";
+    case DiagnosticKind::ElseExprTypeMismatch:
+        return "else clause should have same type as if clause, which has type "
+               "`{0}`, instead of `{1}`";
+    case DiagnosticKind::UnknownField:
+        return "type `{0}` doesn't have field `{1}`";
+    case DiagnosticKind::DuplicateFieldInitialization:
+        return "field `{0}` already initialized";
+    case DiagnosticKind::FieldNotInitialized:
+        return "required field `{0}` not initialized";
+    case DiagnosticKind::MoreThanOneChar:
+        return "char literal may contain at most one character";
+    case DiagnosticKind::NumericLiteralTooBig:
+        return "numeric literal too big for `{0}`";
+    case DiagnosticKind::BreakOutsideLoop:
+        return "break statement outside of loop";
+    case DiagnosticKind::ContinueOutsideLoop:
+        return "continue statement outside of loop";
+    case DiagnosticKind::UnreachableStmt:
+        return "statement is unreachable";
+    case DiagnosticKind::UninitializedVar:
+        return "`{0}` should be initialized before use";
+    case DiagnosticKind::AssignmentToConst:
+        return "cannot reassign value of const variable `{0}`";
+    case DiagnosticKind::DivisionByZero:
+        return "denominator cannot be zero";
+    case DiagnosticKind::InvalidArraySize:
+        return "size of array must be a positive integer";
+    case DiagnosticKind::MainFunctionParams:
+        return "main function cannot have parameters";
+    case DiagnosticKind::MainFunctionReturnType:
+        return "main function must either return `()` or `i32`";
+    case DiagnosticKind::RecursiveStructDefiniton:
+        return "struct `{0}` cannot contain a field of its own type";
+    case DiagnosticKind::BreakTypeMismatch:
+        return "loop has type `{0}` but this statement returns a `{1}`";
+    case DiagnosticKind::InfiniteLoop:
+        return "infinite loop never breaks";
+    case DiagnosticKind::OperationOverflows:
+        return "operation overflows type `{0}`";
     }
 
-    throw std::runtime_error("Invalid DiagnosticKind");
+    std::unreachable();
 }
 
 enum class DiagnosticCategory : std::uint8_t { Error, Warning };
@@ -166,7 +180,7 @@ struct Diagnostic {
     Callback print_callback;
 
     std::optional<std::string> primary_note;
-    std::map<Span, std::string> notes;
+    std::vector<std::pair<Span, std::string>> notes;
 
     Diagnostic(DiagnosticCategory category, DiagnosticKind kind, Span loc,
                std::string msg, Callback fn)
@@ -191,7 +205,7 @@ struct Diagnostic {
     }
 
     Diagnostic& add_note(Span span, std::string_view note) {
-        notes[span] = note;
+        notes.emplace_back(span, note);
         return *this;
     }
 };

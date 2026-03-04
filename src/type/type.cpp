@@ -103,7 +103,7 @@ void StructType::dump(ZContext* ctxt, std::ostream& stream) const {
 }
 
 std::string StructType::basic_name(const ZContext* ctxt) const {
-    return ctxt->strings->get_string(name);
+    return std::string(ctxt->strings->get_string(name));
 }
 
 void EnumType::dump(ZContext* ctxt, std::ostream& stream) const {
@@ -112,7 +112,7 @@ void EnumType::dump(ZContext* ctxt, std::ostream& stream) const {
 }
 
 std::string EnumType::basic_name(const ZContext* ctxt) const {
-    return ctxt->strings->get_string(name);
+    return std::string(ctxt->strings->get_string(name));
 }
 
 void EnumVariantType::dump(ZContext* ctxt, std::ostream& stream) const {
@@ -121,7 +121,7 @@ void EnumVariantType::dump(ZContext* ctxt, std::ostream& stream) const {
 }
 
 std::string EnumVariantType::basic_name(const ZContext* ctxt) const {
-    return ctxt->strings->get_string(parent_enum);
+    return std::string(ctxt->strings->get_string(parent_enum));
 }
 
 void TupleType::dump(ZContext* ctxt, std::ostream& stream) const {
