@@ -3,6 +3,7 @@
 #include "ir/condition_codes.h"
 #include <cassert>
 #include <cstdint>
+#include <limits>
 #include <utility>
 namespace z::ir {
 
@@ -124,11 +125,13 @@ public:
 
     [[nodiscard]] ConstInt udiv(const ConstInt& other) const {
         assert(width == other.width);
+        assert(other.bits != 0);
         return {mask(bits / other.bits), width, is_signed};
     }
 
     [[nodiscard]] ConstInt sdiv(const ConstInt& other) const {
         assert(width == other.width);
+        assert(other.bits != 0);
 
         auto a = sign_extend(bits);
         auto b = sign_extend(other.bits);
@@ -149,6 +152,26 @@ public:
         return result;
     }
 
+    [[nodiscard]] ConstInt urem(const ConstInt& other) const {
+        assert(width == other.width);
+        assert(other.bits != 0);
+
+        return {mask(bits % other.bits), width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt srem(const ConstInt& other) const {
+        assert(width == other.width);
+        assert(other.bits != 0);
+
+        auto a = sign_extend(bits);
+        auto b = sign_extend(other.bits);
+
+        if (a == std::numeric_limits<std::int64_t>::min() && b == -1)
+            return ConstInt{0, width, is_signed};
+
+        return {mask(static_cast<std::uint64_t>(a % b)), width, is_signed};
+    }
+
     [[nodiscard]] ConstInt shl(const ConstInt& other) const {
         assert(width == other.width);
 
@@ -167,6 +190,25 @@ public:
         return {
             mask(static_cast<std::uint64_t>(sign_extend(bits)) >> other.bits),
             width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt bit_not() const {
+        return ConstInt{mask(~bits), width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt bit_and(const ConstInt& other) const {
+        assert(width == other.width);
+        return ConstInt{mask(bits & other.bits), width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt bit_or(const ConstInt& other) const {
+        assert(width == other.width);
+        return ConstInt{mask(bits | other.bits), width, is_signed};
+    }
+
+    [[nodiscard]] ConstInt bit_xor(const ConstInt& other) const {
+        assert(width == other.width);
+        return ConstInt{mask(bits ^ other.bits), width, is_signed};
     }
 
     [[nodiscard]] bool cmp(const ConstInt& other, IntCC cc) const {
