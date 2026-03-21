@@ -50,7 +50,7 @@ void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
 
         os << "\n";
 
-        for (auto inst_id : block.insts) {
+        for (auto inst_id : block.all_insts()) {
             const auto& inst = func.insts[inst_id.id];
             os << "  ";
             dump_inst(inst, os);

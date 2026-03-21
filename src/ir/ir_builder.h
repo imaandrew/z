@@ -253,7 +253,15 @@ class IRBuilder final : public ast::ASTVisitor {
 
     */
 
-    VReg emit_phi(type::TypeRef type) { return emit_inst(IROp::Phi, {}, type); }
+    VReg emit_phi(type::TypeRef type) {
+        const auto inst_id = get_inst_id();
+        const auto dest = emit_reg(type, inst_id);
+
+        current_func->insts.emplace_back(inst_id, IROp::Phi, dest,
+                                         std::initializer_list<Operand>{});
+        current_func->get_block(*current_block).phis.push_back(inst_id);
+        return dest;
+    }
 
     void write_var(StringID var, VReg val) {
         current_block_state->var_map[var] = val;

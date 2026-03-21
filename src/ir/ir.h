@@ -7,11 +7,14 @@
 #include "ir/constants.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <optional>
+#include <ranges>
+#include <span>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -468,7 +471,9 @@ struct BasicBlock {
     BlockID id;
     std::optional<TerminatorKind> term;
     std::vector<InstId> insts;
+    std::vector<InstId> phis;
     std::vector<BlockID> predecessors;
+    std::vector<BlockID> successors;
 
     explicit BasicBlock(BlockID id) : id(id) {};
 
@@ -479,6 +484,38 @@ struct BasicBlock {
         }
 
         predecessors.push_back(pred);
+    }
+
+    void add_successor(BlockID successor) {
+        for (const auto s : successors) {
+            if (s == successor)
+                return;
+        }
+
+        predecessors.push_back(successor);
+    }
+
+    void replace_predecessor(BlockID old_pred, BlockID new_pred) {
+        for (auto& p : predecessors) {
+            if (p == old_pred) {
+                p = new_pred;
+                return;
+            }
+        }
+    }
+
+    void replace_successor(BlockID old_succ, BlockID new_succ) {
+        for (auto& s : successors) {
+            if (s == old_succ) {
+                s = new_succ;
+                return;
+            }
+        }
+    }
+
+    [[nodiscard]] auto all_insts() const {
+        return std::array<std::span<const InstId>, 2>{phis, insts} |
+               std::views::join;
     }
 };
 
