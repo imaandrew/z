@@ -24,7 +24,8 @@ enum class IROp : std::uint8_t {
     IMul,
     SDiv,
     UDiv,
-    IMod,
+    SRem,
+    URem,
     INeg,
 
     FAdd,
@@ -74,6 +75,79 @@ enum class IROp : std::uint8_t {
 
 using ast::BinOp;
 using ast::UnOp;
+
+static constexpr std::optional<ConstInt>
+fold_int_op(IROp op, const ConstInt& lhs, const ConstInt& rhs, bool& overflow) {
+    auto with_overflow = [&overflow](auto fn) -> std::optional<ConstInt> {
+        auto res = fn();
+        return overflow ? std::nullopt : std::optional(res);
+    };
+
+    switch (op) {
+    case IROp::IAdd:
+        return with_overflow([&]() { return lhs.add(rhs, overflow); });
+    case IROp::ISub:
+        return with_overflow([&]() { return lhs.sub(rhs, overflow); });
+    case IROp::IMul:
+        return with_overflow([&]() { return lhs.mul(rhs, overflow); });
+    case IROp::SDiv:
+        return with_overflow([&]() { return lhs.sdiv(rhs, overflow); });
+    case IROp::UDiv:
+        return lhs.udiv(rhs);
+    case IROp::SRem:
+        return lhs.srem(rhs);
+    case IROp::URem:
+        return lhs.urem(rhs);
+    case IROp::Shl:
+        return lhs.shl(rhs);
+    case IROp::Lsr:
+        return lhs.lshr(rhs);
+    case IROp::Asr:
+        return lhs.ashr(rhs);
+    case IROp::And:
+        return lhs.bit_and(rhs);
+    case IROp::Or:
+        return lhs.bit_or(rhs);
+    case IROp::Xor:
+        return lhs.bit_xor(rhs);
+    default:
+        return std::nullopt;
+    }
+}
+
+static constexpr std::optional<ConstFloat>
+fold_float_op(IROp op, const ConstFloat& lhs, const ConstFloat& rhs) {
+    switch (op) {
+    case IROp::FAdd:
+        return lhs.add(rhs);
+    case IROp::FSub:
+        return lhs.sub(rhs);
+    case IROp::FMul:
+        return lhs.mul(rhs);
+    case IROp::FDiv:
+        return lhs.div(rhs);
+    default:
+        return std::nullopt;
+    }
+}
+
+static constexpr std::optional<bool> fold_bool_op(BinOp op, bool lhs,
+                                                  bool rhs) {
+    switch (op) {
+    case BinOp::Eq:
+        return lhs == rhs;
+    case BinOp::Ne:
+        return lhs != rhs;
+    case BinOp::LogicAnd:
+        return lhs && rhs;
+    case BinOp::LogicOr:
+        return lhs || rhs;
+    case BinOp::BitXor:
+        return lhs ^ rhs;
+    default:
+        return std::nullopt;
+    }
+}
 
 static constexpr IROp get_ir_op(UnOp kind) {
     switch (kind) {
@@ -131,7 +205,7 @@ static constexpr IROp get_int_ir_op(BinOp kind, bool is_signed) {
         return IROp::IMul;
     case BinOp::Mod:
     case BinOp::ModEq:
-        return IROp::IMod;
+        return is_signed ? IROp::SRem : IROp::URem;
     case BinOp::EqEq:
     case BinOp::Ne:
     case BinOp::Gt:

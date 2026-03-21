@@ -219,8 +219,10 @@ constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
         return "sdiv";
     case IROp::UDiv:
         return "udiv";
-    case IROp::IMod:
-        return "imod";
+    case IROp::SRem:
+        return "srem";
+    case IROp::URem:
+        return "urem";
     case IROp::INeg:
         return "ineg";
     case IROp::FAdd:
