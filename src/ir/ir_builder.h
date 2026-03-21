@@ -308,19 +308,18 @@ class IRBuilder final : public ast::ASTVisitor {
         return val;
     }
 
-    void add_phi_operand(InstId phi, VReg var, BlockID block_id) {
+    void add_phi_operand(InstId phi, BlockID phi_inst_block, VReg var,
+                         BlockID block_id) {
         auto& inst = get_inst(phi);
         inst.operands.push_back(Operand::reg(var));
         inst.operands.push_back(Operand::label(block_id));
+        current_func->get_reg_info(var).uses.emplace_back(phi, phi_inst_block);
     }
 
     VReg add_phi_operands(StringID var, BasicBlock& block, InstId phi) {
         for (const auto pred : block.predecessors) {
             auto v = read_var(var, pred);
-            add_phi_operand(phi, v, pred);
-
-            auto& users = current_func->get_reg_info(v).uses;
-            users.emplace_back(phi, block.id);
+            add_phi_operand(phi, block.id, v, pred);
         }
 
         return try_remove_trivial_phi(phi, block);

@@ -149,8 +149,8 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
 
         auto phi_inst = get_inst_id();
         auto phi = emit_phi(type::builtin::BOOL);
-        add_phi_operand(phi_inst, lhs_reg.as_reg(), lhs_block);
-        add_phi_operand(phi_inst, rhs_reg.as_reg(), rhs_exit);
+        add_phi_operand(phi_inst, end_block, lhs_reg.as_reg(), lhs_block);
+        add_phi_operand(phi_inst, end_block, rhs_reg.as_reg(), rhs_exit);
 
         last_result = Operand::reg(phi);
         return;
@@ -478,7 +478,8 @@ void IRBuilder::visit(ast::FuncDecl& func) {
         switch_block(from);
         current_func->get_block(from).term = std::nullopt;
         if (val && ret_phi_inst) {
-            add_phi_operand(*ret_phi_inst, ensure_reg(*val).as_reg(), from);
+            add_phi_operand(*ret_phi_inst, ret_block, ensure_reg(*val).as_reg(),
+                            from);
         }
         emit_jump(ret_block);
     }
@@ -590,8 +591,10 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         if (then_result && else_result) {
             auto phi = emit_phi(expr.get_type());
             auto phi_inst = current_func->get_reg_info(phi).def;
-            add_phi_operand(phi_inst, then_result->as_reg(), then_exit);
-            add_phi_operand(phi_inst, else_result->as_reg(), else_exit);
+            add_phi_operand(phi_inst, end_block, then_result->as_reg(),
+                            then_exit);
+            add_phi_operand(phi_inst, end_block, else_result->as_reg(),
+                            else_exit);
             last_result = Operand::reg(phi);
         } else {
             last_result = std::nullopt;
@@ -637,7 +640,7 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         auto cnt_reg_id = get_inst_id();
         auto cnt_reg = emit_phi(type::builtin::USIZE);
 
-        add_phi_operand(cnt_reg_id, loop_cnt.as_reg(), entry_block);
+        add_phi_operand(cnt_reg_id, cond_block, loop_cnt.as_reg(), entry_block);
 
         auto cond = emit_inst(IROp::ICmp,
                               {Operand::intcc(IntCC::UnsignedLessThan),
@@ -663,7 +666,7 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
                                        type::builtin::USIZE)},
                       type::builtin::USIZE);
 
-        add_phi_operand(cnt_reg_id, new_loop_cnt, *current_block);
+        add_phi_operand(cnt_reg_id, cond_block, new_loop_cnt, *current_block);
 
         emit_jump(cond_block);
         switch_block(cond_block);
