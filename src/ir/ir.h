@@ -73,6 +73,7 @@ enum class IROp : std::uint8_t {
     Arg,
 
     Phi,
+    Copy,
     Dead
 };
 
@@ -492,7 +493,7 @@ struct BasicBlock {
                 return;
         }
 
-        predecessors.push_back(successor);
+        successors.push_back(successor);
     }
 
     void replace_predecessor(BlockID old_pred, BlockID new_pred) {
