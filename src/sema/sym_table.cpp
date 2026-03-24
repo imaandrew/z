@@ -6,6 +6,7 @@
 #include "type/type.h"
 #include "type/type_ref.h"
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -133,6 +134,13 @@ void SymbolTable::update_type(StringID name, type::TypeRef& new_type) {
         if (auto type = scope->get_type(name)) {
             type->type = new_type;
         }
+    }
+}
+
+void SymbolTable::resolve_types(
+    const std::function<type::TypeRef(type::TypeRef)>& resolve_fn) {
+    for (auto& scope : scopes) {
+        scope.resolve_types(resolve_fn);
     }
 }
 

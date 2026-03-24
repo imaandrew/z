@@ -1,6 +1,7 @@
 #include "type_res.h"
 #include "constraint.h"
 #include "parser/ast.h"
+#include "type/type_ref.h"
 #include <iostream>
 #include <memory>
 #include <variant>
@@ -38,6 +39,9 @@ void TypeResolver::resolve(ast::SourceFileDecl* file, bool dump_constraints) {
     cs.register_vars(types);
 
     cs.solve(constraints);
+
+    ctxt->syms->resolve_types(
+        [this](type::TypeRef t) { return cs.resolve(t); });
 
     resolve_subtree(file);
 }

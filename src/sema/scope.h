@@ -3,6 +3,7 @@
 #include "core/string_pool.h"
 #include "diag/src_mgr.h"
 #include "type/type_ref.h"
+#include <functional>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -47,6 +48,9 @@ public:
     std::optional<VarInfo> get_var(StringID name) const;
     std::optional<TypeWithSpan> get_func(StringID name) const;
     std::optional<TypeWithSpan> get_type(StringID name) const;
+
+    void resolve_types(
+        const std::function<type::TypeRef(type::TypeRef)>& resolve_fn);
 
     void set_initialized(StringID name) {
         if (vars.contains(name)) {

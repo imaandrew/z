@@ -7,6 +7,7 @@
 #include "sema/scope.h"
 #include "type/type_ref.h"
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -52,6 +53,8 @@ public:
     [[nodiscard]] std::optional<type::TypeRef> get_func(StringID name) const;
     [[nodiscard]] std::optional<type::TypeRef> get_type(StringID name) const;
     void update_type(StringID name, type::TypeRef& type);
+    void resolve_types(
+        const std::function<type::TypeRef(type::TypeRef)>& resolve_fn);
     [[nodiscard]] bool is_var_initialized(StringID name) const;
     [[nodiscard]] bool is_var_const(StringID name) const;
     [[nodiscard]] bool is_var_local(StringID name) const;

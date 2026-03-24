@@ -3,6 +3,7 @@
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_ref.h"
+#include <functional>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -63,5 +64,12 @@ ScopeContext::get_type(StringID name) const {
         return type->second;
 
     return std::nullopt;
+}
+
+void ScopeContext::resolve_types(
+    const std::function<type::TypeRef(type::TypeRef)>& resolve_fn) {
+    for (auto& [name, var] : vars) {
+        var.type.type = resolve_fn(var.type.type);
+    }
 }
 } // namespace z
