@@ -286,17 +286,24 @@ void ConstraintGenerator::visit(ast::ForExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::LetStmt& stmt) {
-    stmt.ident->set_type(new_var());
-
     if (stmt.type.is_valid()) {
         resolve_type_name(stmt.type);
-        eq(stmt.ident->get_type(), stmt.type);
         push_expected(stmt.type);
     }
 
     if (stmt.val) {
         stmt.val->accept(*this);
-        eq(stmt.ident->get_type(), stmt.val->get_type());
+    }
+
+    if (stmt.type.is_valid()) {
+        stmt.ident->set_type(stmt.type);
+        if (stmt.val) {
+            eq(stmt.ident->get_type(), stmt.val->get_type());
+        }
+    } else if (stmt.val) {
+        stmt.ident->set_type(stmt.val->get_type());
+    } else {
+        stmt.ident->set_type(new_var());
     }
 
     if (stmt.type.is_valid())
