@@ -1,15 +1,12 @@
-gtest = dependency('gtest', main : true)
+gtest_dep = dependency('gtest', main : true, required : true)
 
-test_sources = files(
-  'test_lexer.cpp',
+test_lexer = executable(
+    'test_lexer',
+    'test_lexer.cpp',
+    include_directories : inc,
+    dependencies : deps + [argparse, gtest_dep],
+    cpp_args : args,
+    link_with : zlib,
 )
 
-ztest = executable(
-  'ztest',
-  test_sources,
-  link_with : zlib,
-  include_directories : inc,
-  dependencies : gtest
-)
-
-test('ztest', ztest)
+test('Lexer Tests', test_lexer)

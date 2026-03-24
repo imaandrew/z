@@ -1,153 +1,128 @@
-#include "src_mgr.h"
-#include "test_helpers.h"
-#include "token.h"
-#include <array>
-#include <cstddef>
+#include "diag/src_mgr.h"
+#include "lexer/lexer.h"
+#include "lexer/token.h"
+#include <algorithm>
 #include <gtest/gtest.h>
-#include <iostream>
+#include <memory>
 #include <string>
+#include <vector>
 
-namespace z {
-void PrintTo(const TokenKind& kind, std::ostream* os) {
-    *os << tok_kind_to_string(kind);
-}
-} // namespace z
+using namespace z;
 
-namespace z::test {
 class LexerTest : public testing::Test {
 protected:
-    static z::SourceManager create_source(const std::string& src) {
-        return z::SourceManager::Create(src);
+    struct LexerWithSource {
+        std::unique_ptr<SourceManager> source;
+        Lexer lexer;
+
+        explicit LexerWithSource(const std::string& input)
+            : source(SourceManager::Create(input)), lexer(source.get()) {}
+
+        std::vector<Token> lex() {
+            std::vector<Token> tokens;
+
+            while (true) {
+                auto tok = lexer.lex_token();
+                tokens.push_back(tok);
+                if (tok.get_kind() == TokenKind::Eof) {
+                    break;
+                }
+            }
+
+            return tokens;
+        }
+    };
+
+    static std::vector<Token> lex_string(const std::string& input) {
+        auto l = LexerWithSource(input);
+        return l.lex();
     }
 };
 
-TEST_F(LexerTest, LexKeywords) {
-    auto sm = create_source("as const for fn let return while");
-    auto tokens = tokenize(sm);
+TEST_F(LexerTest, LexesKeywords) {
+    auto tokens = lex_string("as in while const return while");
 
-    std::array expected{TokenKind::KwAs,   TokenKind::KwConst,
-                        TokenKind::KwFor,  TokenKind::KwFn,
-                        TokenKind::KwLet,  TokenKind::KwReturn,
-                        TokenKind::KwWhile};
-
-    ASSERT_EQ(tokens.size(), expected.size());
-
-    for (size_t i = 0; i < tokens.size(); i++) {
-        EXPECT_EQ(tokens[i].get_kind(), expected[i]);
-    }
+    ASSERT_EQ(tokens.size(), 7);
+    EXPECT_EQ(tokens[0].get_kind(), TokenKind::KwAs);
+    EXPECT_EQ(tokens[1].get_kind(), TokenKind::KwIn);
+    EXPECT_EQ(tokens[2].get_kind(), TokenKind::KwWhile);
+    EXPECT_EQ(tokens[3].get_kind(), TokenKind::KwConst);
+    EXPECT_EQ(tokens[4].get_kind(), TokenKind::KwReturn);
+    EXPECT_EQ(tokens[5].get_kind(), TokenKind::KwWhile);
+    EXPECT_EQ(tokens.back().get_kind(), TokenKind::Eof);
 }
 
-TEST_F(LexerTest, LexSingleCharacterTokens) {
-    auto sm = create_source("( { ; , : + = )");
-    auto tokens = tokenize(sm);
+TEST_F(LexerTest, LexesSingleCharOperators) {
+    auto tokens = lex_string("+ = < - * [ / *");
 
-    std::array expected{TokenKind::LParen, TokenKind::LBrace, TokenKind::Semi,
-                        TokenKind::Comma,  TokenKind::Colon,  TokenKind::Plus,
-                        TokenKind::Eq,     TokenKind::RParen};
-
-    ASSERT_EQ(tokens.size(), expected.size());
-
-    for (size_t i = 0; i < tokens.size(); i++) {
-        EXPECT_EQ(tokens[i].get_kind(), expected[i]);
-    }
+    ASSERT_EQ(tokens.size(), 9);
+    EXPECT_EQ(tokens[0].get_kind(), TokenKind::Plus);
+    EXPECT_EQ(tokens[1].get_kind(), TokenKind::Eq);
+    EXPECT_EQ(tokens[2].get_kind(), TokenKind::Lt);
+    EXPECT_EQ(tokens[3].get_kind(), TokenKind::Minus);
+    EXPECT_EQ(tokens[4].get_kind(), TokenKind::Star);
+    EXPECT_EQ(tokens[5].get_kind(), TokenKind::LBracket);
+    EXPECT_EQ(tokens[6].get_kind(), TokenKind::Slash);
+    EXPECT_EQ(tokens[7].get_kind(), TokenKind::Star);
+    EXPECT_EQ(tokens.back().get_kind(), TokenKind::Eof);
 }
 
-TEST_F(LexerTest, LexDoubleCharacterTokens) {
-    auto sm = create_source("++ == <= << /=");
-    auto tokens = tokenize(sm);
+TEST_F(LexerTest, LexesMultiCharOperators) {
+    auto tokens = lex_string("++ += >= :: ..= || <<=");
 
-    std::array expected{TokenKind::PlusPlus, TokenKind::EqEq, TokenKind::Le,
-                        TokenKind::Shl, TokenKind::SlashEq};
-
-    ASSERT_EQ(tokens.size(), expected.size());
-
-    for (size_t i = 0; i < tokens.size(); i++) {
-        EXPECT_EQ(tokens[i].get_kind(), expected[i]);
-    }
+    ASSERT_EQ(tokens.size(), 8);
+    EXPECT_EQ(tokens[0].get_kind(), TokenKind::PlusPlus);
+    EXPECT_EQ(tokens[1].get_kind(), TokenKind::PlusEq);
+    EXPECT_EQ(tokens[2].get_kind(), TokenKind::Ge);
+    EXPECT_EQ(tokens[3].get_kind(), TokenKind::ColonColon);
+    EXPECT_EQ(tokens[4].get_kind(), TokenKind::RangeEq);
+    EXPECT_EQ(tokens[5].get_kind(), TokenKind::Or);
+    EXPECT_EQ(tokens[6].get_kind(), TokenKind::ShlEq);
+    EXPECT_EQ(tokens.back().get_kind(), TokenKind::Eof);
 }
 
-TEST_F(LexerTest, LexTripleCharacterTokens) {
-    auto sm = create_source("<<= >>=");
-    auto tokens = tokenize(sm);
+TEST_F(LexerTest, LexesMixedOperators) {
+    auto tokens = lex_string("-> % %= , ~ && >>= ^");
 
-    std::array expected{TokenKind::ShlEq, TokenKind::ShrEq};
-
-    ASSERT_EQ(tokens.size(), expected.size());
-
-    for (size_t i = 0; i < tokens.size(); i++) {
-        EXPECT_EQ(tokens[i].get_kind(), expected[i]);
-    }
+    ASSERT_EQ(tokens.size(), 9);
+    EXPECT_EQ(tokens[0].get_kind(), TokenKind::Arrow);
+    EXPECT_EQ(tokens[1].get_kind(), TokenKind::Percent);
+    EXPECT_EQ(tokens[2].get_kind(), TokenKind::PercentEq);
+    EXPECT_EQ(tokens[3].get_kind(), TokenKind::Comma);
+    EXPECT_EQ(tokens[4].get_kind(), TokenKind::Not);
+    EXPECT_EQ(tokens[5].get_kind(), TokenKind::AndAnd);
+    EXPECT_EQ(tokens[6].get_kind(), TokenKind::ShrEq);
+    EXPECT_EQ(tokens[7].get_kind(), TokenKind::Caret);
+    EXPECT_EQ(tokens.back().get_kind(), TokenKind::Eof);
 }
 
-TEST_F(LexerTest, LexStringLiteral) {
-    auto sm = create_source(R"("asdf" "asdfasdf" "test")");
-    auto tokens = tokenize(sm);
+TEST_F(LexerTest, DoesNotLexMultiCharOpAcrossWhitespace) {
+    auto tokens = lex_string("+ + = % = > >");
 
-    ASSERT_EQ(tokens.size(), 3);
-
-    for (auto token : tokens) {
-        EXPECT_EQ(token.get_kind(), TokenKind::String);
-    }
-
-    EXPECT_EQ(sm.get_string(tokens[0].get_span()), "asdf");
-    EXPECT_EQ(sm.get_string(tokens[1].get_span()), "asdfasdf");
-    EXPECT_EQ(sm.get_string(tokens[2].get_span()), "test");
+    ASSERT_EQ(tokens.size(), 8);
+    EXPECT_EQ(tokens[0].get_kind(), TokenKind::Plus);
+    EXPECT_EQ(tokens[1].get_kind(), TokenKind::Plus);
+    EXPECT_EQ(tokens[2].get_kind(), TokenKind::Eq);
+    EXPECT_EQ(tokens[3].get_kind(), TokenKind::Percent);
+    EXPECT_EQ(tokens[4].get_kind(), TokenKind::Eq);
+    EXPECT_EQ(tokens[5].get_kind(), TokenKind::Gt);
+    EXPECT_EQ(tokens[6].get_kind(), TokenKind::Gt);
+    EXPECT_EQ(tokens.back().get_kind(), TokenKind::Eof);
 }
 
-TEST_F(LexerTest, LexCharLiteral) {
-    auto sm = create_source("'a' 'b' 'z'");
-    auto tokens = tokenize(sm);
+TEST_F(LexerTest, LexesIdentifiers) {
+    auto l = LexerWithSource("test ident z003a _b8__938");
+    auto tokens = l.lex();
 
-    ASSERT_EQ(tokens.size(), 3);
-
-    for (auto token : tokens) {
-        EXPECT_EQ(token.get_kind(), TokenKind::Char);
-    }
-}
-
-TEST_F(LexerTest, LexIdentifier) {
-    auto sm = create_source("test ident asdfasdf");
-    auto tokens = tokenize(sm);
-
-    ASSERT_EQ(tokens.size(), 3);
-
-    for (auto token : tokens) {
-        EXPECT_EQ(token.get_kind(), TokenKind::Identifier);
-    }
-}
-
-TEST_F(LexerTest, LexNumbers) {
-    auto sm = create_source("0x12 413 3.43 0b01110 0o12 231_312");
-    auto tokens = tokenize(sm);
-
-    ASSERT_EQ(tokens.size(), 6);
-
-    for (auto token : tokens) {
-        EXPECT_EQ(token.get_kind(), TokenKind::Number);
-    }
-}
-
-TEST_F(LexerTest, IgnoreComments) {
-    auto sm = create_source("asdf /* comment */ asdf // comment");
-    auto tokens = tokenize(sm);
-
-    ASSERT_EQ(tokens.size(), 2);
-
+    ASSERT_EQ(tokens.size(), 5);
     EXPECT_EQ(tokens[0].get_kind(), TokenKind::Identifier);
     EXPECT_EQ(tokens[1].get_kind(), TokenKind::Identifier);
+    EXPECT_EQ(tokens[2].get_kind(), TokenKind::Identifier);
+    EXPECT_EQ(tokens[3].get_kind(), TokenKind::Identifier);
+    EXPECT_EQ(tokens.back().get_kind(), TokenKind::Eof);
+
+    EXPECT_EQ(l.source->get_string(tokens[0].get_span()), "test");
+    EXPECT_EQ(l.source->get_string(tokens[1].get_span()), "ident");
+    EXPECT_EQ(l.source->get_string(tokens[2].get_span()), "z003a");
+    EXPECT_EQ(l.source->get_string(tokens[3].get_span()), "_b8__938");
 }
-
-TEST_F(LexerTest, IgnoreWhitespace) {
-    auto sm = create_source("1 + \n1 =     2");
-    auto tokens = tokenize(sm);
-
-    std::array expected{TokenKind::Number, TokenKind::Plus, TokenKind::Number,
-                        TokenKind::Eq, TokenKind::Number};
-
-    ASSERT_EQ(tokens.size(), expected.size());
-
-    for (size_t i = 0; i < tokens.size(); i++) {
-        EXPECT_EQ(tokens[i].get_kind(), expected[i]);
-    }
-}
-} // namespace z::test
