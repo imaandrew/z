@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "diag/src_mgr.h"
 #include "token.h"
 #include <cassert>
 #include <cctype>
@@ -256,13 +257,9 @@ Token Lexer::lex_token() {
         return make_token(TokenKind::Eof);
     case '"': {
         while (peek() != '"' && peek() != '\0') {
-            next();
-
-            if (peek() == '\\') {
+            auto c = next();
+            if (c == '\\' && peek() == '"')
                 next();
-                if (peek() == '"')
-                    next();
-            }
         }
         auto tok = Token(TokenKind::String, Span(start + 1, cur - start - 1));
         next();
