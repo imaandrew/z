@@ -5,16 +5,19 @@
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
 #include "lexer/token.h"
+#include "magic_enum/magic_enum.hpp"
 #include "type/type.h"
 #include "type/type_arena.h"
 #include "type/type_ref.h"
 #include <charconv>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 #include <vector>
@@ -185,6 +188,10 @@ constexpr ast::BinOp tok_kind_to_binop(TokenKind kind) {
     default:
         panic("Cannot convert TokenKind to binary operator");
     }
+}
+
+constexpr std::string_view tok_kind_to_string(const TokenKind kind) {
+    return magic_enum::enum_name(kind);
 }
 } // namespace
 
