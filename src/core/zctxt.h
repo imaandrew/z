@@ -29,6 +29,14 @@ struct ZContext {
 
 public:
     static std::optional<ZContext> Create(const std::string& path) {
+        auto src = SourceManager::Create(path);
+        if (!src)
+            return std::nullopt;
+
+        return ZContext(std::move(src));
+    }
+
+    static std::optional<ZContext> CreateFromPath(const std::string& path) {
         auto src = SourceManager::CreateFromPath(path);
         if (!src)
             return std::nullopt;

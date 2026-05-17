@@ -124,7 +124,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
     VReg emit_reg(type::TypeRef type, InstId inst) {
         auto reg_id = current_func->vreg_info.size();
-        current_func->vreg_info.emplace_back(inst);
+        current_func->vreg_info.emplace_back(inst, current_block.value());
         return VReg{.id = static_cast<std::uint32_t>(reg_id), .type = type};
     }
 
@@ -194,6 +194,20 @@ class IRBuilder final : public ast::ASTVisitor {
         current_func->get_block(*current_block).insts.push_back(inst_id);
     }
 
+    void emit_term(IROp op, std::initializer_list<Operand> ops) {
+        const auto inst_id = get_inst_id();
+
+        for (const auto& op : ops) {
+            if (op.is_reg()) {
+                current_func->get_reg_info(op.as_reg())
+                    .uses.emplace_back(inst_id, *current_block);
+            }
+        }
+
+        current_func->insts.emplace_back(inst_id, op, ops);
+        current_func->get_block(*current_block).terminator = inst_id;
+    }
+
     Operand ensure_reg(Operand op) {
         if (op.is_reg())
             return op;
@@ -224,7 +238,7 @@ class IRBuilder final : public ast::ASTVisitor {
     void emit_jump(BlockID to) {
         if (current_func->get_block(*current_block).term)
             return;
-        emit_inst(IROp::Jump, {Operand::label(to)});
+        emit_term(IROp::Jump, {Operand::label(to)});
         current_func->get_block(*current_block).term = TerminatorKind::Jump;
         current_func->get_block(to).add_predecessor(*current_block);
         current_func->get_block(*current_block).add_successor(to);
@@ -233,7 +247,7 @@ class IRBuilder final : public ast::ASTVisitor {
     void emit_branch(Operand cond, BlockID _true, BlockID _false) {
         if (current_func->get_block(*current_block).term)
             return;
-        emit_inst(IROp::Branch,
+        emit_term(IROp::Branch,
                   {cond, Operand::label(_true), Operand::label(_false)});
         current_func->get_block(*current_block).term = TerminatorKind::Branch;
         current_func->get_block(_true).add_predecessor(*current_block);
@@ -325,7 +339,7 @@ class IRBuilder final : public ast::ASTVisitor {
         auto& inst = get_inst(phi);
         inst.operands.push_back(Operand::reg(var));
         inst.operands.push_back(Operand::label(block_id));
-        current_func->get_reg_info(var).uses.emplace_back(phi, phi_inst_block);
+        current_func->get_reg_info(var).uses.emplace_back(phi, block_id);
     }
 
     VReg add_phi_operands(StringID var, BasicBlock& block, InstId phi) {
@@ -377,8 +391,11 @@ class IRBuilder final : public ast::ASTVisitor {
             }
 
             if (get_inst(user_inst).op == IROp::Phi) {
+                auto phi_block =
+                    current_func->get_reg_info(*get_inst(user_inst).dest)
+                        .def.second;
                 try_remove_trivial_phi(user_inst,
-                                       current_func->get_block(user_block));
+                                       current_func->get_block(phi_block));
             }
         }
 

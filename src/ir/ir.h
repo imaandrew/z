@@ -470,9 +470,10 @@ struct Instruction {
 
 struct BasicBlock {
     BlockID id;
-    std::optional<TerminatorKind> term;
     std::vector<InstId> insts;
     std::vector<InstId> phis;
+    std::optional<TerminatorKind> term;
+    std::optional<InstId> terminator;
     std::vector<BlockID> predecessors;
     std::vector<BlockID> successors;
 
@@ -515,7 +516,10 @@ struct BasicBlock {
     }
 
     [[nodiscard]] auto all_insts() const {
-        return std::array<std::span<const InstId>, 2>{phis, insts} |
+        std::span<const InstId> term_span =
+            terminator ? std::span<const InstId>{&*terminator, 1}
+                       : std::span<const InstId>{};
+        return std::array<std::span<const InstId>, 3>{phis, insts, term_span} |
                std::views::join;
     }
 };
@@ -529,10 +533,11 @@ struct IRFunction {
     std::vector<Instruction> insts;
 
     struct VRegInfo {
-        InstId def;
+        std::pair<InstId, BlockID> def;
         std::vector<std::pair<InstId, BlockID>> uses;
 
-        explicit VRegInfo(InstId def) : def(def) {}
+        explicit VRegInfo(InstId def_inst, BlockID def_block)
+            : def(def_inst, def_block) {}
     };
 
     std::vector<VRegInfo> vreg_info;

@@ -160,6 +160,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         auto* lhs = expr.lhs.get();
         auto rhs = emit_op(expr.rhs.get());
 
+        rhs = ensure_reg(rhs);
         if (ast::isa<ast::Identifier>(lhs))
             write_var(ast::cast<ast::Identifier>(lhs)->get_id(), rhs.as_reg());
         else
@@ -453,9 +454,9 @@ void IRBuilder::visit(ast::FuncDecl& func) {
         assert(from == *current_block);
 
         if (val)
-            emit_inst(IROp::Ret, {*val});
+            emit_term(IROp::Ret, {*val});
         else
-            emit_inst(IROp::Ret, {});
+            emit_term(IROp::Ret, {});
 
         deferred_returns.clear();
         current_func->get_block(*current_block).term = TerminatorKind::Jump;
@@ -496,9 +497,9 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     switch_block(ret_block);
     if (ret_reg)
-        emit_inst(IROp::Ret, {Operand::reg(*ret_reg)});
+        emit_term(IROp::Ret, {Operand::reg(*ret_reg)});
     else
-        emit_inst(IROp::Ret, {});
+        emit_term(IROp::Ret, {});
 
     current_func->get_block(ret_block).term = TerminatorKind::Return;
 }
@@ -591,9 +592,9 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         if (then_result && else_result) {
             auto phi = emit_phi(expr.get_type());
             auto phi_inst = current_func->get_reg_info(phi).def;
-            add_phi_operand(phi_inst, end_block, then_result->as_reg(),
+            add_phi_operand(phi_inst.first, end_block, then_result->as_reg(),
                             then_exit);
-            add_phi_operand(phi_inst, end_block, else_result->as_reg(),
+            add_phi_operand(phi_inst.first, end_block, else_result->as_reg(),
                             else_exit);
             last_result = Operand::reg(phi);
         } else {

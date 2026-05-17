@@ -50,8 +50,8 @@ public:
                 std::erase_if(info.uses,
                               [&](auto& u) { return u.first == id; });
                 if (info.uses.empty() &&
-                    is_removable(func.insts[info.def.id].op))
-                    worklist.push_back(info.def);
+                    is_removable(func.insts[info.def.first.id].op))
+                    worklist.push_back(info.def.first);
             }
 
             inst.op = IROp::Dead;

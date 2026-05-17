@@ -5,7 +5,9 @@
 #include "ir/pass_mgr.h"
 #include "ir/passes/ConstFoldPass.h"
 #include "ir/passes/ConstPropPass.h"
+#include "ir/passes/CriticalEdgeSplitPass.h"
 #include "ir/passes/DCEPass.h"
+#include "ir/passes/OutOfSSAPass.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "sema/sem.h"
@@ -60,7 +62,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    auto c = ZContext::Create(input);
+    auto c = ZContext::CreateFromPath(input);
     if (!c)
         return 1;
     auto ctxt = std::move(*c);
@@ -106,6 +108,16 @@ int main(int argc, char** argv) {
         pass_mgr.add_pass(std::make_unique<ir::ConstPropPass>());
         pass_mgr.add_pass(std::make_unique<ir::DCEPass>());
         pass_mgr.run_passes(ir_code);
+    }
+
+    for (auto& func : ir_code.funcs) {
+        ir::CriticalEdgeSplitPass().run(func);
+        ir::OutOfSSAPass().run(func);
+    }
+
+    for (auto& func : ir_code.funcs) {
+        while (ir::DCEPass().run(func))
+            ;
     }
 
     if (dump_ir) {

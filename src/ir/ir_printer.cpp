@@ -295,6 +295,8 @@ constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
         return "arg";
     case IROp::Phi:
         return "phi";
+    case IROp::Copy:
+        return "copy";
     case IROp::Dead:
         return "dead";
     }
