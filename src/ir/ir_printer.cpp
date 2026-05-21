@@ -34,7 +34,7 @@ void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
                    ctxt->ty->get(func.params[i].type)->basic_name(ctxt));
     }
 
-    std::println(os, ") -> {}{{",
+    std::println(os, ") -> {} {{",
                  ctxt->ty->get(func.return_type)->basic_name(ctxt));
 
     for (const auto& block : func.blocks) {
