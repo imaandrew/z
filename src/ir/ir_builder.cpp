@@ -592,9 +592,9 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         if (then_result && else_result) {
             auto phi = emit_phi(expr.get_type());
             auto phi_inst = current_func->get_reg_info(phi).def;
-            add_phi_operand(phi_inst.first, end_block, then_result->as_reg(),
+            add_phi_operand(phi_inst.inst, end_block, then_result->as_reg(),
                             then_exit);
-            add_phi_operand(phi_inst.first, end_block, else_result->as_reg(),
+            add_phi_operand(phi_inst.inst, end_block, else_result->as_reg(),
                             else_exit);
             last_result = Operand::reg(phi);
         } else {

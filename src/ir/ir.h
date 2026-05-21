@@ -532,9 +532,18 @@ struct IRFunction {
     std::vector<BasicBlock> blocks;
     std::vector<Instruction> insts;
 
+    struct InstRef {
+        InstId inst;
+        BlockID block;
+
+        InstRef(InstId inst, BlockID block) : inst(inst), block(block) {}
+    };
+
     struct VRegInfo {
-        std::pair<InstId, BlockID> def;
-        std::vector<std::pair<InstId, BlockID>> uses;
+        InstRef def;
+        std::vector<InstRef> uses;
+
+        VRegInfo() : def(InstId(UINT32_MAX), BlockID(UINT32_MAX)) {}
 
         explicit VRegInfo(InstId def_inst, BlockID def_block)
             : def(def_inst, def_block) {}

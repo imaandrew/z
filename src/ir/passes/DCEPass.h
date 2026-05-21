@@ -47,11 +47,10 @@ public:
                     continue;
 
                 auto& info = func.get_reg_info(op.as_reg());
-                std::erase_if(info.uses,
-                              [&](auto& u) { return u.first == id; });
+                std::erase_if(info.uses, [&](auto& u) { return u.inst == id; });
                 if (info.uses.empty() &&
-                    is_removable(func.insts[info.def.first.id].op))
-                    worklist.push_back(info.def.first);
+                    is_removable(func.insts[info.def.inst.id].op))
+                    worklist.push_back(info.def.inst);
             }
 
             inst.op = IROp::Dead;

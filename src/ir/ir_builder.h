@@ -393,7 +393,7 @@ class IRBuilder final : public ast::ASTVisitor {
             if (get_inst(user_inst).op == IROp::Phi) {
                 auto phi_block =
                     current_func->get_reg_info(*get_inst(user_inst).dest)
-                        .def.second;
+                        .def.block;
                 try_remove_trivial_phi(user_inst,
                                        current_func->get_block(phi_block));
             }

@@ -32,7 +32,7 @@ public:
     }
 
     [[nodiscard]] bool is_live_at_def(VReg a, VReg b) const {
-        return is_live_in(a, func->vreg_info[b.id].def.second);
+        return is_live_in(a, func->vreg_info[b.id].def.block);
     }
 
     [[nodiscard]] bool is_live_out(VReg reg, BlockID block) const {

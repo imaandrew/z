@@ -19,7 +19,7 @@ public:
             auto& uses = func.get_reg_info(inst.dest.value()).uses;
 
             std::erase_if(uses, [&](auto& u) {
-                auto& use = func.insts[u.first.id];
+                auto& use = func.insts[u.inst.id];
                 if (use.op == IROp::Phi)
                     return false;
 
