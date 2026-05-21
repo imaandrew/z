@@ -29,12 +29,6 @@ public:
 
             if (!changed)
                 break;
-
-            for (auto& block : func.blocks) {
-                std::erase_if(block.insts, [&](auto& i) {
-                    return func.insts[i.id].op == IROp::Dead;
-                });
-            }
         }
     }
 

@@ -1,5 +1,6 @@
 #include "core/colour.h"
 #include "core/zctxt.h"
+#include "ir/ir.h"
 #include "ir/ir_builder.h"
 #include "ir/ir_printer.h"
 #include "ir/pass_mgr.h"
@@ -118,6 +119,12 @@ int main(int argc, char** argv) {
     for (auto& func : ir_code.funcs) {
         while (ir::DCEPass().run(func))
             ;
+
+        for (auto& block : func.blocks) {
+            std::erase_if(block.insts, [&](auto& i) {
+                return func.insts[i.id].op == ir::IROp::Dead;
+            });
+        }
     }
 
     if (dump_ir) {
