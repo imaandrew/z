@@ -1,13 +1,13 @@
 #pragma once
 
 #include "constraint.h"
+#include "core/types.h"
 #include "core/zctxt.h"
 #include "parser/ast.h"
 #include "sema/sym_table.h"
 #include "type.h"
 #include "type_arena.h"
 #include "type_ref.h"
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -18,7 +18,7 @@ class ConstraintGenerator : public ast::ASTVisitor {
     std::vector<TypeRef>& inferred_types;
     std::vector<Constraint> constraints;
     SymbolTable* syms;
-    std::uint32_t type_id = 0;
+    u32 type_id = 0;
     std::vector<TypeRef> expected_type_stack;
     std::vector<TypeRef> loop_result_type_stack;
 

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "core/types.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
-#include <cstddef>
 #include <initializer_list>
 #include <utility>
 #include <vector>
@@ -31,7 +31,7 @@ public:
         for (auto id : b.phis) {
             auto& inst = func.insts[id.id];
 
-            for (std::size_t i = 1; i < inst.operands.size(); i += 2) {
+            for (usize i = 1; i < inst.operands.size(); i += 2) {
                 if (inst.operands[i].as_label().block_id == old_id)
                     inst.operands[i] = Operand::label(new_id);
             }

@@ -1,13 +1,13 @@
 #pragma once
 
 #include "core/string_pool.h"
+#include "core/types.h"
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 
 namespace z::type {
-enum BuiltInType : std::uint8_t {
+enum BuiltInType : u8 {
     BT_UNINITIALIZED = 0,
     BT_I8,
     BT_I16,
@@ -30,16 +30,16 @@ enum BuiltInType : std::uint8_t {
 };
 
 class TypeRef {
-    std::uint32_t id = 0;
+    u32 id = 0;
 
 public:
     TypeRef() = default;
-    constexpr explicit TypeRef(std::uint32_t id) : id(id) {}
+    constexpr explicit TypeRef(u32 id) : id(id) {}
     [[nodiscard]] bool is_initialized() const { return id != BT_UNINITIALIZED; }
     [[nodiscard]] bool is_valid() const {
         return id != BT_UNINITIALIZED && id != BT_INVALID;
     }
-    [[nodiscard]] std::uint32_t get_id() const { return id; }
+    [[nodiscard]] u32 get_id() const { return id; }
 
     bool operator==(const TypeRef& other) const { return id == other.id; }
 };
@@ -65,7 +65,7 @@ inline constexpr TypeRef VOID{BT_VOID};
 inline constexpr TypeRef INVALID{BT_INVALID};
 } // namespace builtin
 
-enum class TypeKind : std::uint8_t {
+enum class TypeKind : u8 {
     Integer,
     Float,
     Boolean,
@@ -89,24 +89,23 @@ enum class TypeKind : std::uint8_t {
 
 struct TypeKey {
     TypeKind kind;
-    std::array<std::uint64_t, 4> data;
+    std::array<u64, 4> data;
     bool operator==(const TypeKey&) const = default;
 };
 
-template <typename T> constexpr std::uint64_t to_key_value(T val) {
+template <typename T> constexpr u64 to_key_value(T val) {
     if constexpr (std::is_same_v<T, TypeRef>) {
         return val.get_id();
     } else if constexpr (std::is_same_v<T, StringID>) {
         return val.id;
     } else if constexpr (std::is_integral_v<T> || std::is_floating_point_v<T> ||
                          std::is_enum_v<T>) {
-        return static_cast<std::uint64_t>(val);
+        return static_cast<u64>(val);
     } else if constexpr (std::is_same_v<T, bool>) {
         return val ? 1 : 0;
     } else {
-        static_assert(sizeof(T) <= sizeof(std::uint64_t),
-                      "Type too large for key");
-        return std::bit_cast<std::uint64_t>(val);
+        static_assert(sizeof(T) <= sizeof(u64), "Type too large for key");
+        return std::bit_cast<u64>(val);
     }
 }
 template <typename... Args>
@@ -118,11 +117,10 @@ constexpr TypeKey make_type_key(TypeKind kind, Args... args) {
 } // namespace z::type
 
 template <> struct std::hash<z::type::TypeKey> {
-    std::size_t operator()(const z::type::TypeKey& k) const {
-        std::size_t h = std::hash<int>{}(static_cast<int>(k.kind));
+    usize operator()(const z::type::TypeKey& k) const {
+        usize h = std::hash<int>{}(static_cast<int>(k.kind));
         for (auto v : k.data) {
-            h ^= std::hash<std::uint64_t>{}(v) + 0x9e3779b9 + (h << 6U) +
-                 (h >> 2U);
+            h ^= std::hash<u64>{}(v) + 0x9e3779b9 + (h << 6U) + (h >> 2U);
         }
         return h;
     }
@@ -130,6 +128,6 @@ template <> struct std::hash<z::type::TypeKey> {
 
 template <> struct std::hash<z::type::TypeRef> {
     size_t operator()(const z::type::TypeRef& id) const {
-        return std::hash<std::uint32_t>{}(id.get_id());
+        return std::hash<u32>{}(id.get_id());
     }
 };

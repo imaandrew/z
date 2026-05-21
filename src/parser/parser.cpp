@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "core/panic.h"
 #include "core/result.h"
+#include "core/types.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
 #include "lexer/token.h"
@@ -12,7 +13,6 @@
 #include <charconv>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -26,7 +26,7 @@ namespace z {
 
 namespace {
 
-enum class BinOpPrecedence : std::uint8_t {
+enum class BinOpPrecedence : u8 {
     Unknown,
     Assignment,
     Range,

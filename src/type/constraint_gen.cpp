@@ -1,10 +1,10 @@
 #include "constraint_gen.h"
 #include "core/panic.h"
+#include "core/types.h"
 #include "parser/ast.h"
 #include "type.h"
 #include "type_arena.h"
 #include "type_ref.h"
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -115,7 +115,7 @@ void ConstraintGenerator::visit(ast::CallExpr& expr) {
         if (func_ptr->get_params().size() != expr.args.size())
             return;
 
-        for (std::size_t i = 0; i < func_ptr->get_params().size(); i++)
+        for (usize i = 0; i < func_ptr->get_params().size(); i++)
             eq(expr.args[i]->get_type(), func_ptr->get_params()[i]);
     }
 }

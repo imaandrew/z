@@ -1,8 +1,8 @@
 #pragma once
 
 #include "core/panic.h"
+#include "core/types.h"
 #include <cstddef>
-#include <cstdint>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -17,11 +17,11 @@
 namespace z {
 
 struct Span {
-    std::uint32_t index;
-    std::uint16_t len;
+    u32 index;
+    u16 len;
 
     Span() = default;
-    Span(std::uint32_t index, std::uint16_t len) : index(index), len(len) {};
+    Span(u32 index, u16 len) : index(index), len(len) {};
 
     Span& operator+=(const Span& rhs) {
         auto start = index < rhs.index ? index : rhs.index;
@@ -52,14 +52,14 @@ struct Span {
 };
 
 class LinePos {
-    std::size_t line;
-    std::size_t col;
+    usize line;
+    usize col;
 
 public:
-    LinePos(std::size_t line, std::size_t col) : line(line), col(col) {};
+    LinePos(usize line, usize col) : line(line), col(col) {};
 
-    [[nodiscard]] std::size_t get_line() const { return line; }
-    [[nodiscard]] std::size_t get_col() const { return col; }
+    [[nodiscard]] usize get_line() const { return line; }
+    [[nodiscard]] usize get_col() const { return col; }
 };
 
 class SourceManager {
@@ -78,7 +78,7 @@ class SourceManager {
 
     void calculate_line_indices() {
         lines.clear();
-        std::size_t start = 0;
+        usize start = 0;
         for (size_t i = 0; i < input.size(); i++) {
             if (input[i] == '\n') {
                 lines.emplace_back(start, i);
@@ -121,7 +121,7 @@ public:
         return std::unique_ptr<SourceManager>(new SourceManager(path, input));
     }
 
-    [[nodiscard]] std::optional<char> get_char(const std::size_t index) {
+    [[nodiscard]] std::optional<char> get_char(const usize index) {
         if (!in_bounds(index)) {
             return std::nullopt;
         }
@@ -129,16 +129,16 @@ public:
         return input[index];
     }
 
-    [[nodiscard]] std::string get_line(const std::size_t line) const {
+    [[nodiscard]] std::string get_line(const usize line) const {
         const auto [start, end] = lines[line - 1];
         return std::string(&input[start], end - start);
     }
 
-    [[nodiscard]] bool in_bounds(const std::size_t index) const {
+    [[nodiscard]] bool in_bounds(const usize index) const {
         return index < input.size();
     }
 
-    [[nodiscard]] const char* get_char_ptr(const std::size_t index) const {
+    [[nodiscard]] const char* get_char_ptr(const usize index) const {
         if (!in_bounds(index))
             return nullptr;
 
@@ -158,7 +158,7 @@ public:
     }
 
     [[nodiscard]] LinePos get_pos(const Span& span, bool& multiline) const {
-        for (std::size_t i = 0; i < lines.size(); i++) {
+        for (usize i = 0; i < lines.size(); i++) {
             const auto& [start, end] = lines[i];
 
             if (span.index >= start && span.index <= end) {
@@ -173,7 +173,7 @@ public:
     [[nodiscard]] LinePos get_last_line(const Span& span,
                                         const LinePos& first) {
         const auto end_idx = span.index + span.len - 1;
-        for (std::size_t i = first.get_line() - 1; i < lines.size(); i++) {
+        for (usize i = first.get_line() - 1; i < lines.size(); i++) {
             if (end_idx <= lines[i].second) {
                 return LinePos(i + 1, end_idx - lines[i].first);
             }

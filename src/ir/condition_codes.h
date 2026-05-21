@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cstdint>
+#include "core/types.h"
 
 namespace z::ir {
-enum class IntCC : std::uint8_t {
+enum class IntCC : u8 {
     Equal,
     NotEqual,
     UnsignedGreaterThan,
@@ -16,7 +16,7 @@ enum class IntCC : std::uint8_t {
     SignedLessEqual
 };
 
-enum class FloatCC : std::uint8_t {
+enum class FloatCC : u8 {
     Equal,
     NotEqual,
     GreaterThan,

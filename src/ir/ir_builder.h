@@ -2,11 +2,11 @@
 
 #include "core/panic.h"
 #include "core/string_pool.h"
+#include "core/types.h"
 #include "core/zctxt.h"
 #include "ir.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
-#include <cstdint>
 #include <initializer_list>
 #include <optional>
 #include <unordered_map>
@@ -28,7 +28,7 @@ class IRBuilder final : public ast::ASTVisitor {
         bool sealed = false;
     };
 
-    enum class DeferredJumpType : std::uint8_t {
+    enum class DeferredJumpType : u8 {
         Break,
         Continue,
     };
@@ -125,7 +125,7 @@ class IRBuilder final : public ast::ASTVisitor {
     VReg emit_reg(type::TypeRef type, InstId inst) {
         auto reg_id = current_func->vreg_info.size();
         current_func->vreg_info.emplace_back(inst, current_block.value());
-        return VReg{.id = static_cast<std::uint32_t>(reg_id), .type = type};
+        return VReg{.id = static_cast<u32>(reg_id), .type = type};
     }
 
     BlockID new_block() {

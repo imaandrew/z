@@ -1,6 +1,7 @@
 #include "sem.h"
 #include "core/panic.h"
 #include "core/string_pool.h"
+#include "core/types.h"
 #include "diag/diagnostics.h"
 #include "parser/ast.h"
 #include "type/type.h"
@@ -68,7 +69,7 @@ void SemChecker::visit(ast::IntExpr& expr) {
     const auto* type = ctxt->ty->get_as<type::IntegerType>(expr.get_type());
     expect(type != nullptr, "IntExpr should have IntegerType");
 
-    std::uint64_t max = 0;
+    u64 max = 0;
     switch (auto width = type->get_width()) {
     case 8:
         max = type->is_signed() ? INT8_MAX : UINT8_MAX;

@@ -1,10 +1,10 @@
 #include "ir_printer.h"
 #include "core/colour.h"
+#include "core/types.h"
 #include "core/zctxt.h"
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
 #include "ir/ir_builder.h"
-#include <cstddef>
 #include <ostream>
 #include <print>
 #include <string>
@@ -25,7 +25,7 @@ void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
                colour::BOLD_GREEN, ctxt->strings->get_string(func.name),
                colour::RESET);
 
-    for (std::size_t i = 0; i < func.params.size(); i++) {
+    for (usize i = 0; i < func.params.size(); i++) {
         if (i > 0)
             os << ", ";
 
@@ -72,7 +72,7 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
     os << colour::BOLD_MAGENTA << ir_op_to_string(inst.op) << colour::RESET;
 
     if (inst.op == IROp::Phi) {
-        for (std::size_t i = 0; i < inst.operands.size(); i += 2) {
+        for (usize i = 0; i < inst.operands.size(); i += 2) {
             os << (i == 0 ? " " : ", ");
             os << "[ ";
             dump_operand(inst.operands[i], os);
@@ -89,7 +89,7 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
 
         os << "(";
 
-        for (std::size_t i = 1; i < inst.operands.size(); i++) {
+        for (usize i = 1; i < inst.operands.size(); i++) {
             os << (i == 1 ? "" : ", ");
             dump_operand(inst.operands[i], os);
         }
@@ -98,7 +98,7 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
         return;
     }
 
-    for (std::size_t i = 0; i < inst.operands.size(); i++) {
+    for (usize i = 0; i < inst.operands.size(); i++) {
         os << (i == 0 ? " " : ", ");
         dump_operand(inst.operands[i], os);
     }

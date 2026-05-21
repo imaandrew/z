@@ -1,13 +1,12 @@
 #pragma once
 
 #include "core/string_pool.h"
+#include "core/types.h"
 #include "diag/src_mgr.h"
 #include "type_arena.h"
 #include "type_ref.h"
 #include <algorithm>
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <format>
 #include <iostream>
 #include <optional>
@@ -29,7 +28,7 @@ struct ZContext;
 
 namespace z::type {
 
-using TypeID = std::uint32_t;
+using TypeID = u32;
 
 class Type {
     const TypeKind kind;
@@ -111,7 +110,7 @@ public:
         : Type(Kind), bit_width(bit_width), _signed(is_signed) {}
 
     explicit IntegerType(const bool is_signed)
-        : Type(Kind), bit_width(sizeof(std::size_t)), _signed(is_signed),
+        : Type(Kind), bit_width(sizeof(usize)), _signed(is_signed),
           _size_type(true) {}
 
     static TypeKey make_key(const int bit_width, const bool is_signed,
@@ -282,21 +281,21 @@ public:
 
 class ArrayType final : public Type {
     TypeRef type;
-    std::optional<std::uint64_t> size;
+    std::optional<u64> size;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Array;
 
-    ArrayType(TypeRef type, std::optional<std::uint64_t> size)
+    ArrayType(TypeRef type, std::optional<u64> size)
         : Type(Kind), type(type), size(size) {};
 
-    static TypeKey make_key(TypeRef type, std::optional<std::uint64_t> size) {
+    static TypeKey make_key(TypeRef type, std::optional<u64> size) {
         return make_type_key(Kind, type, size.has_value(), size.value_or(0));
     }
 
     [[nodiscard]] TypeRef get_type() const { return type; }
 
-    [[nodiscard]] std::optional<std::uint64_t> get_size() const { return size; }
+    [[nodiscard]] std::optional<u64> get_size() const { return size; }
 
     [[nodiscard]] bool is_array() const override { return true; }
 
@@ -369,7 +368,7 @@ public:
 
     static TypeKey make_key(const std::vector<TypeRef>& params,
                             TypeRef return_val) {
-        std::size_t params_hash = params.size();
+        usize params_hash = params.size();
         for (const auto& p : params) {
             params_hash ^= p.get_id() + 0x9e3779b9 + (params_hash << 6U) +
                            (params_hash >> 2U);
@@ -382,7 +381,7 @@ public:
             if (params.size() != other_->params.size())
                 return false;
 
-            for (std::size_t i = 0; i < params.size(); i++) {
+            for (usize i = 0; i < params.size(); i++) {
                 if (params[i] != other_->params[i])
                     return false;
             }
@@ -406,16 +405,16 @@ public:
 
 class StructType final : public Type {
     StringID name;
-    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> fields;
-    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> funcs;
+    std::unordered_map<StringID, std::pair<TypeRef, u32>> fields;
+    std::unordered_map<StringID, std::pair<TypeRef, u32>> funcs;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Struct;
 
     explicit StructType(
         StringID name,
-        std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> fields,
-        std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>> funcs)
+        std::unordered_map<StringID, std::pair<TypeRef, u32>> fields,
+        std::unordered_map<StringID, std::pair<TypeRef, u32>> funcs)
         : Type(Kind), name(name), fields(std::move(fields)),
           funcs(std::move(funcs)) {}
 
@@ -430,32 +429,30 @@ public:
         return fields.at(field).first;
     }
 
-    const std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
+    const std::unordered_map<StringID, std::pair<TypeRef, u32>>&
     get_fields() const {
         return fields;
     }
 
-    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
-    get_fields_mut() {
+    std::unordered_map<StringID, std::pair<TypeRef, u32>>& get_fields_mut() {
         return fields;
     }
 
     bool has_field(StringID field) const { return fields.contains(field); }
 
-    std::optional<std::uint32_t> get_field_index(StringID field) const {
+    std::optional<u32> get_field_index(StringID field) const {
         if (!fields.contains(field))
             return std::nullopt;
 
         return fields.at(field).second;
     }
 
-    const std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
+    const std::unordered_map<StringID, std::pair<TypeRef, u32>>&
     get_funcs() const {
         return funcs;
     }
 
-    std::unordered_map<StringID, std::pair<TypeRef, std::uint32_t>>&
-    get_funcs_mut() {
+    std::unordered_map<StringID, std::pair<TypeRef, u32>>& get_funcs_mut() {
         return funcs;
     }
 
@@ -466,7 +463,7 @@ public:
         return funcs.at(func).first;
     }
 
-    std::optional<std::uint32_t> get_func_index(StringID field) const {
+    std::optional<u32> get_func_index(StringID field) const {
         if (!funcs.contains(field))
             return std::nullopt;
 
@@ -543,7 +540,7 @@ public:
             if (types.size() != other_types.size())
                 return false;
 
-            for (std::size_t i = 0; i < types.size(); i++) {
+            for (usize i = 0; i < types.size(); i++) {
                 if (types[i] != other_types[i])
                     return false;
             }
@@ -657,7 +654,7 @@ public:
     }
 };
 
-enum class InferType : std::uint8_t { IntLiteral, FloatLiteral, Var, Block };
+enum class InferType : u8 { IntLiteral, FloatLiteral, Var, Block };
 
 class InferredType final : public Type {
     TypeID id;

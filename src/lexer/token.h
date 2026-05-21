@@ -1,12 +1,12 @@
 #pragma once
 
+#include "core/types.h"
 #include "diag/src_mgr.h"
-#include <cstdint>
 
 namespace z {
 
 /// Represents the different kinds of tokens that can be lexed.
-enum class TokenKind : std::uint8_t {
+enum class TokenKind : u8 {
     Eof,
     Unknown,
 

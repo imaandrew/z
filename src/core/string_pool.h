@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/index.h"
-#include <cstdint>
+#include "core/types.h"
 #include <deque>
 #include <string>
 #include <string_view>
@@ -14,7 +14,7 @@ using StringID = Index<StringTag>;
 class StringPool {
     std::unordered_map<std::string_view, StringID> map;
     std::deque<std::string> strings;
-    std::uint32_t current_id = 0;
+    u32 current_id = 0;
 
 public:
     static constexpr StringID UNDERSCORE = StringID{0};

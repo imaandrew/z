@@ -1,15 +1,15 @@
 #pragma once
 
+#include "core/types.h"
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 namespace z {
 template <typename Tag> struct Index {
-    std::uint32_t id;
+    u32 id;
 
-    explicit constexpr Index(std::uint32_t id) : id(id) {}
+    explicit constexpr Index(u32 id) : id(id) {}
 
-    explicit operator std::uint32_t() const { return id; }
+    explicit operator u32() const { return id; }
     bool operator==(const Index&) const = default;
     auto operator<=>(const Index&) const = default;
 };
@@ -20,7 +20,7 @@ template <typename Tag> struct Index {
 namespace std {
 template <typename T> struct hash<z::Index<T>> {
     size_t operator()(const z::Index<T>& id) const {
-        return hash<uint32_t>{}(id.id);
+        return hash<u32>{}(id.id);
     }
 };
 // NOLINTEND(cert-dcl58-cpp)

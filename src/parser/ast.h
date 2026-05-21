@@ -2,6 +2,7 @@
 
 #include "core/colour.h"
 #include "core/string_pool.h"
+#include "core/types.h"
 #include "core/zctxt.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
@@ -10,7 +11,6 @@
 #include "type/type.h"
 #include "type/type_ref.h"
 #include <cassert>
-#include <cstdint>
 #include <generator>
 #include <iostream>
 #include <memory>
@@ -26,9 +26,9 @@ inline void print_indent(std::ostream& os, int indent) {
 
 namespace z::ast {
 
-enum class UnOp : std::uint8_t { Inc, Dec, Neg, BitNot, LogicNot };
+enum class UnOp : u8 { Inc, Dec, Neg, BitNot, LogicNot };
 
-enum class BinOp : std::uint8_t {
+enum class BinOp : u8 {
     Add,
     Sub,
     Mul,
@@ -102,7 +102,7 @@ struct TraitDecl;
 struct TypeAliasDecl;
 struct TraitFuncDecl;
 
-enum class ASTKind : std::uint8_t {
+enum class ASTKind : u8 {
     Identifier,
     IntExpr,
     FloatExpr,
@@ -306,10 +306,10 @@ struct Identifier final : Expr {
 };
 
 struct IntExpr final : Expr {
-    std::uint64_t val;
+    u64 val;
     static constexpr ASTKind Kind = ASTKind::IntExpr;
 
-    IntExpr(std::uint64_t val, Span span) : Expr(Kind, span), val(val) {};
+    IntExpr(u64 val, Span span) : Expr(Kind, span), val(val) {};
 
     void dump(ZContext* ctxt, const int indent,
               std::ostream& stream) const override {
@@ -1155,12 +1155,10 @@ struct StructDecl final : Decl {
         if (!t)
             return;
 
-        std::unordered_map<StringID, std::pair<type::TypeRef, std::uint32_t>>
-            field_types;
-        std::unordered_map<StringID, std::pair<type::TypeRef, std::uint32_t>>
-            func_types;
+        std::unordered_map<StringID, std::pair<type::TypeRef, u32>> field_types;
+        std::unordered_map<StringID, std::pair<type::TypeRef, u32>> func_types;
 
-        std::uint32_t field_num = 0;
+        u32 field_num = 0;
 
         ctxt->syms->enter_scope(scope);
 

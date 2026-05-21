@@ -2,9 +2,8 @@
 
 #include "core/colour.h"
 #include "core/panic.h"
+#include "core/types.h"
 #include "src_mgr.h"
-#include <cstddef>
-#include <cstdint>
 #include <format>
 #include <functional>
 #include <iostream>
@@ -19,7 +18,7 @@
 
 namespace z {
 
-enum class DiagnosticKind : std::uint8_t {
+enum class DiagnosticKind : u8 {
     ExpectedToken,
     ExpectedSemi,
     ExpectedDecl,
@@ -168,7 +167,7 @@ constexpr std::string_view get_diagnostic_string(DiagnosticKind kind) {
     std::unreachable();
 }
 
-enum class DiagnosticCategory : std::uint8_t { Error, Warning };
+enum class DiagnosticCategory : u8 { Error, Warning };
 
 struct Diagnostic {
     using Callback = std::function<void(const Diagnostic&)>;
@@ -219,11 +218,11 @@ class DiagnosticsEngine {
                    pos.get_col());
     }
 
-    static std::string make_prefix(std::size_t line) {
+    static std::string make_prefix(usize line) {
         return std::format("  {}   ", line);
     }
 
-    static void print_empty_prefix(std::ostream& out, std::size_t width) {
+    static void print_empty_prefix(std::ostream& out, usize width) {
         std::println(out, "{:>{}}|", "", width);
     }
 
@@ -234,9 +233,8 @@ class DiagnosticsEngine {
         std::print(out, "{:>{}}|", "", prefix.length());
     }
 
-    static void print_underline(std::ostream& out, std::size_t col,
-                                std::size_t len, char fill,
-                                std::string_view colour, bool space,
+    static void print_underline(std::ostream& out, usize col, usize len,
+                                char fill, std::string_view colour, bool space,
                                 std::string_view msg) {
         auto underline = std::string(len, fill);
         std::println(out, "{:>{}}{}{}{}{}{}", "", col, colour, underline,

@@ -1,47 +1,45 @@
 #pragma once
 
+#include "core/types.h"
 #include "ir/condition_codes.h"
 #include <cassert>
-#include <cstdint>
 #include <limits>
 #include <utility>
 namespace z::ir {
 
 class ConstInt {
-    std::uint64_t bits;
-    std::uint8_t width;
+    u64 bits;
+    u8 width;
     bool is_signed;
 
-    [[nodiscard]] std::uint64_t mask(std::uint64_t v) const {
+    [[nodiscard]] u64 mask(u64 v) const {
         if (width == 64)
             return v;
 
         return v & ((1ULL << width) - 1);
     }
 
-    [[nodiscard]] std::int64_t sign_extend(std::uint64_t v) const {
-        std::uint64_t const sign_bit = 1ULL
-                                       << static_cast<std::uint64_t>(width - 1);
+    [[nodiscard]] i64 sign_extend(u64 v) const {
+        u64 const sign_bit = 1ULL << static_cast<u64>(width - 1);
         if ((v & sign_bit) != 0U) {
             assert(width < 64);
-            return static_cast<std::int64_t>(v | ~((1ULL << width) - 1));
+            return static_cast<i64>(v | ~((1ULL << width) - 1));
         }
 
-        return static_cast<std::int64_t>(v);
+        return static_cast<i64>(v);
     }
 
 public:
-    ConstInt(std::uint64_t bits, std::uint8_t width, bool is_signed)
+    ConstInt(u64 bits, u8 width, bool is_signed)
         : bits(bits), width(width), is_signed(is_signed) {}
 
-    [[nodiscard]] std::uint64_t get_bits() const { return bits; }
+    [[nodiscard]] u64 get_bits() const { return bits; }
 
-    [[nodiscard]] std::int64_t get_signed() const { return sign_extend(bits); }
+    [[nodiscard]] i64 get_signed() const { return sign_extend(bits); }
 
     [[nodiscard]] bool is_negative() const {
         if (is_signed) {
-            std::uint64_t const sign_bit =
-                1ULL << static_cast<std::uint64_t>(width - 1);
+            u64 const sign_bit = 1ULL << static_cast<u64>(width - 1);
             return (bits & sign_bit) != 0U;
         }
 
@@ -136,7 +134,7 @@ public:
         auto a = sign_extend(bits);
         auto b = sign_extend(other.bits);
 
-        return {mask(static_cast<std::uint64_t>(a / b)), width, is_signed};
+        return {mask(static_cast<u64>(a / b)), width, is_signed};
     }
 
     [[nodiscard]] ConstInt sdiv(const ConstInt& other, bool& overflow) const {
@@ -145,8 +143,8 @@ public:
         auto lhs_signed = sign_extend(bits);
         auto rhs_signed = sign_extend(bits);
 
-        std::int64_t const min_val = -static_cast<std::int64_t>(
-            1ULL << static_cast<std::uint64_t>(width - 1));
+        i64 const min_val =
+            -static_cast<i64>(1ULL << static_cast<u64>(width - 1));
         overflow = lhs_signed == min_val && rhs_signed == -1;
 
         return result;
@@ -166,10 +164,10 @@ public:
         auto a = sign_extend(bits);
         auto b = sign_extend(other.bits);
 
-        if (a == std::numeric_limits<std::int64_t>::min() && b == -1)
+        if (a == std::numeric_limits<i64>::min() && b == -1)
             return ConstInt{0, width, is_signed};
 
-        return {mask(static_cast<std::uint64_t>(a % b)), width, is_signed};
+        return {mask(static_cast<u64>(a % b)), width, is_signed};
     }
 
     [[nodiscard]] ConstInt shl(const ConstInt& other) const {
@@ -187,9 +185,8 @@ public:
     [[nodiscard]] ConstInt ashr(const ConstInt& other) const {
         assert(width == other.width);
 
-        return {
-            mask(static_cast<std::uint64_t>(sign_extend(bits)) >> other.bits),
-            width, is_signed};
+        return {mask(static_cast<u64>(sign_extend(bits)) >> other.bits), width,
+                is_signed};
     }
 
     [[nodiscard]] ConstInt bit_not() const {
@@ -243,10 +240,10 @@ public:
         std::unreachable();
     }
 
-    [[nodiscard]] bool cmp_imm(std::int64_t other, IntCC cc) const {
+    [[nodiscard]] bool cmp_imm(i64 other, IntCC cc) const {
 
         const auto lhs_signed = sign_extend(bits);
-        const auto rhs_bits = static_cast<std::uint64_t>(other);
+        const auto rhs_bits = static_cast<u64>(other);
 
         switch (cc) {
         case IntCC::Equal:
@@ -277,10 +274,10 @@ public:
 
 class ConstFloat {
     double bits;
-    std::uint8_t width;
+    u8 width;
 
 public:
-    ConstFloat(double bits, std::uint8_t width) : bits(bits), width(width) {}
+    ConstFloat(double bits, u8 width) : bits(bits), width(width) {}
 
     [[nodiscard]] double get_bits() const { return bits; }
 

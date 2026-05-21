@@ -1,4 +1,5 @@
 #include "type.h"
+#include "core/types.h"
 #include "core/zctxt.h"
 #include "type_arena.h"
 #include "type_ref.h"
@@ -23,8 +24,8 @@ TypeArena::TypeArena() {
     types.push_back(std::make_unique<IntegerType>(16, false));
     types.push_back(std::make_unique<IntegerType>(32, false));
     types.push_back(std::make_unique<IntegerType>(64, false));
-    types.push_back(std::make_unique<IntegerType>(sizeof(std::size_t), true));
-    types.push_back(std::make_unique<IntegerType>(sizeof(std::size_t), false));
+    types.push_back(std::make_unique<IntegerType>(sizeof(usize), true));
+    types.push_back(std::make_unique<IntegerType>(sizeof(usize), false));
     types.push_back(std::make_unique<FloatType>(32));
     types.push_back(std::make_unique<FloatType>(64));
     types.push_back(std::make_unique<BooleanType>());

@@ -1,10 +1,10 @@
 #include "constraint_solve.h"
 #include "constraint.h"
 #include "core/panic.h"
+#include "core/types.h"
 #include "type.h"
 #include "type_ref.h"
 #include <cassert>
-#include <cstddef>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -134,7 +134,7 @@ bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
 
 void ConstraintSolver::register_vars(std::vector<TypeRef>& types) {
     entries.reserve(types.size());
-    for (std::size_t i = 0; i < types.size(); i++) {
+    for (usize i = 0; i < types.size(); i++) {
         auto* inf = ty->get_as<InferredType>(types[i]);
         assert(i == inf->get_id());
         entries.emplace_back(inf->get_id(), types[i]);

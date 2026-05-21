@@ -1,27 +1,27 @@
 #pragma once
 
+#include "core/types.h"
 #include "ir/ir.h"
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <ranges>
 #include <utility>
 #include <vector>
 
 namespace z::ir {
-struct DominatorTree {
-    static constexpr std::size_t UNDEFINED = UINT32_MAX;
-    std::vector<std::uint32_t> rpo_order;
-    std::vector<std::uint32_t> rpo_number;
+class DominatorTree {
+    static constexpr usize UNDEFINED = UINT32_MAX;
+    std::vector<u32> rpo_order;
+    std::vector<u32> rpo_number;
 
-    std::vector<std::uint32_t> idom;
-    std::vector<std::vector<std::uint32_t>> children;
-    std::vector<std::uint32_t> pre;
-    std::vector<std::uint32_t> post;
+    std::vector<u32> idom;
+    std::vector<std::vector<u32>> children;
+    std::vector<u32> pre;
+    std::vector<u32> post;
 
     void reverse_postorder(const std::vector<BasicBlock>& blocks) {
         auto visited = std::vector<bool>(blocks.size(), false);
-        auto stack = std::vector<std::pair<std::uint32_t, bool>>();
+        auto stack = std::vector<std::pair<u32, bool>>();
         stack.emplace_back(0, false);
 
         while (!stack.empty()) {
@@ -43,7 +43,7 @@ struct DominatorTree {
 
         std::ranges::reverse(rpo_order);
 
-        for (std::size_t i = 0; i < rpo_order.size(); i++) {
+        for (usize i = 0; i < rpo_order.size(); i++) {
             rpo_number[rpo_order[i]] = i;
         }
     }
@@ -78,7 +78,7 @@ struct DominatorTree {
         }
     }
 
-    std::uint32_t intersect(std::uint32_t a, std::uint32_t b) {
+    u32 intersect(u32 a, u32 b) {
         while (rpo_number[a] != rpo_number[b]) {
             while (rpo_number[a] > rpo_number[b])
                 a = idom[a];
@@ -90,13 +90,13 @@ struct DominatorTree {
     }
 
     void compute_dom_dfs() {
-        for (std::size_t i = 1; i < idom.size(); i++) {
+        for (usize i = 1; i < idom.size(); i++) {
             if (idom[i] != UNDEFINED)
                 children[idom[i]].push_back(i);
         }
 
         auto time = 0;
-        auto stack = std::vector<std::pair<std::uint32_t, bool>>();
+        auto stack = std::vector<std::pair<u32, bool>>();
         stack.emplace_back(0, false);
 
         while (!stack.empty()) {
@@ -140,5 +140,7 @@ public:
     [[nodiscard]] BlockID get_idom(BlockID b) const {
         return BlockID(idom[b.id]);
     }
+
+    [[nodiscard]] u32 get_preorder_idx(BlockID b) const { return pre[b.id]; }
 };
 } // namespace z::ir

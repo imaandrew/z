@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "core/result.h"
 #include "core/string_pool.h"
+#include "core/types.h"
 #include "core/zctxt.h"
 #include "diag/diagnostics.h"
 #include "diag/src_mgr.h"
@@ -11,7 +12,6 @@
 #include "type/type.h"
 #include "type/type_arena.h"
 #include "type/type_ref.h"
-#include <cstdint>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -29,7 +29,7 @@ inline ExprResult ExprError() { return ExprResult(); }
 inline DeclResult DeclError() { return DeclResult(); }
 inline TypeResult TypeError() { return TypeResult(); }
 
-enum class SyncFlags : std::uint8_t {
+enum class SyncFlags : u8 {
     None = 0,
     StopAtSemi = 1U << 0U,
     BreakBefore = 1U << 1U,

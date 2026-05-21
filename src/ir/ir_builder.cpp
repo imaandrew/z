@@ -1,5 +1,6 @@
 #include "ir_builder.h"
 #include "core/panic.h"
+#include "core/types.h"
 #include "diag/diagnostics.h"
 #include "ir/condition_codes.h"
 #include "ir/constants.h"
@@ -9,7 +10,6 @@
 #include "type/type_arena.h"
 #include "type/type_ref.h"
 #include <cassert>
-#include <cstddef>
 #include <functional>
 #include <optional>
 #include <ranges>
@@ -628,7 +628,7 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         auto max_loop_cnt = ensure_reg(emit_op(expr.expr.get()));
         auto loop_cnt = Operand::reg(
             emit_inst(IROp::LoadConst,
-                      {Operand::imm(ConstInt(0, sizeof(std::size_t), false),
+                      {Operand::imm(ConstInt(0, sizeof(usize), false),
                                     type::builtin::USIZE)},
                       type::builtin::USIZE));
         auto entry_block = *current_block;
@@ -659,13 +659,12 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         seal_block(current_func->get_block(inc_block));
         switch_block(inc_block);
 
-        const auto new_loop_cnt =
-            emit_inst(IROp::IAdd,
-                      std::vector<Operand>{
-                          Operand::reg(cnt_reg),
-                          Operand::imm(ConstInt(0, sizeof(std::size_t), false),
-                                       type::builtin::USIZE)},
-                      type::builtin::USIZE);
+        const auto new_loop_cnt = emit_inst(
+            IROp::IAdd,
+            std::vector<Operand>{Operand::reg(cnt_reg),
+                                 Operand::imm(ConstInt(0, sizeof(usize), false),
+                                              type::builtin::USIZE)},
+            type::builtin::USIZE);
 
         add_phi_operand(cnt_reg_id, cond_block, new_loop_cnt, *current_block);
 

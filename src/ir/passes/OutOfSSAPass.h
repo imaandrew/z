@@ -1,11 +1,11 @@
 #pragma once
 
+#include "core/types.h"
 #include "ir/dom_tree.h"
 #include "ir/ir.h"
 #include "ir/liveness.h"
 #include "ir/merge_set.h"
 #include "ir/pass.h"
-#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
@@ -42,8 +42,7 @@ class OutOfSSAPass : public IRPass {
     VReg new_reg(VReg like, BlockID block) {
         auto reg_id = func->vreg_info.size();
         func->vreg_info.emplace_back(InstId(UINT32_MAX), block);
-        return VReg{.id = static_cast<std::uint32_t>(reg_id),
-                    .type = like.type};
+        return VReg{.id = static_cast<u32>(reg_id), .type = like.type};
     }
 
     void insert_phi_copies() {
@@ -51,7 +50,7 @@ class OutOfSSAPass : public IRPass {
             for (auto p : block.phis) {
                 auto& phi = func->insts[p.id];
 
-                for (std::size_t i = 0; i + 1 < phi.operands.size(); i += 2) {
+                for (usize i = 0; i + 1 < phi.operands.size(); i += 2) {
                     auto phi_reg = phi.operands[i].as_reg();
                     auto pred_id = phi.operands[i + 1].as_label().block_id;
 
@@ -85,11 +84,10 @@ class OutOfSSAPass : public IRPass {
         }
     }
 
-    void calc_inst_order(std::vector<std::uint32_t>& inst_pos,
-                         std::vector<std::uint32_t>& vreg_pos,
-                         std::vector<std::uint32_t>& block_end_pos) {
+    void calc_inst_order(std::vector<u32>& inst_pos, std::vector<u32>& vreg_pos,
+                         std::vector<u32>& block_end_pos) {
         for (auto& b : func->blocks) {
-            std::uint32_t pos = 0;
+            u32 pos = 0;
 
             for (auto i : b.phis) {
                 auto& inst = func->insts[i.id];
@@ -122,9 +120,8 @@ class OutOfSSAPass : public IRPass {
         }
     }
 
-    void coalesce(std::vector<std::uint32_t>& inst_pos,
-                  std::vector<std::uint32_t>& vreg_pos,
-                  std::vector<std::uint32_t>& block_end_pos) {
+    void coalesce(std::vector<u32>& inst_pos, std::vector<u32>& vreg_pos,
+                  std::vector<u32>& block_end_pos) {
         auto dom = DominatorTree::build(func->blocks);
         auto live = LiveCheck(*func, dom);
 
@@ -134,12 +131,12 @@ class OutOfSSAPass : public IRPass {
             auto block_a = func->vreg_info[a.id].def.block;
             auto block_b = func->vreg_info[b.id].def.block;
             if (block_a != block_b)
-                return dom.pre[block_a.id] < dom.pre[block_b.id];
+                return dom.get_preorder_idx(block_a) <
+                       dom.get_preorder_idx(block_b);
             return vreg_pos[a.id] < vreg_pos[b.id];
         };
 
-        auto get_use_pos =
-            [&](const IRFunction::InstRef& use) -> std::uint32_t {
+        auto get_use_pos = [&](const IRFunction::InstRef& use) -> u32 {
             if (use.inst.id == UINT32_MAX)
                 return block_end_pos[use.block.id];
             return inst_pos[use.inst.id];
@@ -193,7 +190,7 @@ class OutOfSSAPass : public IRPass {
             for (auto p : block.phis) {
                 auto& phi = func->insts[p.id];
                 auto phi_dest = phi.dest.value();
-                for (std::size_t i = 0; i + 1 < phi.operands.size(); i += 2) {
+                for (usize i = 0; i + 1 < phi.operands.size(); i += 2) {
                     auto phi_src = phi.operands[i].as_reg();
                     mgr.merge(phi_dest, phi_src);
                 }
@@ -250,13 +247,13 @@ class OutOfSSAPass : public IRPass {
         if (copies.empty())
             return {};
 
-        std::vector<std::uint32_t> ready;
-        std::vector<std::uint32_t> to_do;
+        std::vector<u32> ready;
+        std::vector<u32> to_do;
         std::vector<Copy> seq;
 
-        std::unordered_map<std::uint32_t, std::uint32_t> loc;
-        std::unordered_map<std::uint32_t, std::uint32_t> pred;
-        std::unordered_map<std::uint32_t, VReg> vreg_map;
+        std::unordered_map<u32, u32> loc;
+        std::unordered_map<u32, u32> pred;
+        std::unordered_map<u32, VReg> vreg_map;
 
         for (auto [dest, src] : copies) {
             vreg_map[dest.id] = dest;
@@ -312,7 +309,7 @@ class OutOfSSAPass : public IRPass {
     }
 
     void emit_sequential_copies() {
-        for (std::size_t i = 0; i < func->blocks.size(); i++) {
+        for (usize i = 0; i < func->blocks.size(); i++) {
             auto& block = func->blocks[i];
             auto& copies = block_copies[i];
 
@@ -374,9 +371,9 @@ public:
 
         insert_phi_copies();
 
-        auto inst_pos = std::vector<std::uint32_t>(func.insts.size());
-        auto vreg_pos = std::vector<std::uint32_t>(func.vreg_info.size());
-        auto block_end_pos = std::vector<std::uint32_t>(func.blocks.size());
+        auto inst_pos = std::vector<u32>(func.insts.size());
+        auto vreg_pos = std::vector<u32>(func.vreg_info.size());
+        auto block_end_pos = std::vector<u32>(func.blocks.size());
         coalesce(inst_pos, vreg_pos, block_end_pos);
 
         emit_sequential_copies();

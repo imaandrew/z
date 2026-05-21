@@ -1,8 +1,8 @@
 #pragma once
 
+#include "core/types.h"
 #include "type_ref.h"
 #include <cassert>
-#include <cstdint>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -25,7 +25,7 @@ public:
                       T::Kind == TypeKind::Temp ||
                       T::Kind == TypeKind::Struct ||
                       T::Kind == TypeKind::Enum) {
-            TypeRef ref{static_cast<std::uint32_t>(types.size())};
+            TypeRef ref{static_cast<u32>(types.size())};
             types.push_back(std::make_unique<T>(std::forward<Args>(args)...));
             return ref;
         }

@@ -3,12 +3,12 @@
 #include "core/index.h"
 #include "core/panic.h"
 #include "core/string_pool.h"
+#include "core/types.h"
 #include "ir/condition_codes.h"
 #include "ir/constants.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
@@ -21,7 +21,7 @@
 
 namespace z::ir {
 
-enum class IROp : std::uint8_t {
+enum class IROp : u8 {
     IAdd,
     ISub,
     IMul,
@@ -310,7 +310,7 @@ static constexpr FloatCC get_float_cc(BinOp op) {
     }
 }
 
-enum class TerminatorKind : std::uint8_t {
+enum class TerminatorKind : u8 {
     Jump,
     Branch,
     Return,
@@ -318,7 +318,7 @@ enum class TerminatorKind : std::uint8_t {
 };
 
 struct VReg {
-    std::uint32_t id;
+    u32 id;
     type::TypeRef type;
 
     bool operator==(const VReg&) const = default;
@@ -380,7 +380,7 @@ struct Label {
 };
 
 struct Index {
-    std::uint32_t idx;
+    u32 idx;
 };
 
 struct Operand {
@@ -396,7 +396,7 @@ struct Operand {
         return Operand{.val = Label{.block_id = block_id}};
     }
 
-    static Operand field(std::uint32_t field_idx) {
+    static Operand field(u32 field_idx) {
         return Operand{.val = Index{.idx = field_idx}};
     }
 
@@ -564,7 +564,7 @@ struct IRFunction {
 } // namespace z::ir
 
 template <> struct std::hash<z::ir::VReg> {
-    std::size_t operator()(const z::ir::VReg& reg) const noexcept {
-        return std::hash<std::uint32_t>{}(reg.id);
+    usize operator()(const z::ir::VReg& reg) const noexcept {
+        return std::hash<u32>{}(reg.id);
     }
 };
