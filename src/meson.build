@@ -1,5 +1,6 @@
 sources = files(
   'core/zctxt.cpp',
+  'ir/liveness.cpp',
   'ir/ir_builder.cpp',
   'ir/ir_printer.cpp', 
   'lexer/lexer.cpp',

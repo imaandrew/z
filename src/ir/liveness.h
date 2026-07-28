@@ -1,44 +1,35 @@
 #pragma once
 
-#include "ir/dom_tree.h"
+#include "core/types.h"
+#include "ir/bit_vec.h"
 #include "ir/ir.h"
-#include <algorithm>
 #include <vector>
 namespace z::ir {
-class LiveCheck {
-    const IRFunction* func;
-    const DominatorTree* dom;
+struct LivenessInfo {
+    std::vector<BitVector> live_in;
+    std::vector<BitVector> live_out;
+    std::vector<BitVector> phi_defs;
+
+    LivenessInfo(u32 num_blocks, u32 num_vregs)
+        : live_in(num_blocks, BitVector(num_vregs)),
+          live_out(num_blocks, BitVector(num_vregs)),
+          phi_defs(num_blocks, BitVector(num_vregs)) {}
+};
+
+class LivenessBuilder {
+    const IRFunction& func;
+
+    void compute_livesets(LivenessInfo& live);
+    void up_and_mark(LivenessInfo& live, BlockID block, u32 vreg);
 
 public:
-    LiveCheck(const IRFunction& func, const DominatorTree& dom)
-        : func(&func), dom(&dom) {}
+    explicit LivenessBuilder(const IRFunction& func) : func(func) {};
+    LivenessInfo build() {
+        auto live = LivenessInfo(func.blocks.size(), func.vreg_info.size());
 
-    [[nodiscard]] bool is_live_in(VReg reg, BlockID block) const {
-        const auto [_, def_block] = func->vreg_info[reg.id].def;
-        const auto& uses = func->vreg_info[reg.id].uses;
+        compute_livesets(live);
 
-        for (auto [_, use_block] : uses) {
-            auto curr = use_block;
-
-            while (curr != def_block && curr != dom->get_idom(curr)) {
-                if (curr == block)
-                    return true;
-
-                curr = dom->get_idom(curr);
-            }
-        }
-
-        return false;
-    }
-
-    [[nodiscard]] bool is_live_at_def(VReg a, VReg b) const {
-        return is_live_in(a, func->vreg_info[b.id].def.block);
-    }
-
-    [[nodiscard]] bool is_live_out(VReg reg, BlockID block) const {
-        return std::ranges::any_of(
-            func->blocks[block.id].successors,
-            [this, reg](auto succ) { return is_live_in(reg, succ); });
+        return live;
     }
 };
 } // namespace z::ir
