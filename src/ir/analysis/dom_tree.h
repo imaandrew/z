@@ -1,8 +1,8 @@
 #pragma once
 
 #include "core/types.h"
+#include "ir/analysis/order.h"
 #include "ir/ir.h"
-#include <algorithm>
 #include <cstdint>
 #include <ranges>
 #include <utility>
@@ -11,7 +11,7 @@
 namespace z::ir {
 class DominatorTree {
     static constexpr usize UNDEFINED = UINT32_MAX;
-    std::vector<u32> rpo_order;
+    std::vector<BlockID> rev_postorder;
     std::vector<u32> rpo_number;
 
     std::vector<u32> idom;
@@ -19,43 +19,15 @@ class DominatorTree {
     std::vector<u32> pre;
     std::vector<u32> post;
 
-    void reverse_postorder(const std::vector<BasicBlock>& blocks) {
-        auto visited = std::vector<bool>(blocks.size(), false);
-        auto stack = std::vector<std::pair<u32, bool>>();
-        stack.emplace_back(0, false);
-
-        while (!stack.empty()) {
-            auto [b, returning] = stack.back();
-            stack.pop_back();
-
-            if (returning) {
-                rpo_order.push_back(b);
-            } else {
-                stack.emplace_back(b, true);
-                visited[b] = true;
-
-                for (auto succ : blocks[b].successors) {
-                    if (!visited[succ.id])
-                        stack.emplace_back(succ, false);
-                }
-            }
-        }
-
-        std::ranges::reverse(rpo_order);
-
-        for (usize i = 0; i < rpo_order.size(); i++) {
-            rpo_number[rpo_order[i]] = i;
-        }
-    }
-
     void compute_idom(const std::vector<BasicBlock>& blocks) {
         idom[0] = 0;
         bool changed = true;
 
         while (changed) {
             changed = false;
-            for (auto b : rpo_order | std::views::drop(1)) {
-                const auto& preds = blocks[b].predecessors;
+            for (auto block : rev_postorder | std::views::drop(1)) {
+                auto bid = block.id;
+                const auto& preds = blocks[bid].predecessors;
 
                 auto new_idom = UNDEFINED;
                 for (auto p : preds) {
@@ -70,8 +42,8 @@ class DominatorTree {
                         new_idom = intersect(p.id, new_idom);
                 }
 
-                if (idom[b] != new_idom) {
-                    idom[b] = new_idom;
+                if (idom[bid] != new_idom) {
+                    idom[bid] = new_idom;
                     changed = true;
                 }
             }
@@ -122,12 +94,14 @@ public:
         DominatorTree dt;
         auto n = blocks.size();
         dt.rpo_number.resize(n);
-        dt.rpo_order.reserve(n);
         dt.children.resize(n);
         dt.pre.resize(n);
         dt.post.resize(n);
         dt.idom.assign(n, UINT32_MAX);
-        dt.reverse_postorder(blocks);
+        dt.rev_postorder = compute_reverse_postorder(blocks);
+        for (usize i = 0; i < dt.rev_postorder.size(); i++) {
+            dt.rpo_number[dt.rev_postorder[i].id] = i;
+        }
         dt.compute_idom(blocks);
         dt.compute_dom_dfs();
         return dt;

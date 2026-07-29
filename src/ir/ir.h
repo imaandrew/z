@@ -555,6 +555,10 @@ struct IRFunction {
 
     BasicBlock& get_block(BlockID id) { return blocks[id.id]; }
 
+    [[nodiscard]] const BasicBlock& get_block(BlockID id) const {
+        return blocks[id.id];
+    }
+
     IRFunction(FuncID id, StringID name, type::TypeRef return_type,
                std::vector<VReg> params)
         : id(id), name(name), return_type(return_type),

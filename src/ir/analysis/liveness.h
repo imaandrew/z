@@ -14,6 +14,19 @@ struct LivenessInfo {
         : live_in(num_blocks, BitVector(num_vregs)),
           live_out(num_blocks, BitVector(num_vregs)),
           phi_defs(num_blocks, BitVector(num_vregs)) {}
+
+    [[nodiscard]] bool is_live_in(VReg reg, BlockID block) const {
+        return live_in[block.id].test(reg.id);
+    }
+
+    [[nodiscard]] bool is_live_in_from_preds(VReg reg, BlockID block) const {
+        return live_in[block.id].test(reg.id) &&
+               !phi_defs[block.id].test(reg.id);
+    }
+
+    [[nodiscard]] bool is_live_out(VReg reg, BlockID block) const {
+        return live_out[block.id].test(reg.id);
+    }
 };
 
 class LivenessBuilder {
