@@ -8,7 +8,6 @@
 #include "ir/passes/ConstPropPass.h"
 #include "ir/passes/CriticalEdgeSplitPass.h"
 #include "ir/passes/DCEPass.h"
-#include "ir/passes/OutOfSSAPass.h"
 #include "lexer/lexer.h"
 #include "parser/parser.h"
 #include "sema/sem.h"
@@ -113,7 +112,7 @@ int main(int argc, char** argv) {
 
     for (auto& func : ir_code.funcs) {
         ir::CriticalEdgeSplitPass().run(func);
-        ir::OutOfSSAPass().run(func);
+        // ir::OutOfSSAPass().run(func);
     }
 
     for (auto& func : ir_code.funcs) {

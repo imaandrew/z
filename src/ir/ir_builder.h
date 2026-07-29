@@ -123,9 +123,8 @@ class IRBuilder final : public ast::ASTVisitor {
     FuncID get_func_id() const { return FuncID(funcs.size()); }
 
     VReg emit_reg(type::TypeRef type, InstId inst) {
-        auto reg_id = current_func->vreg_info.size();
-        current_func->vreg_info.emplace_back(inst, current_block.value());
-        return VReg{.id = static_cast<u32>(reg_id), .type = type};
+        auto reg_id = current_func->add_reg(inst, current_block.value());
+        return VReg{.id = reg_id, .type = type};
     }
 
     BlockID new_block() {
@@ -154,8 +153,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
         for (const auto& op : ops) {
             if (op.is_reg()) {
-                current_func->get_reg_info(op.as_reg())
-                    .uses.emplace_back(inst_id, *current_block);
+                current_func->add_use(op.as_reg(), inst_id, *current_block);
             }
         }
 
@@ -170,8 +168,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
         for (const auto& op : ops) {
             if (op.is_reg()) {
-                current_func->get_reg_info(op.as_reg())
-                    .uses.emplace_back(inst_id, *current_block);
+                current_func->add_use(op.as_reg(), inst_id, *current_block);
             }
         }
 
@@ -185,8 +182,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
         for (const auto& op : ops) {
             if (op.is_reg()) {
-                current_func->get_reg_info(op.as_reg())
-                    .uses.emplace_back(inst_id, *current_block);
+                current_func->add_use(op.as_reg(), inst_id, *current_block);
             }
         }
 
@@ -199,8 +195,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
         for (const auto& op : ops) {
             if (op.is_reg()) {
-                current_func->get_reg_info(op.as_reg())
-                    .uses.emplace_back(inst_id, *current_block);
+                current_func->add_use(op.as_reg(), inst_id, *current_block);
             }
         }
 
@@ -339,7 +334,7 @@ class IRBuilder final : public ast::ASTVisitor {
         auto& inst = get_inst(phi);
         inst.operands.push_back(Operand::reg(var));
         inst.operands.push_back(Operand::label(block_id));
-        current_func->get_reg_info(var).uses.emplace_back(phi, block_id);
+        current_func->add_use(var, phi, block_id);
     }
 
     VReg add_phi_operands(StringID var, BasicBlock& block, InstId phi) {
@@ -382,8 +377,8 @@ class IRBuilder final : public ast::ASTVisitor {
             }
         }
 
-        for (auto& [user_inst, user_block] :
-             current_func->get_reg_info(*phi.dest).uses) {
+        for (const auto& [user_inst, user_block] :
+             current_func->get_uses(*phi.dest)) {
             for (auto& reg : get_inst(user_inst).operands) {
                 if (reg.is_reg() && reg.as_reg().id == phi.dest.value().id) {
                     reg = Operand::reg(same);
@@ -392,8 +387,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
             if (get_inst(user_inst).op == IROp::Phi) {
                 auto phi_block =
-                    current_func->get_reg_info(*get_inst(user_inst).dest)
-                        .def.block;
+                    current_func->get_def(*get_inst(user_inst).dest).block;
                 try_remove_trivial_phi(user_inst,
                                        current_func->get_block(phi_block));
             }

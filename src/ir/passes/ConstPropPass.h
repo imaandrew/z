@@ -16,7 +16,7 @@ public:
                 continue;
 
             auto imm = inst.operands.front();
-            auto& uses = func.get_reg_info(inst.dest.value()).uses;
+            auto& uses = func.get_uses(inst.dest.value());
 
             std::erase_if(uses, [&](auto& u) {
                 auto& use = func.insts[u.inst.id];

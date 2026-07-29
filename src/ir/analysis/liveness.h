@@ -33,12 +33,12 @@ class LivenessBuilder {
     const IRFunction& func;
 
     void compute_livesets(LivenessInfo& live);
-    void up_and_mark(LivenessInfo& live, BlockID block, u32 vreg);
+    void up_and_mark(LivenessInfo& live, BlockID block, VReg vreg);
 
 public:
     explicit LivenessBuilder(const IRFunction& func) : func(func) {};
     LivenessInfo build() {
-        auto live = LivenessInfo(func.blocks.size(), func.vreg_info.size());
+        auto live = LivenessInfo(func.blocks.size(), func.num_regs());
 
         compute_livesets(live);
 

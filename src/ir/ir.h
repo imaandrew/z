@@ -539,19 +539,66 @@ struct IRFunction {
         InstRef(InstId inst, BlockID block) : inst(inst), block(block) {}
     };
 
-    struct VRegInfo {
-        InstRef def;
-        std::vector<InstRef> uses;
+    class VRegInfo {
+        struct DefUseList {
+            InstRef def;
+            std::vector<InstRef> uses;
 
-        VRegInfo() : def(InstId(UINT32_MAX), BlockID(UINT32_MAX)) {}
+            DefUseList(InstId def_inst, BlockID def_block)
+                : def(def_inst, def_block) {}
+        };
 
-        explicit VRegInfo(InstId def_inst, BlockID def_block)
-            : def(def_inst, def_block) {}
+        std::vector<DefUseList> def_use;
+
+    public:
+        [[nodiscard]] usize num_regs() const { return def_use.size(); }
+
+        u32 add_reg(InstId def_inst, BlockID def_block) {
+            auto id = def_use.size();
+            def_use.emplace_back(def_inst, def_block);
+            return id;
+        }
+
+        void add_use(VReg reg, InstId inst, BlockID block) {
+            def_use[reg.id].uses.emplace_back(inst, block);
+        }
+
+        [[nodiscard]] const InstRef& get_def(VReg reg) const {
+            return def_use[reg.id].def;
+        }
+
+        [[nodiscard]] std::vector<InstRef>& get_uses(VReg reg) {
+            return def_use[reg.id].uses;
+        }
+
+        [[nodiscard]] const std::vector<InstRef>& get_uses(VReg reg) const {
+            return def_use[reg.id].uses;
+        }
     };
 
-    std::vector<VRegInfo> vreg_info;
+    VRegInfo vreg_info;
 
-    VRegInfo& get_reg_info(VReg reg) { return vreg_info[reg.id]; }
+    [[nodiscard]] usize num_regs() const { return vreg_info.num_regs(); }
+
+    u32 add_reg(InstId def_inst, BlockID def_block) {
+        return vreg_info.add_reg(def_inst, def_block);
+    }
+
+    void add_use(VReg reg, InstId inst, BlockID block) {
+        vreg_info.add_use(reg, inst, block);
+    }
+
+    [[nodiscard]] const InstRef& get_def(VReg reg) const {
+        return vreg_info.get_def(reg);
+    }
+
+    [[nodiscard]] std::vector<InstRef>& get_uses(VReg reg) {
+        return vreg_info.get_uses(reg);
+    }
+
+    [[nodiscard]] const std::vector<InstRef>& get_uses(VReg reg) const {
+        return vreg_info.get_uses(reg);
+    }
 
     BasicBlock& get_block(BlockID id) { return blocks[id.id]; }
 

@@ -32,7 +32,7 @@ public:
 
         for (const auto& inst : func.insts) {
             if (inst.dest && is_removable(inst.op) &&
-                func.get_reg_info(inst.dest.value()).uses.empty()) {
+                func.get_uses(inst.dest.value()).empty()) {
                 worklist.push_back(inst.id);
             }
         }
@@ -46,11 +46,11 @@ public:
                 if (!op.is_reg())
                     continue;
 
-                auto& info = func.get_reg_info(op.as_reg());
-                std::erase_if(info.uses, [&](auto& u) { return u.inst == id; });
-                if (info.uses.empty() &&
-                    is_removable(func.insts[info.def.inst.id].op))
-                    worklist.push_back(info.def.inst);
+                auto& uses = func.get_uses(op.as_reg());
+                const auto& def = func.get_def(op.as_reg());
+                std::erase_if(uses, [&](auto& u) { return u.inst == id; });
+                if (uses.empty() && is_removable(func.insts[def.inst.id].op))
+                    worklist.push_back(def.inst);
             }
 
             inst.op = IROp::Dead;
