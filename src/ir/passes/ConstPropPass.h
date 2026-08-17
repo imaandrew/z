@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
 
@@ -8,7 +9,7 @@ class ConstPropPass : public IRPass {
 public:
     [[nodiscard]] const char* name() const override { return "ConstPropPass"; }
 
-    bool run(IRFunction& func) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
         bool changed = false;
 
         for (auto& inst : func.insts) {

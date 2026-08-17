@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/panic.h"
+#include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
 #include "type/type_ref.h"
@@ -41,7 +42,7 @@ class ConstFoldPass : public IRPass {
 public:
     [[nodiscard]] const char* name() const override { return "ConstFoldPass"; }
 
-    bool run(IRFunction& func) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
         bool changed = false;
 
         for (auto& inst : func.insts) {

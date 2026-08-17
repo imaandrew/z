@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/types.h"
+#include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
 #include <initializer_list>
@@ -38,7 +38,7 @@ public:
         }
     }
 
-    bool run(IRFunction& func) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
         std::vector<std::pair<BlockID, BlockID>> critical_edges;
 
         for (auto& b : func.blocks) {

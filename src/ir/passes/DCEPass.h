@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
 #include <vector>
@@ -26,7 +27,7 @@ public:
         }
     }
 
-    bool run(IRFunction& func) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
         bool changed = false;
         std::vector<InstId> worklist;
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 
 namespace z::ir {
@@ -15,6 +16,6 @@ public:
     IRPass& operator=(IRPass&&) = default;
 
     [[nodiscard]] virtual const char* name() const = 0;
-    virtual bool run(IRFunction& func) = 0;
+    virtual bool run(IRFunction& func, FuncAnalyses& analyses) = 0;
 };
 } // namespace z::ir
