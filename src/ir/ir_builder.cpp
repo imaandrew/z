@@ -89,8 +89,9 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
         } else if (type->is_float()) {
             auto dest = emit_inst(IROp::FNeg, {var}, expr_type);
             last_result = Operand::reg(dest);
-        } else
+        } else {
             panic("Invalid type for negation operator");
+        }
 
         return;
     }
