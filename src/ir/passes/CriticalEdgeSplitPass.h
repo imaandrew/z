@@ -31,9 +31,9 @@ public:
         for (auto id : b.phis) {
             auto& inst = func.insts[id.id];
 
-            for (usize i = 1; i < inst.operands.size(); i += 2) {
-                if (inst.operands[i].as_label().block_id == old_id)
-                    inst.operands[i] = Operand::label(new_id);
+            for (auto&& [_, label] : inst.phi_operands()) {
+                if (label.block_id == old_id)
+                    label.block_id = new_id;
             }
         }
     }

@@ -74,6 +74,7 @@ enum class IROp : u8 {
 
     Phi,
     Copy,
+    ParallelCopy,
     Dead
 };
 
@@ -451,6 +452,7 @@ struct Operand {
 
 struct InstTag {};
 using InstId = z::Index<InstTag>;
+static constexpr InstId NO_INST = InstId(UINT32_MAX);
 
 struct Instruction {
     InstId id;
@@ -466,6 +468,46 @@ struct Instruction {
         : id(id), op(op), dest(dest), operands(std::move(operands)) {}
     Instruction(InstId id, IROp op, std::initializer_list<Operand> operands)
         : id(id), op(op), operands(operands) {}
+
+    [[nodiscard]] auto phi_operands() {
+        expect(op == IROp::Phi, "phi_operands on non-Phi");
+        return operands | std::views::chunk(2) |
+               std::views::transform([](auto&& c) -> std::pair<VReg&, Label&> {
+                   return {c[0].as_reg(), c[1].as_label()};
+               });
+    }
+
+    [[nodiscard]] auto phi_operands() const {
+        expect(op == IROp::Phi, "phi_operands on non-Phi");
+        return operands | std::views::chunk(2) |
+               std::views::transform(
+                   [](auto&& c) -> std::pair<const VReg&, const Label&> {
+                       return {c[0].as_reg(), c[1].as_label()};
+                   });
+    }
+
+    [[nodiscard]] auto copy_pairs() {
+        expect(op == IROp::ParallelCopy, "copy_pairs on non-ParallelCopy");
+        return operands | std::views::chunk(2) |
+               std::views::transform([](auto&& c) -> std::pair<VReg&, VReg&> {
+                   return {c[0].as_reg(), c[1].as_reg()};
+               });
+    }
+
+    [[nodiscard]] auto copy_pairs() const {
+        expect(op == IROp::ParallelCopy, "copy_pairs on non-ParallelCopy");
+        return operands | std::views::chunk(2) |
+               std::views::transform(
+                   [](auto&& c) -> std::pair<const VReg&, const VReg&> {
+                       return {c[0].as_reg(), c[1].as_reg()};
+                   });
+    }
+
+    void add_copy_pair(VReg dest, VReg src) {
+        expect(op == IROp::ParallelCopy, "add_copy_pair on non-ParallelCopy");
+        operands.push_back(Operand::reg(dest));
+        operands.push_back(Operand::reg(src));
+    }
 };
 
 struct BasicBlock {
@@ -564,6 +606,14 @@ struct IRFunction {
             def_use[reg.id].uses.emplace_back(inst, block);
         }
 
+        void remove_use(VReg reg, InstId inst, BlockID block) {
+            std::erase_if(def_use[reg.id].uses, [inst, block](auto use) {
+                return use.inst == inst && use.block == block;
+            });
+        }
+
+        [[nodiscard]] InstRef& get_def(VReg reg) { return def_use[reg.id].def; }
+
         [[nodiscard]] const InstRef& get_def(VReg reg) const {
             return def_use[reg.id].def;
         }
@@ -589,6 +639,8 @@ struct IRFunction {
         vreg_info.add_use(reg, inst, block);
     }
 
+    [[nodiscard]] InstRef& get_def(VReg reg) { return vreg_info.get_def(reg); }
+
     [[nodiscard]] const InstRef& get_def(VReg reg) const {
         return vreg_info.get_def(reg);
     }
@@ -601,10 +653,26 @@ struct IRFunction {
         return vreg_info.get_uses(reg);
     }
 
+    void remove_use(VReg reg, InstId inst, BlockID block) {
+        vreg_info.remove_use(reg, inst, block);
+    }
+
+    void replace_uses(VReg old_reg, VReg new_reg) {
+        auto uses = std::move(get_uses(old_reg));
+        get_uses(new_reg).append_range(uses);
+        get_uses(old_reg) = {};
+    }
+
     BasicBlock& get_block(BlockID id) { return blocks[id.id]; }
 
     [[nodiscard]] const BasicBlock& get_block(BlockID id) const {
         return blocks[id.id];
+    }
+
+    Instruction& get_inst(InstId id) { return insts[id.id]; }
+
+    [[nodiscard]] const Instruction& get_inst(InstId id) const {
+        return insts[id.id];
     }
 
     IRFunction(FuncID id, StringID name, type::TypeRef return_type,
