@@ -31,7 +31,8 @@ struct Span {
         auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
 
         index = start;
-        len = end - index;
+        auto new_len = end - index;
+        len = new_len > 0xFFFF ? 0xFFFF : static_cast<u16>(new_len);
 
         return *this;
     }
@@ -43,7 +44,9 @@ struct Span {
         auto rhs_end = rhs.index + rhs.len;
         auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
 
-        return Span(index, end - index);
+        auto new_len = end - index;
+        return Span(index,
+                    new_len > 0xFFFF ? 0xFFFF : static_cast<u16>(new_len));
     }
 
     friend bool operator<(const Span& l, const Span& r) {
