@@ -1288,10 +1288,6 @@ TypeResult Parser::parse_type() {
             auto tok = parse_ident_unchecked();
             type = ty->make<type::UnknownType>(tok->get_id(), tok->get_span());
         }
-
-        while (kind(TokenKind::Star)) {
-            type = ty->make<type::PointerType>(type);
-        }
     } else if (tok.is(TokenKind::LBracket)) {
         auto array_type = prime_parse_type();
         if (!array_type.is_valid())
@@ -1313,9 +1309,12 @@ TypeResult Parser::parse_type() {
             type = ty->make<type::ArrayType>(array_type.take(), std::nullopt);
         }
         tok_assert(TokenKind::RBracket);
-        next_token();
     } else {
         return TypeError();
+    }
+
+    while (kind(TokenKind::Star)) {
+        type = ty->make<type::PointerType>(type);
     }
 
     return TypeResult(type);

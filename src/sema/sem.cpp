@@ -380,7 +380,6 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
 }
 
 void SemChecker::visit(ast::CallExpr& expr) {
-    expr.ident->accept(*this);
     for (const auto& arg : expr.args) {
         arg->accept(*this);
     }

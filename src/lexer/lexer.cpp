@@ -186,7 +186,7 @@ Token Lexer::lex_token() {
         switch (peek()) {
         case '|':
             next();
-            return make_token(TokenKind::Or);
+            return make_token(TokenKind::OrOr);
         case '=':
             next();
             return make_token(TokenKind::OrEq);
