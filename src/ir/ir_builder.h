@@ -347,53 +347,65 @@ class IRBuilder final : public ast::ASTVisitor {
     }
 
     VReg try_remove_trivial_phi(InstId inst_id, BasicBlock& block) {
-        VReg same;
-        bool has_same = false;
-        auto& phi = current_func->insts[inst_id.id];
+        const auto f = [&]() {
+            VReg same;
+            bool has_same = false;
+            auto& phi = current_func->insts[inst_id.id];
 
-        for (const auto& op_ : phi.operands) {
-            if (!op_.is_reg())
-                continue;
-            auto op = op_.as_reg();
+            for (const auto& op_ : phi.operands) {
+                if (!op_.is_reg())
+                    continue;
+                auto op = op_.as_reg();
 
-            if (op.id == phi.dest.value().id)
-                continue;
+                if (op.id == phi.dest.value().id)
+                    continue;
 
-            if (has_same && op.id == same.id)
-                continue;
+                if (has_same && op.id == same.id)
+                    continue;
 
-            if (has_same)
-                return *phi.dest;
+                if (has_same)
+                    return *phi.dest;
 
-            same = op;
-            has_same = true;
-        }
-
-        phi.op = IROp::Dead;
-
-        for (auto& [var, reg] : block_state[block.id].var_map) {
-            if (reg.id == phi.dest.value().id) {
-                block_state[block.id].var_map[var] = same;
+                same = op;
+                has_same = true;
             }
-        }
 
-        for (const auto& [user_inst, user_block] :
-             current_func->get_uses(*phi.dest)) {
-            for (auto& reg : get_inst(user_inst).operands) {
-                if (reg.is_reg() && reg.as_reg().id == phi.dest.value().id) {
-                    reg = Operand::reg(same);
+            if (!has_same)
+                panic("phi in bb{} has no unique operand", block.id.id);
+
+            phi.op = IROp::Dead;
+
+            for (auto& [var, reg] : block_state[block.id].var_map) {
+                if (reg.id == phi.dest.value().id) {
+                    block_state[block.id].var_map[var] = same;
                 }
             }
 
-            if (get_inst(user_inst).op == IROp::Phi) {
-                auto phi_block =
-                    current_func->get_def(*get_inst(user_inst).dest).block;
-                try_remove_trivial_phi(user_inst,
-                                       current_func->get_block(phi_block));
-            }
-        }
+            const auto uses = current_func->get_uses(*phi.dest);
+            for (const auto& [user_inst, user_block] : uses) {
+                for (auto& reg : get_inst(user_inst).operands) {
+                    if (reg.is_reg() &&
+                        reg.as_reg().id == phi.dest.value().id) {
+                        reg = Operand::reg(same);
+                    }
+                }
 
-        return same;
+                if (get_inst(user_inst).op == IROp::Phi) {
+                    auto& phi_block = current_func->get_block(
+                        current_func->get_def(*get_inst(user_inst).dest).block);
+                    try_remove_trivial_phi(user_inst, phi_block);
+                }
+            }
+
+            current_func->replace_uses(*phi.dest, same);
+            return same;
+        };
+
+        const auto ret = f();
+        std::erase_if(block.phis, [&](auto i) {
+            return current_func->insts[i.id].op == IROp::Dead;
+        });
+        return ret;
     }
 
     void seal_block(BasicBlock& block) {
