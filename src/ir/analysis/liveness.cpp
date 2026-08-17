@@ -21,7 +21,8 @@ void LivenessBuilder::compute_livesets(LivenessInfo& live) {
     for (usize i = 0; i < func.num_regs(); i++) {
         const auto vreg = VReg{.id = static_cast<u32>(i), .type = {}};
         for (const auto [inst_id, block_id] : func.get_uses(vreg)) {
-            if (func.insts[inst_id.id].op == IROp::Phi)
+            if (inst_id.id < func.insts.size() &&
+                func.insts[inst_id.id].op == IROp::Phi)
                 live.live_out[block_id.id].set(i);
 
             up_and_mark(live, block_id, vreg);
@@ -39,7 +40,8 @@ void LivenessBuilder::up_and_mark(LivenessInfo& live, BlockID block_id,
         blocks.pop();
 
         const auto& def = func.get_def(vreg);
-        if (def.block == bid && func.insts[def.inst.id].op != IROp::Phi) {
+        if (def.block == bid &&
+            (def.inst == NO_INST || func.insts[def.inst.id].op != IROp::Phi)) {
             continue;
         }
 
