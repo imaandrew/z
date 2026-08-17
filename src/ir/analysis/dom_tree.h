@@ -8,6 +8,9 @@
 #include <utility>
 #include <vector>
 
+// Implements improved algorithm from
+// Cooper, Harvey, and Kennedy, "A Simple, Fast Dominance Algorithm." (2001).
+
 namespace z::ir {
 class DominatorTree {
     static constexpr usize UNDEFINED = UINT32_MAX;
@@ -90,7 +93,8 @@ class DominatorTree {
     DominatorTree() = default;
 
 public:
-    static DominatorTree build(const std::vector<BasicBlock>& blocks) {
+    static DominatorTree build(const std::vector<BasicBlock>& blocks,
+                               const InstOrder& order) {
         DominatorTree dt;
         auto n = blocks.size();
         dt.rpo_number.resize(n);
@@ -98,7 +102,7 @@ public:
         dt.pre.resize(n);
         dt.post.resize(n);
         dt.idom.assign(n, UINT32_MAX);
-        dt.rev_postorder = compute_reverse_postorder(blocks);
+        dt.rev_postorder = order.rev_postorder();
         for (usize i = 0; i < dt.rev_postorder.size(); i++) {
             dt.rpo_number[dt.rev_postorder[i].id] = i;
         }
