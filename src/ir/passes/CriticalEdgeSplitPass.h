@@ -16,7 +16,7 @@ public:
 
     static void update_terminators(BlockID old_id, BlockID new_id,
                                    BasicBlock& b, IRFunction& func) {
-        auto& inst = func.insts[b.terminator->id];
+        auto& inst = func.insts[b.terminator().id];
         if (inst.op != IROp::Jump && inst.op != IROp::Branch)
             return;
 
@@ -58,7 +58,7 @@ public:
             func.insts.emplace_back(
                 jump_id, IROp::Jump,
                 std::initializer_list{Operand::label(succ_id)});
-            new_block.terminator = jump_id;
+            new_block.insts.push_back(jump_id);
 
             new_block.term = TerminatorKind::Jump;
             new_block.add_predecessor(pred_id);

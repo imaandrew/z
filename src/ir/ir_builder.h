@@ -200,7 +200,7 @@ class IRBuilder final : public ast::ASTVisitor {
         }
 
         current_func->insts.emplace_back(inst_id, op, ops);
-        current_func->get_block(*current_block).terminator = inst_id;
+        current_func->get_block(*current_block).insts.push_back(inst_id);
     }
 
     Operand ensure_reg(Operand op) {

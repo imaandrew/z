@@ -473,7 +473,6 @@ struct BasicBlock {
     std::vector<InstId> insts;
     std::vector<InstId> phis;
     std::optional<TerminatorKind> term;
-    std::optional<InstId> terminator;
     std::vector<BlockID> predecessors;
     std::vector<BlockID> successors;
 
@@ -516,11 +515,13 @@ struct BasicBlock {
     }
 
     [[nodiscard]] auto all_insts() const {
-        std::span<const InstId> term_span =
-            terminator ? std::span<const InstId>{&*terminator, 1}
-                       : std::span<const InstId>{};
-        return std::array<std::span<const InstId>, 3>{phis, insts, term_span} |
+        return std::array<std::span<const InstId>, 2>{phis, insts} |
                std::views::join;
+    }
+
+    [[nodiscard]] InstId terminator() const {
+        expect(!insts.empty(), "terminator() on BasicBlock with no insts");
+        return insts.back();
     }
 };
 
