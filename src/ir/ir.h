@@ -587,11 +587,12 @@ struct IRFunction {
 
     class VRegInfo {
         struct DefUseList {
-            InstRef def;
+            std::vector<InstRef> defs;
             std::vector<InstRef> uses;
 
-            DefUseList(InstId def_inst, BlockID def_block)
-                : def(def_inst, def_block) {}
+            DefUseList(InstId def_inst, BlockID def_block) {
+                defs.emplace_back(def_inst, def_block);
+            }
         };
 
         std::vector<DefUseList> def_use;
@@ -605,6 +606,10 @@ struct IRFunction {
             return id;
         }
 
+        void add_def(VReg reg, InstId inst, BlockID block) {
+            def_use[reg.id].defs.emplace_back(inst, block);
+        }
+
         void add_use(VReg reg, InstId inst, BlockID block) {
             def_use[reg.id].uses.emplace_back(inst, block);
         }
@@ -615,10 +620,12 @@ struct IRFunction {
             });
         }
 
-        [[nodiscard]] InstRef& get_def(VReg reg) { return def_use[reg.id].def; }
+        [[nodiscard]] std::vector<InstRef>& get_defs(VReg reg) {
+            return def_use[reg.id].defs;
+        }
 
-        [[nodiscard]] const InstRef& get_def(VReg reg) const {
-            return def_use[reg.id].def;
+        [[nodiscard]] const std::vector<InstRef>& get_defs(VReg reg) const {
+            return def_use[reg.id].defs;
         }
 
         [[nodiscard]] std::vector<InstRef>& get_uses(VReg reg) {
@@ -638,14 +645,32 @@ struct IRFunction {
         return vreg_info.add_reg(def_inst, def_block);
     }
 
+    void add_def(VReg reg, InstId inst, BlockID block) {
+        vreg_info.add_def(reg, inst, block);
+    }
+
     void add_use(VReg reg, InstId inst, BlockID block) {
         vreg_info.add_use(reg, inst, block);
     }
 
-    [[nodiscard]] InstRef& get_def(VReg reg) { return vreg_info.get_def(reg); }
+    [[nodiscard]] bool has_def(VReg reg) const {
+        return !vreg_info.get_defs(reg).empty();
+    }
+
+    [[nodiscard]] InstRef& get_def(VReg reg) {
+        return vreg_info.get_defs(reg).front();
+    }
 
     [[nodiscard]] const InstRef& get_def(VReg reg) const {
-        return vreg_info.get_def(reg);
+        return vreg_info.get_defs(reg).front();
+    }
+
+    [[nodiscard]] std::vector<InstRef>& get_defs(VReg reg) {
+        return vreg_info.get_defs(reg);
+    }
+
+    [[nodiscard]] const std::vector<InstRef>& get_defs(VReg reg) const {
+        return vreg_info.get_defs(reg);
     }
 
     [[nodiscard]] std::vector<InstRef>& get_uses(VReg reg) {
@@ -656,8 +681,16 @@ struct IRFunction {
         return vreg_info.get_uses(reg);
     }
 
+    void remove_defs(VReg reg) { vreg_info.get_defs(reg) = {}; }
+
     void remove_use(VReg reg, InstId inst, BlockID block) {
         vreg_info.remove_use(reg, inst, block);
+    }
+
+    void replace_defs(VReg old_reg, VReg new_reg) {
+        auto defs = std::move(get_defs(old_reg));
+        get_defs(new_reg).append_range(defs);
+        get_defs(old_reg) = {};
     }
 
     void replace_uses(VReg old_reg, VReg new_reg) {

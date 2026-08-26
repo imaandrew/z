@@ -6,6 +6,7 @@
 #include "ir/ir.h"
 #include "ir/pass.h"
 #include <cstdint>
+#include <deque>
 #include <initializer_list>
 #include <stack>
 #include <string_view>
@@ -106,9 +107,15 @@ class CopyLoweringPass : public IRPass {
                 if (inst.op == IROp::Dead)
                     continue;
 
-                if (inst.dest && reg_map[inst.dest.value().id] == UINT32_MAX) {
-                    reg_map[inst.dest.value().id] =
-                        func->add_reg(inst_id, block.id);
+                if (inst.dest) {
+                    if (reg_map[inst.dest.value().id] == UINT32_MAX) {
+                        reg_map[inst.dest.value().id] =
+                            func->add_reg(inst_id, block.id);
+                    } else {
+                        func->add_def(VReg{.id = reg_map[inst.dest.value().id],
+                                           .type = {}},
+                                      inst_id, block.id);
+                    }
                 }
             }
         }

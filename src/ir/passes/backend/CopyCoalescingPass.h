@@ -141,14 +141,25 @@ public:
 
                 for (auto& op : inst.operands) {
                     if (op.is_reg()) {
-                        op = Operand::reg(m.representative(op.as_reg()));
+                        const auto old_reg = op.as_reg();
+                        const auto new_reg = m.representative(old_reg);
+                        if (old_reg != new_reg) {
+                            func.replace_uses(old_reg, new_reg);
+                            func.replace_defs(old_reg, new_reg);
+                            op = Operand::reg(new_reg);
+                        }
                     }
                 }
             }
         }
 
         for (auto& param : func.params) {
-            param = m.representative(param);
+            auto new_reg = m.representative(param);
+            if (param != new_reg) {
+                func.replace_uses(param, new_reg);
+                func.replace_defs(param, new_reg);
+                param = new_reg;
+            }
         }
 
         return true;
