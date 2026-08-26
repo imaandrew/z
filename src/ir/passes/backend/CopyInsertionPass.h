@@ -1,12 +1,15 @@
 #pragma once
 
 #include "core/panic.h"
+#include "core/types.h"
 #include "ir/analysis/analyses.h"
 #include "ir/analysis/value_set.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
+#include <deque>
 #include <initializer_list>
 #include <optional>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -16,8 +19,8 @@ class CopyInsertionPass : public IRPass {
     ValueSet* values;
 
     VReg new_reg(VReg like, InstId inst, BlockID block) {
-        auto reg_id = func->add_reg(inst, block);
         values->grow();
+        auto reg_id = func->add_reg(inst, block);
         return VReg{.id = reg_id, .type = like.type};
     }
 
@@ -71,7 +74,7 @@ class CopyInsertionPass : public IRPass {
     }
 
 public:
-    [[nodiscard]] const char* name() const override {
+    [[nodiscard]] std::string_view name() const override {
         return "CopyInsertionPass";
     }
 
@@ -82,7 +85,7 @@ public:
         values = &analyses.values();
 
         for (const auto& block : func.blocks) {
-            for (auto p : block.phis) {
+            for (auto p : block.phis()) {
                 for (auto&& [reg, label] : func.get_inst(p).phi_operands()) {
                     const auto pred = label.block_id;
                     const auto inst_id = get_copy_inst(epilogue, pred);
@@ -107,16 +110,21 @@ public:
         }
 
         for (auto& block : func.blocks) {
-            std::vector<InstId> out;
-            out.reserve(block.insts.size() + 4);
+            std::deque<InstId> out;
 
             const auto block_term = block.terminator();
+
+            usize phi_idx = 0;
+            for (; phi_idx < block.num_phis; phi_idx++)
+                out.push_back(block.insts[phi_idx]);
 
             if (auto pc = prologue[block.id.id];
                 pc && !func.get_inst(*pc).operands.empty())
                 out.push_back(*pc);
 
-            for (const auto id : block.insts) {
+            for (auto i = phi_idx; i < block.insts.size(); i++) {
+                const auto id = block.insts[i];
+
                 if (id == block_term)
                     break;
 

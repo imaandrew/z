@@ -40,7 +40,9 @@ class ConstFoldPass : public IRPass {
     }
 
 public:
-    [[nodiscard]] const char* name() const override { return "ConstFoldPass"; }
+    [[nodiscard]] std::string_view name() const override {
+        return "ConstFoldPass";
+    }
 
     bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
         bool changed = false;

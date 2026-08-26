@@ -4,13 +4,14 @@
 #include "ir/ir.h"
 #include "ir/pass.h"
 #include <initializer_list>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 namespace z::ir {
 class CriticalEdgeSplitPass : public IRPass {
 public:
-    [[nodiscard]] const char* name() const override {
+    [[nodiscard]] std::string_view name() const override {
         return "CriticalEdgeSplitPass";
     }
 

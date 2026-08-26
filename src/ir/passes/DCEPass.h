@@ -8,7 +8,7 @@
 namespace z::ir {
 class DCEPass : public IRPass {
 public:
-    [[nodiscard]] const char* name() const override { return "DCEPass"; }
+    [[nodiscard]] std::string_view name() const override { return "DCEPass"; }
 
     static constexpr bool is_removable(IROp op) {
         switch (op) {

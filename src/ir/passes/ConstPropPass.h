@@ -7,7 +7,9 @@
 namespace z::ir {
 class ConstPropPass : public IRPass {
 public:
-    [[nodiscard]] const char* name() const override { return "ConstPropPass"; }
+    [[nodiscard]] std::string_view name() const override {
+        return "ConstPropPass";
+    }
 
     bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
         bool changed = false;

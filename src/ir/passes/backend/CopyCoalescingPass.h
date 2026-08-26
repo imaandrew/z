@@ -8,6 +8,7 @@
 #include "ir/merge_set.h"
 #include "ir/pass.h"
 #include <algorithm>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -50,7 +51,7 @@ class CopyCoalescingPass : public IRPass {
     };
 
 public:
-    [[nodiscard]] const char* name() const override {
+    [[nodiscard]] std::string_view name() const override {
         return "CopyCoalescingPass";
     }
 

@@ -12,15 +12,14 @@
 
 namespace z::ir {
 
-void IRPrinter::dump(const IRFile& ir, const ZContext& ctxt, std::ostream& os) {
-    this->ir = &ir;
-    this->ctxt = &ctxt;
+void IRPrinter::dump_file(const IRFile& ir, std::ostream& os) const {
     for (const auto& func : ir.funcs) {
-        dump_ir(func, os);
+        dump_func(func, ir, os);
     }
 }
 
-void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
+void IRPrinter::dump_func(const IRFunction& func, const IRFile& ir,
+                          std::ostream& os) const {
     std::print(os, "{}func{} {}@{}{}(", colour::BOLD, colour::RESET,
                colour::BOLD_GREEN, ctxt->strings->get_string(func.name),
                colour::RESET);
@@ -45,15 +44,20 @@ void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
             std::print("    {}; preds:", colour::GRAY);
             for (auto pred : block.predecessors)
                 std::print(os, " bb{}", pred.id);
+            std::print(", num phis: {}", block.num_phis);
             os << colour::RESET;
         }
 
         os << "\n";
 
-        for (auto inst_id : block.all_insts()) {
+        for (auto inst_id : block.insts) {
             const auto& inst = func.insts[inst_id.id];
             os << "  ";
-            dump_inst(inst, os);
+            dump_inst(inst, ir, os);
+            if (show_inst_ids_) {
+                std::print(os, "  {}; inst: {}{}", colour::GRAY, inst.id.id,
+                           colour::RESET);
+            }
             os << "\n";
         }
 
@@ -62,7 +66,8 @@ void IRPrinter::dump_ir(const IRFunction& func, std::ostream& os) const {
     os << "}\n\n";
 }
 
-void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
+void IRPrinter::dump_inst(const Instruction& inst, const IRFile& ir,
+                          std::ostream& os) const {
     if (inst.dest) {
         std::print(os, "{}%{}{}: {} = ", colour::CYAN, inst.dest.value().id,
                    colour::RESET,
@@ -75,9 +80,21 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
         for (usize i = 0; i < inst.operands.size(); i += 2) {
             os << (i == 0 ? " " : ", ");
             os << "[ ";
-            dump_operand(inst.operands[i], os);
+            dump_operand(inst.operands[i], ir, os);
             os << ", ";
-            dump_operand(inst.operands[i + 1], os);
+            dump_operand(inst.operands[i + 1], ir, os);
+            os << " ]";
+        }
+        return;
+    }
+
+    if (inst.op == IROp::ParallelCopy) {
+        for (usize i = 0; i < inst.operands.size(); i += 2) {
+            os << (i == 0 ? " " : ", ");
+            os << "[ ";
+            dump_operand(inst.operands[i], ir, os);
+            os << " <- ";
+            dump_operand(inst.operands[i + 1], ir, os);
             os << " ]";
         }
         return;
@@ -85,13 +102,13 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
 
     if (inst.op == IROp::Call || inst.op == IROp::CallIndirect) {
         os << " ";
-        dump_operand(inst.operands.front(), os);
+        dump_operand(inst.operands.front(), ir, os);
 
         os << "(";
 
         for (usize i = 1; i < inst.operands.size(); i++) {
             os << (i == 1 ? "" : ", ");
-            dump_operand(inst.operands[i], os);
+            dump_operand(inst.operands[i], ir, os);
         }
 
         os << ")";
@@ -100,22 +117,23 @@ void IRPrinter::dump_inst(const Instruction& inst, std::ostream& os) const {
 
     for (usize i = 0; i < inst.operands.size(); i++) {
         os << (i == 0 ? " " : ", ");
-        dump_operand(inst.operands[i], os);
+        dump_operand(inst.operands[i], ir, os);
     }
 }
 
-void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
-    if (op.is_reg())
+void IRPrinter::dump_operand(const Operand& op, const IRFile& ir,
+                             std::ostream& os) const {
+    if (op.is_reg()) {
         std::print(os, "{}%{}{}", colour::CYAN, op.as_reg().id, colour::RESET);
-    else if (op.is_imm())
+    } else if (op.is_imm()) {
         dump_immediate(op.as_imm(), os);
-    else if (op.is_label())
+    } else if (op.is_label()) {
         std::print(os, "{}bb{}{}", colour::YELLOW, op.as_label().block_id.id,
                    colour::RESET);
-    else if (op.is_index())
+    } else if (op.is_index()) {
         std::print(os, "{}#{}{}", colour::YELLOW, op.as_index().idx,
                    colour::RESET);
-    else if (op.is_intcc()) {
+    } else if (op.is_intcc()) {
         const auto* string = [&] {
             switch (op.as_intcc()) {
             case IntCC::Equal:
@@ -164,7 +182,7 @@ void IRPrinter::dump_operand(const Operand& op, std::ostream& os) const {
         os << string;
     } else if (op.is_func()) {
         std::print(os, "{}@{}{}", colour::BOLD_GREEN,
-                   ctxt->strings->get_string(ir->funcs[op.as_func().id].name),
+                   ctxt->strings->get_string(ir.funcs[op.as_func().id].name),
                    colour::RESET);
     }
 }
@@ -299,6 +317,8 @@ constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
         return "copy";
     case IROp::Dead:
         return "dead";
+    case IROp::ParallelCopy:
+        return "parallelcopy";
     }
     std::unreachable();
 }
