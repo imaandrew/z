@@ -3,6 +3,7 @@
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
+#include <string_view>
 #include <vector>
 
 namespace z::ir {

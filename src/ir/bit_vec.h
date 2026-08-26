@@ -3,6 +3,7 @@
 #include "core/types.h"
 #include <algorithm>
 #include <bit>
+#include <concepts>
 #include <vector>
 namespace z {
 class BitVector {
@@ -81,7 +82,7 @@ public:
         return words[b / BITWORD_SIZE] & (1ULL << bitword_pos(b));
     }
 
-    template <typename F> void for_each_set(F&& f) const {
+    template <std::invocable<u32> F> void for_each_set(F&& f) const {
         for (usize i = 0; i < num_words(); i++) {
             u64 word = words[i];
             if (i == num_words() - 1 && active_bits % BITWORD_SIZE != 0)
@@ -89,13 +90,13 @@ public:
 
             while (word) {
                 const int bit = std::countr_zero(word);
-                f(static_cast<u32>((i * BITWORD_SIZE) + bit));
+                std::forward<F>(f)(static_cast<u32>((i * BITWORD_SIZE) + bit));
                 word &= word - 1;
             }
         }
     }
 
-    template <typename F> void for_each_word(F&& f) const {
+    template <std::invocable<u64> F> void for_each_word(F&& f) const {
         for (usize i = 0; i < num_words(); i++) {
             u64 word = words[i];
             if (i == num_words() - 1 && active_bits % BITWORD_SIZE != 0)

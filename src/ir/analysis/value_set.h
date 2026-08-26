@@ -42,4 +42,6 @@ public:
     }
 
     bool same(u32 x, u32 y) { return find(x) == find(y); }
+
+    [[nodiscard]] usize size() const { return parent.size(); }
 };

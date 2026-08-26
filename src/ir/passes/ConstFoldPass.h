@@ -5,6 +5,7 @@
 #include "ir/ir.h"
 #include "ir/pass.h"
 #include "type/type_ref.h"
+#include <string_view>
 #include <utility>
 
 namespace z::ir {

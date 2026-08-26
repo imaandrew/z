@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/panic.h"
+#include "core/zctxt.h"
 #include "dom_tree.h"
 #include "ir/ir.h"
 #include "liveness.h"
@@ -13,11 +15,12 @@ class FuncAnalyses {
     std::optional<InstOrder> order_;
     std::optional<DominatorTree> dom_;
     std::optional<LivenessInfo> live_;
+    ZContext* ctxt_;
     ValueSet values_;
 
 public:
-    explicit FuncAnalyses(IRFunction& func)
-        : func(&func), values_(func.num_regs()) {}
+    explicit FuncAnalyses(IRFunction& func, ZContext& ctxt)
+        : func(&func), ctxt_(&ctxt), values_(func.num_regs()) {}
 
     const InstOrder& order() {
         if (!order_)
@@ -37,7 +40,13 @@ public:
         return *live_;
     }
 
-    ValueSet& values() { return values_; }
+    ValueSet& values() {
+        expect(values_.size() >= func->num_regs(),
+               "ValueSet needs to be resized");
+        return values_;
+    }
+
+    ZContext& ctxt() { return *ctxt_; }
 
     void invalidate() {
         order_.reset();

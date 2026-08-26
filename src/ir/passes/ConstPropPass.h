@@ -3,6 +3,7 @@
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
 #include "ir/pass.h"
+#include <string_view>
 
 namespace z::ir {
 class ConstPropPass : public IRPass {
