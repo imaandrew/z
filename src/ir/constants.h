@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/panic.h"
 #include "core/types.h"
 #include "ir/condition_codes.h"
 #include <cassert>
@@ -22,7 +23,7 @@ class ConstInt {
     [[nodiscard]] i64 sign_extend(u64 v) const {
         u64 const sign_bit = 1ULL << static_cast<u64>(width - 1);
         if ((v & sign_bit) != 0U) {
-            assert(width < 64);
+            ASSERT(width < 64);
             return static_cast<i64>(v | ~((1ULL << width) - 1));
         }
 
@@ -55,7 +56,7 @@ public:
     }
 
     [[nodiscard]] ConstInt add(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return ConstInt(mask(bits + other.bits), width, is_signed_);
     }
 
@@ -74,7 +75,7 @@ public:
     }
 
     [[nodiscard]] ConstInt sub(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return {mask(bits - other.bits), width, is_signed_};
     }
 
@@ -93,7 +94,7 @@ public:
     }
 
     [[nodiscard]] ConstInt mul(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return {mask(bits * other.bits), width, is_signed_};
     }
 
@@ -126,14 +127,14 @@ public:
     }
 
     [[nodiscard]] ConstInt udiv(const ConstInt& other) const {
-        assert(width == other.width);
-        assert(other.bits != 0);
+        ASSERT(width == other.width);
+        ASSERT(other.bits != 0);
         return {mask(bits / other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt sdiv(const ConstInt& other) const {
-        assert(width == other.width);
-        assert(other.bits != 0);
+        ASSERT(width == other.width);
+        ASSERT(other.bits != 0);
 
         auto a = sign_extend(bits);
         auto b = sign_extend(other.bits);
@@ -155,15 +156,15 @@ public:
     }
 
     [[nodiscard]] ConstInt urem(const ConstInt& other) const {
-        assert(width == other.width);
-        assert(other.bits != 0);
+        ASSERT(width == other.width);
+        ASSERT(other.bits != 0);
 
         return {mask(bits % other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt srem(const ConstInt& other) const {
-        assert(width == other.width);
-        assert(other.bits != 0);
+        ASSERT(width == other.width);
+        ASSERT(other.bits != 0);
 
         auto a = sign_extend(bits);
         auto b = sign_extend(other.bits);
@@ -175,19 +176,19 @@ public:
     }
 
     [[nodiscard]] ConstInt shl(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
 
         return {mask(bits << other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt lshr(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
 
         return {mask(bits >> other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt ashr(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
 
         return {mask(static_cast<u64>(sign_extend(bits)) >> other.bits), width,
                 is_signed_};
@@ -198,22 +199,22 @@ public:
     }
 
     [[nodiscard]] ConstInt bit_and(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return ConstInt{mask(bits & other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt bit_or(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return ConstInt{mask(bits | other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt bit_xor(const ConstInt& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return ConstInt{mask(bits ^ other.bits), width, is_signed_};
     }
 
     [[nodiscard]] bool cmp(const ConstInt& other, IntCC cc) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
 
         const auto lhs_signed = sign_extend(bits);
         const auto rhs_signed = sign_extend(other.bits);
@@ -288,27 +289,27 @@ public:
     [[nodiscard]] ConstFloat neg() const { return {-bits, width}; }
 
     [[nodiscard]] ConstFloat add(const ConstFloat& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return {bits + other.bits, width};
     }
 
     [[nodiscard]] ConstFloat sub(const ConstFloat& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return {bits - other.bits, width};
     }
 
     [[nodiscard]] ConstFloat mul(const ConstFloat& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return {bits * other.bits, width};
     }
 
     [[nodiscard]] ConstFloat div(const ConstFloat& other) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
         return {bits / other.bits, width};
     }
 
     [[nodiscard]] bool cmp(const ConstFloat& other, FloatCC cc) const {
-        assert(width == other.width);
+        ASSERT(width == other.width);
 
         switch (cc) {
         case FloatCC::Equal:
