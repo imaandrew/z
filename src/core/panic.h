@@ -46,6 +46,11 @@ template <typename... Args>
     std::abort();
 }
 
+#define ASSERT(condition)                                                      \
+    (static_cast<bool>(condition)                                              \
+         ? void(0)                                                             \
+         : panic("assertation failed: {}", #condition))
+
 template <typename... Args>
 static void constexpr expect(bool cond,
                              PanicFormat<std::type_identity_t<Args>...> fmt,
