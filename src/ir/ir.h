@@ -8,13 +8,12 @@
 #include "ir/constants.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
-#include <array>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <initializer_list>
 #include <optional>
 #include <ranges>
-#include <span>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -512,13 +511,18 @@ struct Instruction {
 
 struct BasicBlock {
     BlockID id;
-    std::vector<InstId> insts;
-    std::vector<InstId> phis;
+    std::deque<InstId> insts;
+    usize num_phis = 0;
     std::optional<TerminatorKind> term;
     std::vector<BlockID> predecessors;
     std::vector<BlockID> successors;
 
     explicit BasicBlock(BlockID id) : id(id) {};
+
+    void add_phi(InstId phi) {
+        insts.push_front(phi);
+        num_phis++;
+    }
 
     void add_predecessor(BlockID pred) {
         for (const auto p : predecessors) {
@@ -556,9 +560,8 @@ struct BasicBlock {
         }
     }
 
-    [[nodiscard]] auto all_insts() const {
-        return std::array<std::span<const InstId>, 2>{phis, insts} |
-               std::views::join;
+    [[nodiscard]] auto phis() const {
+        return insts | std::views::take(num_phis);
     }
 
     [[nodiscard]] InstId terminator() const {
@@ -573,7 +576,7 @@ struct IRFunction {
     type::TypeRef return_type;
     std::vector<VReg> params;
     std::vector<BasicBlock> blocks;
-    std::vector<Instruction> insts;
+    std::deque<Instruction> insts;
 
     struct InstRef {
         InstId inst;

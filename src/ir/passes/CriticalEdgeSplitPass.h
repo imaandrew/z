@@ -29,7 +29,7 @@ public:
 
     static void update_phi_operands(BlockID old_id, BlockID new_id,
                                     BasicBlock& b, IRFunction& func) {
-        for (auto id : b.phis) {
+        for (auto id : b.phis()) {
             auto& inst = func.insts[id.id];
 
             for (auto&& [_, label] : inst.phi_operands()) {

@@ -76,7 +76,7 @@ class InstOrder {
 
         for (auto id : postorder_ | std::views::reverse) {
             const auto& block = func.blocks.at(id.id);
-            for (auto inst : block.all_insts()) {
+            for (auto inst : block.insts) {
                 inst_order[inst.id] = idx;
                 idx += 2;
             }

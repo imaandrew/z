@@ -63,7 +63,7 @@ public:
 
         auto def_order = std::vector<u64>(func.num_regs(), 0);
         for (const auto& block : func.blocks) {
-            for (const auto inst_id : block.all_insts()) {
+            for (const auto inst_id : block.insts) {
                 const auto& inst = func.get_inst(inst_id);
                 const u64 inst_idx =
                     static_cast<u64>(order.get_inst_order(inst_id)) << 32U;
@@ -112,7 +112,7 @@ public:
         auto m = buildMergeSetManager<VReg>(def_before, interferes, dominates);
 
         for (const auto& block : func.blocks) {
-            for (const auto phi_id : block.phis) {
+            for (const auto phi_id : block.phis()) {
                 const auto& phi = func.get_inst(phi_id);
                 for (const auto [reg, _] : phi.phi_operands()) {
                     m.merge(phi.dest.value(), reg);

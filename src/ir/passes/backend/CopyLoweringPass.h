@@ -145,7 +145,7 @@ class CopyLoweringPass : public IRPass {
     }
 
 public:
-    [[nodiscard]] const char* name() const override {
+    [[nodiscard]] std::string_view name() const override {
         return "CopyLoweringPass";
     }
 
@@ -153,10 +153,15 @@ public:
         this->func = &func;
 
         for (auto& block : func.blocks) {
-            std::vector<InstId> insts;
+            std::deque<InstId> insts;
 
             for (const auto inst_id : block.insts) {
-                const auto& inst = func.get_inst(inst_id);
+                auto& inst = func.get_inst(inst_id);
+                if (inst.op == IROp::Phi) {
+                    inst.op = IROp::Dead;
+                    continue;
+                }
+
                 if (inst.op != IROp::ParallelCopy) {
                     insts.push_back(inst_id);
                     continue;
@@ -171,10 +176,15 @@ public:
                 auto copies =
                     sequentialize_copies(pcopies, func.num_regs(), block.id);
                 insts.insert(insts.end(), copies.begin(), copies.end());
+                inst.op = IROp::Dead;
             }
 
-            block.phis.clear();
+            for (const auto phi : block.phis()) {
+                func.get_inst(phi).op = IROp::Dead;
+            }
+
             block.insts = std::move(insts);
+            block.num_phis = 0;
         }
 
         fix_reg_info();

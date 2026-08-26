@@ -13,7 +13,7 @@ u32 compute_maxlive(const IRFunction& func, const LivenessInfo& liveinfo) {
         auto live = liveinfo.live_out[block.id.id];
         auto block_max = live.count();
 
-        for (const auto [i] : block.all_insts() | std::views::reverse) {
+        for (const auto [i] : block.insts | std::views::reverse) {
             const auto& inst = func.insts[i];
             if (inst.op == IROp::Dead)
                 continue;

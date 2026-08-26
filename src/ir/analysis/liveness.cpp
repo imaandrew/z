@@ -11,7 +11,7 @@ namespace z::ir {
 
 void LivenessBuilder::compute_livesets(LivenessInfo& live) {
     for (const auto& block : func.blocks) {
-        for (const auto phi_id : block.phis) {
+        for (const auto phi_id : block.phis()) {
             const auto& phi = func.insts[phi_id.id];
             if (phi.op == IROp::Phi)
                 live.phi_defs[block.id.id].set(phi.dest.value().id);

@@ -25,6 +25,7 @@ class IRBuilder final : public ast::ASTVisitor {
     struct BlockBuildState {
         std::unordered_map<StringID, VReg> var_map;
         std::unordered_map<StringID, InstId> incomplete_phis;
+        std::vector<InstId> phis;
         bool sealed = false;
     };
 
@@ -272,7 +273,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
         current_func->insts.emplace_back(inst_id, IROp::Phi, dest,
                                          std::initializer_list<Operand>{});
-        current_func->get_block(*current_block).phis.push_back(inst_id);
+        current_func->get_block(*current_block).add_phi(inst_id);
         return dest;
     }
 
@@ -329,8 +330,7 @@ class IRBuilder final : public ast::ASTVisitor {
         return val;
     }
 
-    void add_phi_operand(InstId phi, BlockID phi_inst_block, VReg var,
-                         BlockID block_id) {
+    void add_phi_operand(InstId phi, VReg var, BlockID block_id) {
         auto& inst = get_inst(phi);
         inst.operands.push_back(Operand::reg(var));
         inst.operands.push_back(Operand::label(block_id));
@@ -340,7 +340,7 @@ class IRBuilder final : public ast::ASTVisitor {
     VReg add_phi_operands(StringID var, BasicBlock& block, InstId phi) {
         for (const auto pred : block.predecessors) {
             auto v = read_var(var, pred);
-            add_phi_operand(phi, block.id, v, pred);
+            add_phi_operand(phi, v, pred);
         }
 
         return try_remove_trivial_phi(phi, block);
@@ -373,6 +373,13 @@ class IRBuilder final : public ast::ASTVisitor {
             if (!has_same)
                 panic("phi in bb{} has no unique operand", block.id.id);
 
+            expect(block.num_phis > 0, "num_phis == 0 with phis left");
+            block.num_phis--;
+
+            for (const auto& [reg, label] : phi.phi_operands()) {
+                current_func->remove_use(reg, inst_id, label.block_id);
+            }
+
             phi.op = IROp::Dead;
 
             for (auto& [var, reg] : block_state[block.id].var_map) {
@@ -402,7 +409,7 @@ class IRBuilder final : public ast::ASTVisitor {
         };
 
         const auto ret = f();
-        std::erase_if(block.phis, [&](auto i) {
+        std::erase_if(block.insts, [&](auto i) {
             return current_func->insts[i.id].op == IROp::Dead;
         });
         return ret;
