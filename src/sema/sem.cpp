@@ -599,7 +599,7 @@ void SemChecker::visit(ast::FuncDecl& func) {
         }
 
         if (func.ret.is_valid() && func.ret != type::builtin::VOID &&
-            func.ret != type::builtin::I32) {
+            func.ret != type::builtin::I64) {
             ctxt->diag.error(func.name->get_span(),
                              DiagnosticKind::MainFunctionReturnType);
         }

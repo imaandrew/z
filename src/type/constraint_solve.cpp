@@ -162,7 +162,7 @@ TypeRef ConstraintSolver::resolve(TypeRef type) {
 
         auto* resolved_infer = dyn_cast<InferredType>(resolved_type);
         if (resolved_infer->get_infer_type() == InferType::IntLiteral)
-            return builtin::I32;
+            return builtin::I64;
         if (resolved_infer->get_infer_type() == InferType::FloatLiteral)
             return builtin::F64;
         if (resolved_infer->get_infer_type() == InferType::Block)
