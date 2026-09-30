@@ -28,7 +28,8 @@ Checks: '*,
         -readability-identifier-length,
         -portability-avoid-pragma-once,
         -bugprone-bool-pointer-implicit-conversion,
-        -readability-implicit-bool-conversion'
+        -readability-implicit-bool-conversion,
+        -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access'
 FormatStyle: 'file'
 CheckOptions:
     readability-implicit-bool-conversion.AllowPointerConditions: true
