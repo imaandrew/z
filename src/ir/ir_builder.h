@@ -5,6 +5,7 @@
 #include "core/types.h"
 #include "core/zctxt.h"
 #include "ir.h"
+#include "ir/ir_ops.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
 #include <initializer_list>

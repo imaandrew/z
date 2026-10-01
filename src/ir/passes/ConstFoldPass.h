@@ -3,6 +3,7 @@
 #include "core/panic.h"
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
 #include "type/type_ref.h"
 #include <string_view>

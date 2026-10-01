@@ -1,0 +1,58 @@
+#ifndef IR_OP
+#define IR_OP(name, mnemonic, class, dest...)
+#endif
+
+IR_OP(IAdd, "iadd", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(ISub, "isub", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(IMul, "imul", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(SDiv, "sdiv", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(UDiv, "udiv", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(SRem, "srem", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(URem, "urem", Arithmetic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(INeg, "ineg", Arithmetic, SameArgs, Op::IntType)
+
+IR_OP(FAdd, "fadd", Arithmetic, SameArgs, Op::FloatType, Op::FloatType)
+IR_OP(FSub, "fsub", Arithmetic, SameArgs, Op::FloatType, Op::FloatType)
+IR_OP(FMul, "fmul", Arithmetic, SameArgs, Op::FloatType, Op::FloatType)
+IR_OP(FDiv, "fdiv", Arithmetic, SameArgs, Op::FloatType, Op::FloatType)
+IR_OP(FNeg, "fneg", Arithmetic, SameArgs, Op::FloatType)
+
+IR_OP(ZExt, "zext", Arithmetic, SameOp0, Op::IntType)
+IR_OP(SExt, "sext", Arithmetic, SameOp0, Op::IntType)
+IR_OP(Trunc, "trunc", Arithmetic, SameOp0)
+
+IR_OP(And, "and", Logic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(Or, "or", Logic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(Xor, "xor", Logic, SameArgs, Op::IntType, Op::IntType)
+IR_OP(Not, "not", Logic, SameArgs, Op::IntType)
+IR_OP(Shl, "shl", Logic, SameOp0, Op::IntType, Op::IntType)
+IR_OP(Lsr, "lsr", Logic, SameOp0, Op::IntType, Op::IntType)
+IR_OP(Asr, "asr", Logic, SameOp0, Op::IntType, Op::IntType)
+
+IR_OP(ICmp, "icmp", Logic, Bool, Op::ICond, Op::IntType, Op::IntType)
+IR_OP(FCmp, "fcmp", Logic, Bool, Op::FCond, Op::FloatType, Op::FloatType)
+
+IR_OP(Alloca, "alloca", Memory, PtrToOp0, Op::MetaType, Op::IntType)
+IR_OP(Load, "ld", Memory, PointeeOp0, Op::Ptr)
+IR_OP(Store, "str", Memory, None, Op::Ptr, Op::AnyType)
+IR_OP(LoadConst, "ldc", Memory, Int, Op::IntConst)
+
+IR_OP(GetElementPtr, "getelementptr", Aggregate, PtrToElem0, Op::AggregateType,
+      Op::IntType)
+IR_OP(ExtractElement, "extractelement", Aggregate, ElemOp0,
+      Op::AggregateType, Op::IntConst)
+IR_OP(InsertElement, "insertelement", Aggregate, SameOp0,
+      Op::AggregateType, Op::IntConst, Op::AnyType)
+
+IR_OP(Call, "call", Call, Custom)
+IR_OP(CallIndirect, "callindirect", Call, Custom)
+IR_OP(Branch, "branch", Term, None, Op::BoolType, Op::BlockLabel,
+      Op::BlockLabel)
+IR_OP(Jump, "jump", Term, None, Op::BlockLabel)
+IR_OP(Ret, "ret", Term, None, Op::AnyType)
+
+IR_OP(Arg, "arg", Misc, Custom)
+IR_OP(Phi, "phi", Misc, Custom)
+IR_OP(Copy, "copy", Misc, SameArgs, Op::AnyType)
+IR_OP(ParallelCopy, "parallelcopy", Misc, Custom)
+IR_OP(Dead, "dead", Misc, Custom)

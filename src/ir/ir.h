@@ -6,6 +6,7 @@
 #include "core/types.h"
 #include "ir/condition_codes.h"
 #include "ir/constants.h"
+#include "ir/ir_ops.h"
 #include "parser/ast.h"
 #include "type/type_ref.h"
 #include <cstdint>
@@ -19,63 +20,6 @@
 #include <vector>
 
 namespace z::ir {
-
-enum class IROp : u8 {
-    IAdd,
-    ISub,
-    IMul,
-    SDiv,
-    UDiv,
-    SRem,
-    URem,
-    INeg,
-
-    FAdd,
-    FSub,
-    FMul,
-    FDiv,
-    FNeg,
-
-    And,
-    Or,
-    Xor,
-    Not,
-    Shl,
-    Lsr,
-    Asr,
-
-    ICmp,
-    FCmp,
-
-    Alloca,
-    Load,
-    Store,
-    LoadConst,
-    StoreConst,
-
-    GetElementPtr,
-    GetFieldPtr,
-    ExtractField,
-    InsertField,
-    ExtractElement,
-    InsertElement,
-
-    ArrayInit,
-    StructInit,
-    TupleInit,
-
-    Call,
-    CallIndirect,
-    Branch,
-    Jump,
-    Ret,
-    Arg,
-
-    Phi,
-    Copy,
-    ParallelCopy,
-    Dead
-};
 
 using ast::BinOp;
 using ast::UnOp;

@@ -2,6 +2,7 @@
 
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
 #include <string_view>
 #include <vector>
@@ -16,7 +17,6 @@ public:
         case IROp::Call:
         case IROp::CallIndirect:
         case IROp::Store:
-        case IROp::StoreConst:
         case IROp::Branch:
         case IROp::Jump:
         case IROp::Ret:

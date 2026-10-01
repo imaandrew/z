@@ -5,6 +5,7 @@
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
 #include "ir/ir_builder.h"
+#include "ir/ir_ops.h"
 #include <ostream>
 #include <print>
 #include <string>
@@ -279,26 +280,12 @@ constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
         return "store";
     case IROp::LoadConst:
         return "loadconst";
-    case IROp::StoreConst:
-        return "storeconst";
     case IROp::GetElementPtr:
         return "getelementptr";
-    case IROp::GetFieldPtr:
-        return "getfieldptr";
-    case IROp::ExtractField:
-        return "extractfield";
-    case IROp::InsertField:
-        return "insertfield";
     case IROp::ExtractElement:
         return "extractelement";
     case IROp::InsertElement:
         return "insertelement";
-    case IROp::ArrayInit:
-        return "arrayinit";
-    case IROp::StructInit:
-        return "structinit";
-    case IROp::TupleInit:
-        return "tupleinit";
     case IROp::Call:
         return "call";
     case IROp::CallIndirect:

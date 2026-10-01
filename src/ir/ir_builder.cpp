@@ -5,6 +5,7 @@
 #include "ir/condition_codes.h"
 #include "ir/constants.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_arena.h"
@@ -329,8 +330,11 @@ void IRBuilder::visit(ast::ArrayExpr& expr) {
         ctxt->ty->get_as<type::ArrayType>(container.as_reg().type);
     expect(arr_type != nullptr, "ArrayExpr should have type ArrayType");
 
+    auto ptr =
+        emit_inst(IROp::GetElementPtr, {container, val},
+                  ctxt->ty->make<type::PointerType>(arr_type->get_type()));
     auto result =
-        emit_inst(IROp::ExtractElement, {container, val}, arr_type->get_type());
+        emit_inst(IROp::Load, {Operand::reg(ptr)}, arr_type->get_type());
     last_result = Operand::reg(result);
 }
 
@@ -345,9 +349,10 @@ void IRBuilder::visit(ast::FieldExpr& expr) {
     auto field_idx = struct_type->get_field_index(expr.field->get_id());
     expect(field_idx && field_type, "Couldn't find field in StructType");
 
-    auto result =
-        emit_inst(IROp::ExtractField, {container, Operand::field(*field_idx)},
-                  *field_type);
+    auto ptr =
+        emit_inst(IROp::GetElementPtr, {container, Operand::field(*field_idx)},
+                  ctxt->ty->make<type::PointerType>(*field_type));
+    auto result = emit_inst(IROp::Load, {Operand::reg(ptr)}, *field_type);
     last_result = Operand::reg(result);
 }
 
@@ -516,11 +521,12 @@ void IRBuilder::visit(ast::ContinueStmt& /*stmt*/) { add_deferred_continue(); }
 void IRBuilder::visit(ast::ForExpr& expr) {}
 
 void IRBuilder::visit(ast::LetStmt& stmt) {
-    if (stmt.val) {
+    if (!stmt.val)
+        return;
+
         auto val = emit_op(stmt.val.get());
         auto reg = ensure_reg(val).as_reg();
         write_var(stmt.ident->get_id(), reg);
-    }
 }
 
 void IRBuilder::visit(ast::ReturnStmt& stmt) {
