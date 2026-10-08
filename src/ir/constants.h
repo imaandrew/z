@@ -8,6 +8,13 @@
 #include <utility>
 namespace z::ir {
 
+inline u64 mask_val(u64 value, u64 width) {
+    if (width == 64)
+        return value;
+
+    return value & ((1ULL << width) - 1);
+}
+
 class ConstInt {
     u64 bits;
     u8 width;
@@ -22,17 +29,44 @@ class ConstInt {
 
     [[nodiscard]] i64 sign_extend(u64 v) const {
         u64 const sign_bit = 1ULL << static_cast<u64>(width - 1);
-        if ((v & sign_bit) != 0U) {
-            ASSERT(width < 64);
+        if ((v & sign_bit) != 0U && width < 64) {
             return static_cast<i64>(v | ~((1ULL << width) - 1));
         }
 
         return static_cast<i64>(v);
     }
 
+    [[nodiscard]] ConstInt add(const ConstInt& other) const {
+        ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
+        return ConstInt(mask(bits + other.bits), width, is_signed_);
+    }
+
+    [[nodiscard]] ConstInt sub(const ConstInt& other) const {
+        ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
+        return {mask(bits - other.bits), width, is_signed_};
+    }
+
+    [[nodiscard]] ConstInt mul(const ConstInt& other) const {
+        ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
+        return {mask(bits * other.bits), width, is_signed_};
+    }
+
+    [[nodiscard]] ConstInt sdiv(const ConstInt& other) const {
+        ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
+
+        auto a = sign_extend(bits);
+        auto b = sign_extend(other.bits);
+
+        return {mask(static_cast<u64>(a / b)), width, is_signed_};
+    }
+
 public:
     ConstInt(u64 bits, u8 width, bool is_signed)
-        : bits(bits), width(width), is_signed_(is_signed) {}
+        : bits(mask_val(bits, width)), width(width), is_signed_(is_signed) {}
 
     [[nodiscard]] u64 get_bits() const { return bits; }
 
@@ -51,13 +85,65 @@ public:
         return false;
     }
 
-    [[nodiscard]] ConstInt neg() const {
-        return {mask(-bits), width, is_signed_};
+    [[nodiscard]] bool fits_in(u8 new_width, bool new_signed) const {
+        if (new_width == 64) {
+            if (new_signed)
+                return is_signed() || (bits >> 63ULL) == 0;
+            return !is_negative();
+        }
+
+        if (!new_signed) {
+            const u64 max = (1ULL << new_width) - 1;
+            if (is_signed()) {
+                const auto val = get_signed();
+                return std::cmp_greater_equal(val, 0) &&
+                       std::cmp_less_equal(val, max);
+            }
+            return bits <= max;
+        }
+
+        const i64 max = static_cast<i64>(1ULL << (new_width - 1ULL)) - 1;
+        const i64 min = -static_cast<i64>(1ULL << (new_width - 1ULL));
+
+        if (is_signed()) {
+            const i64 val = get_signed();
+            return val >= min && val <= max;
+        }
+
+        return std::cmp_greater_equal(bits, min) &&
+               std::cmp_less_equal(bits, max);
     }
 
-    [[nodiscard]] ConstInt add(const ConstInt& other) const {
-        ASSERT(width == other.width);
-        return ConstInt(mask(bits + other.bits), width, is_signed_);
+    [[nodiscard]] ConstInt zext(u8 new_width, bool new_signed) const {
+        ASSERT(new_width >= width);
+        return {bits, new_width, new_signed};
+    }
+
+    [[nodiscard]] ConstInt sext(u8 new_width, bool new_signed) const {
+        ASSERT(new_width >= width);
+        return {mask_val(static_cast<u64>(sign_extend(bits)), new_width),
+                new_width, new_signed};
+    }
+
+    [[nodiscard]] ConstInt trunc(u8 new_width, bool new_signed) const {
+        ASSERT(new_width <= width);
+        return {mask_val(bits, new_width), new_width, new_signed};
+    }
+
+    [[nodiscard]] ConstInt cast_to(u8 new_width, bool new_signed) const {
+        if (new_width < width)
+            return trunc(new_width, new_signed);
+        if (new_width > width)
+            return new_signed ? sext(new_width, new_signed)
+                              : zext(new_width, new_signed);
+
+        return {bits, new_width, new_signed};
+    }
+
+    [[nodiscard]] ConstInt neg(bool& overflow, bool& undefined) const {
+        undefined = !is_signed();
+        overflow = bits == 1ULL << (width - 1ULL);
+        return {mask(-bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt add(const ConstInt& other, bool& overflow) const {
@@ -74,11 +160,6 @@ public:
         return result;
     }
 
-    [[nodiscard]] ConstInt sub(const ConstInt& other) const {
-        ASSERT(width == other.width);
-        return {mask(bits - other.bits), width, is_signed_};
-    }
-
     [[nodiscard]] ConstInt sub(const ConstInt& other, bool& overflow) const {
         auto result = sub(other);
 
@@ -93,13 +174,9 @@ public:
         return result;
     }
 
-    [[nodiscard]] ConstInt mul(const ConstInt& other) const {
-        ASSERT(width == other.width);
-        return {mask(bits * other.bits), width, is_signed_};
-    }
-
     [[nodiscard]] ConstInt mul(const ConstInt& other, bool& overflow) const {
         auto result = mul(other);
+        overflow = false;
 
         if (result.is_signed_) {
             if (bits != 0) {
@@ -107,88 +184,106 @@ public:
                 auto rhs_signed = sign_extend(other.bits);
                 auto result_signed = sign_extend(result.bits);
 
-                if (lhs_signed == -1) {
-                    overflow = false;
-                } else {
+                if (lhs_signed != -1) {
                     overflow = (result_signed / lhs_signed) != rhs_signed;
                 }
-            } else {
-                overflow = false;
             }
-        } else {
-            if (bits != 0) {
-                overflow = result.udiv(*this).bits != other.bits;
-            } else {
-                overflow = false;
-            }
+        } else if (bits != 0) {
+            bool undefined = false;
+            overflow = (result.udiv(*this, undefined).bits != other.bits);
+            expect(!undefined,
+                   "only undefined if denom == 0 but denom bits != 0");
         }
 
         return result;
     }
 
-    [[nodiscard]] ConstInt udiv(const ConstInt& other) const {
+    [[nodiscard]] ConstInt udiv(const ConstInt& other, bool& undefined) const {
         ASSERT(width == other.width);
-        ASSERT(other.bits != 0);
+        ASSERT(is_signed() == other.is_signed());
+
+        undefined = other.bits == 0;
+        if (undefined)
+            return {0, width, is_signed_};
+
         return {mask(bits / other.bits), width, is_signed_};
     }
 
-    [[nodiscard]] ConstInt sdiv(const ConstInt& other) const {
-        ASSERT(width == other.width);
-        ASSERT(other.bits != 0);
-
-        auto a = sign_extend(bits);
-        auto b = sign_extend(other.bits);
-
-        return {mask(static_cast<u64>(a / b)), width, is_signed_};
-    }
-
-    [[nodiscard]] ConstInt sdiv(const ConstInt& other, bool& overflow) const {
-        auto result = sdiv(other);
+    [[nodiscard]] ConstInt sdiv(const ConstInt& other, bool& overflow,
+                                bool& undefined) const {
+        undefined = other.bits == 0;
+        if (undefined)
+            return {0, width, is_signed_};
 
         auto lhs_signed = sign_extend(bits);
         auto rhs_signed = sign_extend(other.bits);
 
         i64 const min_val =
             -static_cast<i64>(1ULL << static_cast<u64>(width - 1));
+
         overflow = lhs_signed == min_val && rhs_signed == -1;
+        if (overflow)
+            return {0, width, is_signed_};
+
+        auto result = sdiv(other);
 
         return result;
     }
 
-    [[nodiscard]] ConstInt urem(const ConstInt& other) const {
+    [[nodiscard]] ConstInt urem(const ConstInt& other, bool& undefined) const {
         ASSERT(width == other.width);
-        ASSERT(other.bits != 0);
+        ASSERT(is_signed() == other.is_signed());
+
+        undefined = other.bits == 0;
+        if (undefined)
+            return {0, width, is_signed_};
 
         return {mask(bits % other.bits), width, is_signed_};
     }
 
-    [[nodiscard]] ConstInt srem(const ConstInt& other) const {
+    [[nodiscard]] ConstInt srem(const ConstInt& other, bool& undefined) const {
         ASSERT(width == other.width);
-        ASSERT(other.bits != 0);
+        ASSERT(is_signed() == other.is_signed());
+
+        undefined = other.bits == 0;
+        if (undefined)
+            return {0, width, is_signed_};
 
         auto a = sign_extend(bits);
         auto b = sign_extend(other.bits);
 
         if (a == std::numeric_limits<i64>::min() && b == -1)
-            return ConstInt{0, width, is_signed_};
+            return {0, width, is_signed_};
 
         return {mask(static_cast<u64>(a % b)), width, is_signed_};
     }
 
-    [[nodiscard]] ConstInt shl(const ConstInt& other) const {
+    [[nodiscard]] ConstInt shl(const ConstInt& other, bool& undefined) const {
         ASSERT(width == other.width);
+
+        undefined = other.bits >= width || other.is_negative();
+        if (undefined)
+            return {0, width, is_signed_};
 
         return {mask(bits << other.bits), width, is_signed_};
     }
 
-    [[nodiscard]] ConstInt lshr(const ConstInt& other) const {
+    [[nodiscard]] ConstInt lshr(const ConstInt& other, bool& undefined) const {
         ASSERT(width == other.width);
+
+        undefined = other.bits >= width || other.is_negative();
+        if (undefined)
+            return {0, width, is_signed_};
 
         return {mask(bits >> other.bits), width, is_signed_};
     }
 
-    [[nodiscard]] ConstInt ashr(const ConstInt& other) const {
+    [[nodiscard]] ConstInt ashr(const ConstInt& other, bool& undefined) const {
         ASSERT(width == other.width);
+
+        undefined = other.bits >= width || other.is_negative();
+        if (undefined)
+            return {0, width, is_signed_};
 
         return {mask(static_cast<u64>(sign_extend(bits)) >> other.bits), width,
                 is_signed_};
@@ -200,21 +295,25 @@ public:
 
     [[nodiscard]] ConstInt bit_and(const ConstInt& other) const {
         ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
         return ConstInt{mask(bits & other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt bit_or(const ConstInt& other) const {
         ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
         return ConstInt{mask(bits | other.bits), width, is_signed_};
     }
 
     [[nodiscard]] ConstInt bit_xor(const ConstInt& other) const {
         ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
         return ConstInt{mask(bits ^ other.bits), width, is_signed_};
     }
 
     [[nodiscard]] bool cmp(const ConstInt& other, IntCC cc) const {
         ASSERT(width == other.width);
+        ASSERT(is_signed() == other.is_signed());
 
         const auto lhs_signed = sign_extend(bits);
         const auto rhs_signed = sign_extend(other.bits);
@@ -248,7 +347,7 @@ public:
     [[nodiscard]] bool cmp_imm(i64 other, IntCC cc) const {
 
         const auto lhs_signed = sign_extend(bits);
-        const auto rhs_bits = static_cast<u64>(other);
+        const auto rhs_bits = mask_val(static_cast<u64>(other), width);
 
         switch (cc) {
         case IntCC::Equal:
@@ -286,6 +385,33 @@ public:
 
     [[nodiscard]] double get_bits() const { return bits; }
 
+    [[nodiscard]] u8 get_width() const { return width; }
+
+    [[nodiscard]] bool fits_in(u8 new_width) const {
+        if (new_width == 32)
+            return static_cast<float>(bits) == bits;
+
+        if (new_width == 64)
+            return static_cast<double>(bits) == bits;
+
+        panic("ConstFloat: invalid width: {}", new_width);
+    }
+
+    [[nodiscard]] ConstFloat cast_to(u8 new_width) const {
+        if (width == new_width)
+            return *this;
+
+        if (new_width == 32) {
+            ASSERT(width == 64);
+            return {static_cast<float>(bits), new_width};
+        }
+        if (new_width == 64) {
+            ASSERT(width == 32);
+            return {bits, new_width};
+        }
+        panic("ConstFloat: invalid width: {}", new_width);
+    }
+
     [[nodiscard]] ConstFloat neg() const { return {-bits, width}; }
 
     [[nodiscard]] ConstFloat add(const ConstFloat& other) const {
@@ -303,8 +429,12 @@ public:
         return {bits * other.bits, width};
     }
 
-    [[nodiscard]] ConstFloat div(const ConstFloat& other) const {
+    [[nodiscard]] ConstFloat div(const ConstFloat& other,
+                                 bool& undefined) const {
         ASSERT(width == other.width);
+        undefined = other.bits == 0;
+        if (undefined)
+            return {0, width};
         return {bits / other.bits, width};
     }
 

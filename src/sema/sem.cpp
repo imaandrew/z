@@ -684,7 +684,7 @@ void SemChecker::visit(ast::LetStmt& stmt) {
                 ctxt->ty->get_as<type::ArrayType>(stmt.type)) {
             const auto expected_size = arr_type->get_size();
 
-            if (expected_size && *expected_size <= 0) {
+            if (expected_size == 0) {
                 ctxt->diag
                     .error(stmt.ident->get_span(),
                            DiagnosticKind::InvalidArraySize)

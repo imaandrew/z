@@ -65,10 +65,15 @@ public:
                 continue;
 
             if (inst.operands.size() == 1) {
-                auto imm = inst.operands[0].as_imm();
+                const auto imm = inst.operands[0].as_imm();
                 if (inst.op == IROp::INeg) {
-                    inst.operands[0] =
-                        Operand::imm(imm.as_int().neg(), imm.type);
+                    bool overflow = false;
+                    bool undefined = false;
+                    const auto neg = imm.as_int().neg(overflow, undefined);
+                    if (overflow || undefined)
+                        continue;
+
+                    inst.operands[0] = Operand::imm(neg, imm.type);
                 } else if (inst.op == IROp::FNeg) {
                     inst.operands[0] =
                         Operand::imm(imm.as_float().neg(), imm.type);
@@ -79,8 +84,8 @@ public:
                     panic("Invalid number of operands for inst");
                 }
             } else if (inst.operands.size() == 2) {
-                auto lhs = inst.operands[0].as_imm();
-                auto rhs = inst.operands[1].as_imm();
+                const auto lhs = inst.operands[0].as_imm();
+                const auto rhs = inst.operands[1].as_imm();
 
                 switch (inst.op) {
                 case IROp::IAdd:
@@ -97,11 +102,11 @@ public:
                 case IROp::Or:
                 case IROp::Xor: {
                     bool overflow = false;
+                    bool undefined = false;
                     auto res = fold_int_op(inst.op, lhs.as_int(), rhs.as_int(),
-                                           overflow);
-                    if (overflow) {
-                        // error
-                    }
+                                           overflow, undefined);
+                    if (overflow || undefined)
+                        continue;
 
                     expect(res.has_value(), "Result should have value");
                     inst.operands = {Operand::imm(*res, lhs.type)};
@@ -111,8 +116,11 @@ public:
                 case IROp::FSub:
                 case IROp::FMul:
                 case IROp::FDiv: {
-                    auto res =
-                        fold_float_op(inst.op, lhs.as_float(), rhs.as_float());
+                    bool undefined = false;
+                    auto res = fold_float_op(inst.op, lhs.as_float(),
+                                             rhs.as_float(), undefined);
+                    if (undefined)
+                        continue;
 
                     expect(res.has_value(), "Result should have value");
                     inst.operands = {Operand::imm(*res, lhs.type)};
@@ -122,23 +130,23 @@ public:
                     std::unreachable();
                 }
             } else if (inst.operands.size() == 3) {
-                auto lhs = inst.operands[1].as_imm();
-                auto rhs = inst.operands[2].as_imm();
+                const auto lhs = inst.operands[1].as_imm();
+                const auto rhs = inst.operands[2].as_imm();
 
                 if (inst.op == IROp::ICmp) {
-                    auto cc = inst.operands[0].as_intcc();
-                    auto lhs_int = lhs.as_int();
-                    auto rhs_int = rhs.as_int();
+                    const auto cc = inst.operands[0].as_intcc();
+                    const auto lhs_int = lhs.as_int();
+                    const auto rhs_int = rhs.as_int();
 
-                    auto res = lhs_int.cmp(rhs_int, cc);
+                    const auto res = lhs_int.cmp(rhs_int, cc);
 
                     inst.operands = {Operand::imm(res, type::builtin::BOOL)};
                 } else if (inst.op == IROp::FCmp) {
-                    auto cc = inst.operands[0].as_floatcc();
-                    auto lhs_float = lhs.as_float();
-                    auto rhs_float = rhs.as_float();
+                    const auto cc = inst.operands[0].as_floatcc();
+                    const auto lhs_float = lhs.as_float();
+                    const auto rhs_float = rhs.as_float();
 
-                    auto res = lhs_float.cmp(rhs_float, cc);
+                    const auto res = lhs_float.cmp(rhs_float, cc);
 
                     inst.operands = {Operand::imm(res, type::builtin::BOOL)};
                 } else {

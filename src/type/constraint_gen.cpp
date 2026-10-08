@@ -287,7 +287,8 @@ void ConstraintGenerator::visit(ast::ForExpr& expr) {
 
 void ConstraintGenerator::visit(ast::LetStmt& stmt) {
     if (stmt.type.is_valid()) {
-        resolve_type_name(stmt.type);
+        if (!ctxt->resolve_unk_type(stmt.type))
+            stmt.type = type::builtin::INVALID;
         push_expected(stmt.type);
     }
 
@@ -484,17 +485,6 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
     if (const auto t = syms->get_func(decl.name->get_id())) {
         decl.set_type(*t);
         decl.name->set_type(*t);
-    }
-}
-
-void ConstraintGenerator::resolve_type_name(TypeRef& type) {
-    if (auto* unk = ty->get_as<UnknownType>(type)) {
-        auto t = syms->get_type(unk->get_id());
-        if (t) {
-            type = *t;
-        } else {
-            type = builtin::INVALID;
-        }
     }
 }
 

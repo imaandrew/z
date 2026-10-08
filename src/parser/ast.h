@@ -151,44 +151,44 @@ public:
     ASTVisitor& operator=(const ASTVisitor&) = delete;
     ASTVisitor(ASTVisitor&&) = delete;
     ASTVisitor& operator=(ASTVisitor&&) = delete;
-    virtual void visit(IntExpr&) = 0;
-    virtual void visit(FloatExpr&) = 0;
-    virtual void visit(BoolExpr&) = 0;
-    virtual void visit(PrefixExpr&) = 0;
-    virtual void visit(PostfixExpr&) = 0;
-    virtual void visit(BinaryExpr&) = 0;
-    virtual void visit(CallExpr&) = 0;
-    virtual void visit(ArrayExpr&) = 0;
-    virtual void visit(FieldExpr&) = 0;
-    virtual void visit(ArrayInitExpr&) = 0;
-    virtual void visit(StructExprField&) = 0;
-    virtual void visit(StructInitExpr&) = 0;
-    virtual void visit(TupleExpr&) = 0;
-    virtual void visit(Identifier&) = 0;
-    virtual void visit(Block&) = 0;
-    virtual void visit(Param&) = 0;
-    virtual void visit(SourceFileDecl&) = 0;
-    virtual void visit(FuncDecl&) = 0;
-    virtual void visit(BreakStmt&) = 0;
-    virtual void visit(ContinueStmt&) = 0;
-    virtual void visit(ForExpr&) = 0;
-    virtual void visit(LetStmt&) = 0;
-    virtual void visit(ReturnStmt&) = 0;
-    virtual void visit(IfExpr&) = 0;
-    virtual void visit(ElseExpr&) = 0;
-    virtual void visit(LoopExpr&) = 0;
-    virtual void visit(WhileExpr&) = 0;
-    virtual void visit(StringExpr&) = 0;
-    virtual void visit(CharExpr&) = 0;
-    virtual void visit(StructField&) = 0;
-    virtual void visit(StructDecl&) = 0;
-    virtual void visit(EnumField&) = 0;
-    virtual void visit(EnumDecl&) = 0;
-    virtual void visit(ConstDecl&) = 0;
-    virtual void visit(StaticDecl&) = 0;
-    virtual void visit(TraitDecl&) = 0;
-    virtual void visit(TypeAliasDecl&) = 0;
-    virtual void visit(TraitFuncDecl&) = 0;
+    virtual void visit(IntExpr& expr) = 0;
+    virtual void visit(FloatExpr& expr) = 0;
+    virtual void visit(BoolExpr& expr) = 0;
+    virtual void visit(PrefixExpr& expr) = 0;
+    virtual void visit(PostfixExpr& expr) = 0;
+    virtual void visit(BinaryExpr& expr) = 0;
+    virtual void visit(CallExpr& expr) = 0;
+    virtual void visit(ArrayExpr& expr) = 0;
+    virtual void visit(FieldExpr& expr) = 0;
+    virtual void visit(ArrayInitExpr& expr) = 0;
+    virtual void visit(StructExprField& expr) = 0;
+    virtual void visit(StructInitExpr& expr) = 0;
+    virtual void visit(TupleExpr& expr) = 0;
+    virtual void visit(Identifier& ident) = 0;
+    virtual void visit(Block& block) = 0;
+    virtual void visit(Param& param) = 0;
+    virtual void visit(SourceFileDecl& decl) = 0;
+    virtual void visit(FuncDecl& decl) = 0;
+    virtual void visit(BreakStmt& stmt) = 0;
+    virtual void visit(ContinueStmt& stmt) = 0;
+    virtual void visit(ForExpr& expr) = 0;
+    virtual void visit(LetStmt& stmt) = 0;
+    virtual void visit(ReturnStmt& stmt) = 0;
+    virtual void visit(IfExpr& expr) = 0;
+    virtual void visit(ElseExpr& expr) = 0;
+    virtual void visit(LoopExpr& expr) = 0;
+    virtual void visit(WhileExpr& expr) = 0;
+    virtual void visit(StringExpr& expr) = 0;
+    virtual void visit(CharExpr& expr) = 0;
+    virtual void visit(StructField& field) = 0;
+    virtual void visit(StructDecl& decl) = 0;
+    virtual void visit(EnumField& field) = 0;
+    virtual void visit(EnumDecl& decl) = 0;
+    virtual void visit(ConstDecl& decl) = 0;
+    virtual void visit(StaticDecl& decl) = 0;
+    virtual void visit(TraitDecl& decl) = 0;
+    virtual void visit(TypeAliasDecl& decl) = 0;
+    virtual void visit(TraitFuncDecl& decl) = 0;
 };
 
 class ASTNode {
@@ -260,12 +260,12 @@ template <typename T> const T* dyn_cast(const ASTNode* node) {
 }
 
 template <typename T> T* cast(ASTNode* node) {
-    assert(isa<T>(node) && "Invalid cast");
+    expect(isa<T>(node), "Invalid cast");
     return static_cast<T*>(node);
 }
 
 template <typename T> const T* cast(const ASTNode* node) {
-    assert(isa<T>(node) && "Invalid cast");
+    expect(isa<T>(node), "Invalid cast");
     return static_cast<T*>(node);
 }
 
@@ -596,12 +596,12 @@ struct StructExprField final : Expr {
 };
 
 struct StructInitExpr final : Expr {
-    std::unique_ptr<Expr> ident;
+    std::unique_ptr<Identifier> ident;
     std::vector<std::unique_ptr<StructExprField>> fields;
 
     static constexpr ASTKind Kind = ASTKind::StructInitExpr;
 
-    StructInitExpr(Span span, std::unique_ptr<Expr> ident,
+    StructInitExpr(Span span, std::unique_ptr<Identifier> ident,
                    std::vector<std::unique_ptr<StructExprField>> fields)
         : Expr(Kind, span), ident(std::move(ident)),
           fields(std::move(fields)) {};
@@ -711,14 +711,55 @@ struct Decl : ASTNode {
     virtual void resolve_sym(ZContext* ctxt) = 0;
 };
 
+struct ConstDecl final : Decl {
+    std::unique_ptr<Identifier> ident;
+    type::TypeRef type;
+    std::unique_ptr<Expr> val;
+
+    static constexpr ASTKind Kind = ASTKind::ConstDecl;
+
+    ConstDecl(Span span, std::unique_ptr<Identifier> ident, type::TypeRef type,
+              std::unique_ptr<Expr> val)
+        : Decl(Kind, span), ident(std::move(ident)), type(type),
+          val(std::move(val)) {};
+
+    void dump(ZContext* ctxt, const int indent,
+              std::ostream& stream) const override {
+        print_header(stream, indent, "ConstDecl", ctxt);
+        ident->dump(ctxt, indent + 2, stream, type);
+        if (val)
+            val->dump(ctxt, indent + 2, stream);
+    }
+
+    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
+
+    std::generator<ASTNode*> children() override {
+        co_yield ident.get();
+        co_yield val.get();
+    }
+
+    void declare_type(ZContext* ctxt) override {
+        valid = ctxt->syms->declare_var(ident, type, true, true);
+    }
+
+    void resolve_sym(ZContext* ctxt) override {
+        if (!valid)
+            return;
+
+        if (!ctxt->resolve_unk_type(type)) {
+            return;
+        }
+    }
+};
+
 struct SourceFileDecl : Decl {
     std::vector<std::unique_ptr<Decl>> decls;
-    std::vector<std::unique_ptr<Decl>> const_decls;
+    std::vector<std::unique_ptr<ConstDecl>> const_decls;
 
     static constexpr ASTKind Kind = ASTKind::SourceFileDecl;
 
     SourceFileDecl(Span span, std::vector<std::unique_ptr<Decl>> decls,
-                   std::vector<std::unique_ptr<Decl>> const_decls)
+                   std::vector<std::unique_ptr<ConstDecl>> const_decls)
         : Decl(Kind, span), decls(std::move(decls)),
           const_decls(std::move(const_decls)) {}
 
@@ -1539,47 +1580,6 @@ struct EnumDecl final : Decl {
         }
 
         ctxt->ty->replace<type::EnumType>(*t, ident->get_id(), field_types);
-    }
-};
-
-struct ConstDecl final : Decl {
-    std::unique_ptr<Identifier> ident;
-    type::TypeRef type;
-    std::unique_ptr<Expr> val;
-
-    static constexpr ASTKind Kind = ASTKind::ConstDecl;
-
-    ConstDecl(Span span, std::unique_ptr<Identifier> ident, type::TypeRef type,
-              std::unique_ptr<Expr> val)
-        : Decl(Kind, span), ident(std::move(ident)), type(type),
-          val(std::move(val)) {};
-
-    void dump(ZContext* ctxt, const int indent,
-              std::ostream& stream) const override {
-        print_header(stream, indent, "ConstDecl", ctxt);
-        ident->dump(ctxt, indent + 2, stream, type);
-        if (val)
-            val->dump(ctxt, indent + 2, stream);
-    }
-
-    void accept(ASTVisitor& visitor) override { visitor.visit(*this); }
-
-    std::generator<ASTNode*> children() override {
-        co_yield ident.get();
-        co_yield val.get();
-    }
-
-    void declare_type(ZContext* ctxt) override {
-        valid = ctxt->syms->declare_var(ident, type, true, true);
-    }
-
-    void resolve_sym(ZContext* ctxt) override {
-        if (!valid)
-            return;
-
-        if (!ctxt->resolve_unk_type(type)) {
-            return;
-        }
     }
 };
 

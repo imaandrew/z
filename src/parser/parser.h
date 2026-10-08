@@ -52,6 +52,7 @@ class Parser {
     SymbolTable* syms;
     StringPool* strings;
     type::TypeArena* ty;
+    ZContext* ctxt;
     Token tok{};
     Token prev_tok{};
     bool required_semi = true;
@@ -99,8 +100,8 @@ class Parser {
 public:
     Parser(const Lexer& lexer, ZContext& ctxt)
         : lexer(lexer), diag(&ctxt.diag), source(ctxt.src.get()),
-          syms(ctxt.syms.get()), strings(ctxt.strings.get()),
-          ty(ctxt.ty.get()) {};
+          syms(ctxt.syms.get()), strings(ctxt.strings.get()), ty(ctxt.ty.get()),
+          ctxt(&ctxt) {};
     std::unique_ptr<ast::SourceFileDecl> parse();
 };
 } // namespace z

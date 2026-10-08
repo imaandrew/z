@@ -20,6 +20,7 @@ namespace z {
 
 enum class DiagnosticKind : u8 {
     ExpectedToken,
+    UnexpectedToken,
     ExpectedSemi,
     ExpectedDecl,
     IntegerOutOfRange,
@@ -64,13 +65,19 @@ enum class DiagnosticKind : u8 {
     RecursiveStructDefiniton,
     BreakTypeMismatch,
     InfiniteLoop,
-    OperationOverflows
+    OperationOverflows,
+    OperationUndefined,
+    NotCompileTimeConst,
+    RecursiveConst,
+    ExpectedType,
 };
 
 constexpr std::string_view get_diagnostic_string(DiagnosticKind kind) {
     switch (kind) {
     case DiagnosticKind::ExpectedToken:
         return "expected `{0}`, found `{1}`";
+    case DiagnosticKind::UnexpectedToken:
+        return "expected `{0}`";
     case DiagnosticKind::ExpectedSemi:
         return "expected `;` after statement";
     case DiagnosticKind::ExpectedDecl:
@@ -162,6 +169,14 @@ constexpr std::string_view get_diagnostic_string(DiagnosticKind kind) {
         return "infinite loop never breaks";
     case DiagnosticKind::OperationOverflows:
         return "operation overflows type `{0}`";
+    case DiagnosticKind::OperationUndefined:
+        return "operation is undefined";
+    case DiagnosticKind::NotCompileTimeConst:
+        return "cannot be evaluated at compile time";
+    case DiagnosticKind::RecursiveConst:
+        return "constant depends on itself";
+    case DiagnosticKind::ExpectedType:
+        return "expected type `{0}`";
     }
 
     std::unreachable();

@@ -54,11 +54,20 @@ std::string PointerType::basic_name(const ZContext* ctxt) const {
 
 void ArrayType::dump(ZContext* ctxt, std::ostream& stream) const {
     std::print(stream, "ArrayType {{ type: {}, size: {} }}",
-               ctxt->ty->get(type)->basic_name(ctxt), size.value_or(-1));
+               ctxt->ty->get(type)->basic_name(ctxt), size);
 }
 
 std::string ArrayType::basic_name(const ZContext* ctxt) const {
-    return std::format("[{}]", ctxt->ty->get(type)->basic_name(ctxt));
+    return std::format("[{}; {}]", ctxt->ty->get(type)->basic_name(ctxt), size);
+}
+
+void PendingArrayType::dump(ZContext* ctxt, std::ostream& stream) const {
+    std::print(stream, "ArrayType {{ type: {}, size: * }}",
+               ctxt->ty->get(type)->basic_name(ctxt));
+}
+
+std::string PendingArrayType::basic_name(const ZContext* ctxt) const {
+    return std::format("[{}; *]", ctxt->ty->get(type)->basic_name(ctxt));
 }
 
 void FunctionType::dump(ZContext* ctxt, std::ostream& stream) const {

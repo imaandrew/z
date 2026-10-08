@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/panic.h"
 #include "core/types.h"
 #include "type_ref.h"
 #include <cassert>
@@ -11,6 +12,7 @@
 namespace z::type {
 class Type;
 
+template <typename T> bool isa(const Type* type);
 class TypeArena {
     std::unordered_map<TypeKey, TypeRef> intern_map;
     std::unordered_set<TypeRef> interned_types;
@@ -24,7 +26,8 @@ public:
                       T::Kind == TypeKind::Unknown ||
                       T::Kind == TypeKind::Temp ||
                       T::Kind == TypeKind::Struct ||
-                      T::Kind == TypeKind::Enum) {
+                      T::Kind == TypeKind::Enum ||
+                      T::Kind == TypeKind::PendingArray) {
             TypeRef ref{static_cast<u32>(types.size())};
             types.push_back(std::make_unique<T>(std::forward<Args>(args)...));
             return ref;
@@ -45,8 +48,12 @@ public:
 
     template <class T, typename... Args>
     void replace(TypeRef ref, Args&&... args) {
-        assert(!is_interned(ref) && "Cannot replace an interned type!");
+        expect(!is_interned(ref), "Cannot replace an interned type!");
         types[ref.get_id()] = std::make_unique<T>(std::forward<Args>(args)...);
+    }
+
+    template <typename T> bool isa(TypeRef ref) const {
+        return type::isa<T>(get(ref));
     }
 
     [[nodiscard]] Type* get(TypeRef ref) const {

@@ -200,7 +200,7 @@ std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
     auto span = tok.get_span();
 
     std::vector<std::unique_ptr<ast::Decl>> decls;
-    std::vector<std::unique_ptr<ast::Decl>> const_decls;
+    std::vector<std::unique_ptr<ast::ConstDecl>> const_decls;
 
     DeclResult decl;
     while (!tok.is(TokenKind::Eof)) {
@@ -235,10 +235,15 @@ std::unique_ptr<ast::SourceFileDecl> Parser::parse() {
         }
 
         if (decl.is_valid()) {
-            if (kind == TokenKind::KwConst)
-                const_decls.push_back(decl.take());
-            else
+            if (kind == TokenKind::KwConst) {
+                auto* const_decl =
+                    ast::dyn_cast<ast::ConstDecl>(decl.take().release());
+                ASSERT(const_decl);
+                const_decls.push_back(
+                    std::unique_ptr<ast::ConstDecl>(const_decl));
+            } else {
                 decls.push_back(decl.take());
+            }
         } else {
             recover_decl();
         }
@@ -973,6 +978,13 @@ ExprResult Parser::parse_expr(const int precedence,
         case TokenKind::LBrace: {
             std::vector<std::unique_ptr<ast::StructExprField>> vals;
 
+            const auto* ident = ast::dyn_cast<ast::Identifier>(lhs.get());
+            if (!ident) {
+                diag->error(lhs->get_span(), DiagnosticKind::UnexpectedToken,
+                            "identifier");
+                return ExprError();
+            }
+
             while (!kind(TokenKind::RBrace)) {
                 auto field = parse_struct_expr_field();
                 if (!field.is_valid())
@@ -989,8 +1001,11 @@ ExprResult Parser::parse_expr(const int precedence,
 
             span = tok.get_span();
             next_token();
-            lhs = std::make_unique<ast::StructInitExpr>(span, std::move(lhs),
-                                                        std::move(vals));
+            lhs = std::make_unique<ast::StructInitExpr>(
+                span,
+                std::make_unique<ast::Identifier>(ident->get_id(),
+                                                  ident->get_span()),
+                std::move(vals));
             break;
         }
         case TokenKind::Dot:
@@ -1293,21 +1308,21 @@ TypeResult Parser::parse_type() {
         if (!array_type.is_valid())
             return TypeError();
 
-        if (tok.is(TokenKind::Semi)) {
-            if (!consume(TokenKind::Number))
-                return TypeError();
+        tok_assert(TokenKind::Semi);
 
-            auto size = parse_num();
-            next_token();
+        auto size = prime_parse_expr();
 
-            if (const auto* num = ast::dyn_cast<ast::IntExpr>(size.get())) {
-                type = ty->make<type::ArrayType>(array_type.take(), num->val);
-            } else {
-                return TypeError();
-            }
+        if (!size.is_valid())
+            return TypeError();
+        if (const auto* int_expr =
+                ast::dyn_cast<ast::IntExpr>(size.get().get())) {
+            type = ty->make<type::ArrayType>(array_type.take(), int_expr->val);
         } else {
-            type = ty->make<type::ArrayType>(array_type.take(), std::nullopt);
+            type = ty->make<type::PendingArrayType>(
+                array_type.take(), ctxt->pending_array_exprs.size());
+            ctxt->pending_array_exprs.push_back(size.take());
         }
+
         tok_assert(TokenKind::RBracket);
     } else {
         return TypeError();

@@ -15,6 +15,7 @@
 namespace z::type {
 class ConstraintGenerator : public ast::ASTVisitor {
     TypeArena* ty;
+    ZContext* ctxt;
     std::vector<TypeRef>& inferred_types;
     std::vector<Constraint> constraints;
     SymbolTable* syms;
@@ -63,10 +64,10 @@ class ConstraintGenerator : public ast::ASTVisitor {
 public:
     explicit ConstraintGenerator(std::vector<TypeRef>& inferred_types,
                                  ZContext& ctxt)
-        : ty(ctxt.ty.get()), inferred_types(inferred_types),
+        : ty(ctxt.ty.get()), ctxt(&ctxt), inferred_types(inferred_types),
           syms(ctxt.syms.get()) {}
 
-    std::vector<Constraint> collect(ast::Decl* root) {
+    std::vector<Constraint> collect(ast::ASTNode* root) {
         root->accept(*this);
         return constraints;
     }
@@ -109,7 +110,5 @@ public:
     void visit(ast::TraitDecl& decl) override;
     void visit(ast::TypeAliasDecl& decl) override;
     void visit(ast::TraitFuncDecl& decl) override;
-
-    void resolve_type_name(TypeRef& type);
 };
 } // namespace z::type

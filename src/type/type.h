@@ -16,12 +16,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-namespace z::ast {
-struct Expr;
-struct Identifier;
-} // namespace z::ast
-
 namespace z {
 struct ZContext;
 }
@@ -281,21 +275,20 @@ public:
 
 class ArrayType final : public Type {
     TypeRef type;
-    std::optional<u64> size;
+    u64 size;
 
 public:
     static constexpr TypeKind Kind = TypeKind::Array;
 
-    ArrayType(TypeRef type, std::optional<u64> size)
-        : Type(Kind), type(type), size(size) {};
+    ArrayType(TypeRef type, u64 size) : Type(Kind), type(type), size(size) {};
 
-    static TypeKey make_key(TypeRef type, std::optional<u64> size) {
-        return make_type_key(Kind, type, size.has_value(), size.value_or(0));
+    static TypeKey make_key(TypeRef type, u64 size) {
+        return make_type_key(Kind, type, size);
     }
 
     [[nodiscard]] TypeRef get_type() const { return type; }
 
-    [[nodiscard]] std::optional<u64> get_size() const { return size; }
+    [[nodiscard]] u64 get_size() const { return size; }
 
     [[nodiscard]] bool is_array() const override { return true; }
 
@@ -306,14 +299,36 @@ public:
             if (type != other_->type)
                 return false;
 
-            if (size && other_->size)
-                return size == other_->size;
-
-            return !size && !other_->size;
+            return size == other_->size;
         }
 
         return false;
     }
+
+    void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
+
+    [[nodiscard]] std::string basic_name(const ZContext* ctxt) const override;
+};
+
+class PendingArrayType final : public Type {
+    TypeRef type;
+    usize array_len_idx;
+
+public:
+    static constexpr TypeKind Kind = TypeKind::PendingArray;
+
+    PendingArrayType(TypeRef type, usize array_len_idx)
+        : Type(Kind), type(type), array_len_idx(array_len_idx) {}
+
+    static TypeKey make_key(TypeRef type, usize array_len_idx) {
+        return make_type_key(Kind, type, array_len_idx);
+    }
+
+    [[nodiscard]] TypeRef get_type() const { return type; }
+
+    [[nodiscard]] usize get_index() const { return array_len_idx; }
+
+    [[nodiscard]] bool is_explicit() const override { return false; }
 
     void dump(ZContext* ctxt, std::ostream& stream = std::cout) const override;
 

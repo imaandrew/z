@@ -206,14 +206,23 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             }
 
             bool overflow = false;
-            auto res =
-                fold_int_op(op, lhs_imm.as_int(), rhs_imm.as_int(), overflow);
+            bool undefined = false;
+            auto res = fold_int_op(op, lhs_imm.as_int(), rhs_imm.as_int(),
+                                   overflow, undefined);
 
             if (overflow) {
                 const auto name =
                     ctxt->ty->get(expr.get_type())->basic_name(ctxt);
                 ctxt->diag.error(expr.get_span(),
                                  DiagnosticKind::OperationOverflows, name);
+                return;
+            }
+
+            if (undefined) {
+                const auto name =
+                    ctxt->ty->get(expr.get_type())->basic_name(ctxt);
+                ctxt->diag.error(expr.get_span(),
+                                 DiagnosticKind::OperationUndefined);
                 return;
             }
 
@@ -229,8 +238,16 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
                 return;
             }
 
-            auto res =
-                fold_float_op(op, lhs_imm.as_float(), rhs_imm.as_float());
+            bool undefined = false;
+            auto res = fold_float_op(op, lhs_imm.as_float(), rhs_imm.as_float(),
+                                     undefined);
+            if (undefined) {
+                const auto name =
+                    ctxt->ty->get(expr.get_type())->basic_name(ctxt);
+                ctxt->diag.error(expr.get_span(),
+                                 DiagnosticKind::OperationUndefined);
+                return;
+            }
             if (res) {
                 last_result = Operand::imm(*res, expr.get_type());
                 return;

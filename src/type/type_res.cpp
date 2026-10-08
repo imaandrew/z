@@ -1,6 +1,7 @@
 #include "type_res.h"
 #include "constraint.h"
 #include "parser/ast.h"
+#include "parser/const_eval.h"
 #include "type/type_ref.h"
 #include <iostream>
 #include <memory>
@@ -9,15 +10,18 @@
 namespace z::type {
 
 void TypeResolver::resolve_decls(const ast::SourceFileDecl* file) const {
-    for (const auto& decl : file->const_decls)
+    for (const auto& decl : file->const_decls) {
         decl->declare_type(ctxt);
+        ctxt->const_decls.emplace(decl->ident->get_id(), decl.get());
+    }
 
     for (const auto& decl : file->decls) {
         decl->declare_type(ctxt);
     }
 
-    for (const auto& decl : file->const_decls)
+    for (const auto& decl : file->const_decls) {
         decl->resolve_sym(ctxt);
+    }
 
     for (const auto& decl : file->decls) {
         decl->resolve_sym(ctxt);

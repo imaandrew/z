@@ -6,6 +6,7 @@ sources = files(
   'ir/ir_builder.cpp',
   'ir/ir_printer.cpp', 
   'lexer/lexer.cpp',
+  'parser/const_eval.cpp',
   'parser/parser.cpp',
   'sema/scope.cpp',
   'sema/sem.cpp',

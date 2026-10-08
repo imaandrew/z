@@ -73,6 +73,7 @@ enum class TypeKind : u8 {
     String,
     Pointer,
     Array,
+    PendingArray,
     Unknown,
     Function,
     Struct,

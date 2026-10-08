@@ -25,33 +25,35 @@ using ast::BinOp;
 using ast::UnOp;
 
 static constexpr std::optional<ConstInt>
-fold_int_op(IROp op, const ConstInt& lhs, const ConstInt& rhs, bool& overflow) {
-    auto with_overflow = [&overflow](auto fn) -> std::optional<ConstInt> {
+fold_int_op(IROp op, const ConstInt& lhs, const ConstInt& rhs, bool& overflow,
+            bool& undefined) {
+    const auto with_overflow = [&overflow](auto fn) -> std::optional<ConstInt> {
         auto res = fn();
         return overflow ? std::nullopt : std::optional(res);
     };
 
     switch (op) {
     case IROp::IAdd:
-        return with_overflow([&]() { return lhs.add(rhs, overflow); });
+        return with_overflow([&] { return lhs.add(rhs, overflow); });
     case IROp::ISub:
-        return with_overflow([&]() { return lhs.sub(rhs, overflow); });
+        return with_overflow([&] { return lhs.sub(rhs, overflow); });
     case IROp::IMul:
-        return with_overflow([&]() { return lhs.mul(rhs, overflow); });
+        return with_overflow([&] { return lhs.mul(rhs, overflow); });
     case IROp::SDiv:
-        return with_overflow([&]() { return lhs.sdiv(rhs, overflow); });
+        return with_overflow(
+            [&] { return lhs.sdiv(rhs, overflow, undefined); });
     case IROp::UDiv:
-        return lhs.udiv(rhs);
+        return lhs.udiv(rhs, undefined);
     case IROp::SRem:
-        return lhs.srem(rhs);
+        return lhs.srem(rhs, undefined);
     case IROp::URem:
-        return lhs.urem(rhs);
+        return lhs.urem(rhs, undefined);
     case IROp::Shl:
-        return lhs.shl(rhs);
+        return lhs.shl(rhs, undefined);
     case IROp::Lsr:
-        return lhs.lshr(rhs);
+        return lhs.lshr(rhs, undefined);
     case IROp::Asr:
-        return lhs.ashr(rhs);
+        return lhs.ashr(rhs, undefined);
     case IROp::And:
         return lhs.bit_and(rhs);
     case IROp::Or:
@@ -63,8 +65,10 @@ fold_int_op(IROp op, const ConstInt& lhs, const ConstInt& rhs, bool& overflow) {
     }
 }
 
-static constexpr std::optional<ConstFloat>
-fold_float_op(IROp op, const ConstFloat& lhs, const ConstFloat& rhs) {
+static constexpr std::optional<ConstFloat> fold_float_op(IROp op,
+                                                         const ConstFloat& lhs,
+                                                         const ConstFloat& rhs,
+                                                         bool& undefined) {
     switch (op) {
     case IROp::FAdd:
         return lhs.add(rhs);
@@ -73,7 +77,7 @@ fold_float_op(IROp op, const ConstFloat& lhs, const ConstFloat& rhs) {
     case IROp::FMul:
         return lhs.mul(rhs);
     case IROp::FDiv:
-        return lhs.div(rhs);
+        return lhs.div(rhs, undefined);
     default:
         return std::nullopt;
     }
