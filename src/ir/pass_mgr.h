@@ -61,7 +61,7 @@ public:
                 }
 
                 if (debug) {
-                    valid &= IRVerifier::verify(func);
+                    valid &= IRVerifier::verify(func, *ctxt.ty);
                     if (!valid)
                         break;
                 }
@@ -106,7 +106,7 @@ public:
                 dump(func);
 
             if (debug) {
-                valid &= IRVerifier::verify(func);
+                valid &= IRVerifier::verify(func, *ctxt.ty);
                 if (out_of_ssa)
                     valid &= IRVerifier::verify_out_of_ssa(func);
                 if (!valid)

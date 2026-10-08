@@ -332,7 +332,9 @@ struct Index {
 };
 
 struct Operand {
-    std::variant<VReg, Immediate, Label, Index, IntCC, FloatCC, FuncID> val;
+    std::variant<VReg, Immediate, Label, Index, IntCC, FloatCC, FuncID,
+                 type::TypeRef>
+        val;
 
     static Operand reg(VReg reg) { return Operand{.val = reg}; }
 
@@ -353,6 +355,8 @@ struct Operand {
     static Operand floatcc(FloatCC floatcc) { return Operand{.val = floatcc}; }
 
     static Operand func(FuncID func) { return Operand{.val = func}; }
+
+    static Operand type(type::TypeRef type) { return Operand{.val = type}; }
 
     [[nodiscard]] bool is_reg() const {
         return std::holds_alternative<VReg>(val);
@@ -375,6 +379,9 @@ struct Operand {
     [[nodiscard]] bool is_func() const {
         return std::holds_alternative<FuncID>(val);
     }
+    [[nodiscard]] bool is_type() const {
+        return std::holds_alternative<type::TypeRef>(val);
+    }
 
     VReg& as_reg() { return std::get<VReg>(val); }
     [[nodiscard]] const VReg& as_reg() const { return std::get<VReg>(val); }
@@ -395,6 +402,10 @@ struct Operand {
     [[nodiscard]] FloatCC as_floatcc() const { return std::get<FloatCC>(val); }
 
     [[nodiscard]] FuncID as_func() const { return std::get<FuncID>(val); }
+
+    [[nodiscard]] type::TypeRef as_type() const {
+        return std::get<type::TypeRef>(val);
+    }
 };
 
 struct InstTag {};
