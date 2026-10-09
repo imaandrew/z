@@ -7,6 +7,7 @@
 #include "ir.h"
 #include "ir/ir_ops.h"
 #include "parser/ast.h"
+#include "type/type.h"
 #include "type/type_ref.h"
 #include <initializer_list>
 #include <optional>
@@ -146,64 +147,14 @@ class IRBuilder final : public ast::ASTVisitor {
         return last_result.value();
     }
 
-    Operand emit_aggregate_insert(ast::Expr* lhs, Operand new_val);
-
     VReg emit_inst(IROp op, std::initializer_list<Operand> ops,
-                   type::TypeRef dest_type) {
-        const auto inst_id = get_inst_id();
-        const auto dest = emit_reg(dest_type, inst_id);
+                   type::TypeRef dest_type);
 
-        for (const auto& op : ops) {
-            if (op.is_reg()) {
-                current_func->add_use(op.as_reg(), inst_id, *current_block);
-            }
-        }
+    VReg emit_inst(IROp op, std::vector<Operand> ops, type::TypeRef dest_type);
 
-        current_func->insts.emplace_back(inst_id, op, dest, ops);
-        current_func->get_block(*current_block).insts.push_back(inst_id);
-        return dest;
-    }
+    void emit_inst(IROp op, std::initializer_list<Operand> ops);
 
-    VReg emit_inst(IROp op, std::vector<Operand> ops, type::TypeRef dest_type) {
-        const auto inst_id = get_inst_id();
-        const auto dest = emit_reg(dest_type, inst_id);
-
-        for (const auto& op : ops) {
-            if (op.is_reg()) {
-                current_func->add_use(op.as_reg(), inst_id, *current_block);
-            }
-        }
-
-        current_func->insts.emplace_back(inst_id, op, dest, std::move(ops));
-        current_func->get_block(*current_block).insts.push_back(inst_id);
-        return dest;
-    }
-
-    void emit_inst(IROp op, std::initializer_list<Operand> ops) {
-        const auto inst_id = get_inst_id();
-
-        for (const auto& op : ops) {
-            if (op.is_reg()) {
-                current_func->add_use(op.as_reg(), inst_id, *current_block);
-            }
-        }
-
-        current_func->insts.emplace_back(inst_id, op, ops);
-        current_func->get_block(*current_block).insts.push_back(inst_id);
-    }
-
-    void emit_term(IROp op, std::initializer_list<Operand> ops) {
-        const auto inst_id = get_inst_id();
-
-        for (const auto& op : ops) {
-            if (op.is_reg()) {
-                current_func->add_use(op.as_reg(), inst_id, *current_block);
-            }
-        }
-
-        current_func->insts.emplace_back(inst_id, op, ops);
-        current_func->get_block(*current_block).insts.push_back(inst_id);
-    }
+    void emit_term(IROp op, std::initializer_list<Operand> ops);
 
     Operand ensure_reg(Operand op) {
         if (op.is_reg())

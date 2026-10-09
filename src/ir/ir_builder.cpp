@@ -166,7 +166,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         if (ast::isa<ast::Identifier>(lhs))
             write_var(ast::cast<ast::Identifier>(lhs)->get_id(), rhs.as_reg());
         else
-            emit_aggregate_insert(lhs, rhs);
+            panic("todo");
         return;
     }
 
@@ -384,14 +384,14 @@ void IRBuilder::visit(ast::ArrayInitExpr& expr) {
         vals.push_back(v);
     }
 
-    auto result = emit_inst(IROp::ArrayInit, std::move(vals), expr.get_type());
-    last_result = Operand::reg(result);
+    /* auto result = emit_inst(IROp::ArrayInit, std::move(vals),
+    expr.get_type()); last_result = Operand::reg(result); */
 }
 
 void IRBuilder::visit(ast::StructExprField& expr) { expr.val->accept(*this); }
 
 void IRBuilder::visit(ast::StructInitExpr& expr) {
-    const auto* struct_type =
+    /* const auto* struct_type =
         ctxt->ty->get_as<type::StructType>(expr.get_type());
     expect(struct_type != nullptr,
            "StructInitExpr should have type StructType");
@@ -408,14 +408,14 @@ void IRBuilder::visit(ast::StructInitExpr& expr) {
     }
 
     auto result = emit_inst(IROp::StructInit, fields, expr.get_type());
-    last_result = Operand::reg(result);
+    last_result = Operand::reg(result); */
 }
 
 void IRBuilder::visit(ast::TupleExpr& expr) {
-    const auto first = emit_op(expr.first.get());
+    /* const auto first = emit_op(expr.first.get());
     const auto second = emit_op(expr.second.get());
     auto dest = emit_inst(IROp::TupleInit, {first, second}, expr.get_type());
-    last_result = Operand::reg(dest);
+    last_result = Operand::reg(dest); */
 }
 
 void IRBuilder::visit(ast::Block& block) {
@@ -541,9 +541,9 @@ void IRBuilder::visit(ast::LetStmt& stmt) {
     if (!stmt.val)
         return;
 
-        auto val = emit_op(stmt.val.get());
-        auto reg = ensure_reg(val).as_reg();
-        write_var(stmt.ident->get_id(), reg);
+    auto val = emit_op(stmt.val.get());
+    auto reg = ensure_reg(val).as_reg();
+    write_var(stmt.ident->get_id(), reg);
 }
 
 void IRBuilder::visit(ast::ReturnStmt& stmt) {
@@ -804,76 +804,62 @@ void IRBuilder::visit(ast::TypeAliasDecl& decl) {}
 
 void IRBuilder::visit(ast::TraitFuncDecl& decl) {}
 
-Operand IRBuilder::emit_aggregate_insert(ast::Expr* lhs, Operand new_val) {
-    std::vector<std::pair<Operand, Operand>> aggregate_types;
-    ast::Identifier* ident = nullptr;
+VReg IRBuilder::emit_inst(IROp op, std::initializer_list<Operand> ops,
+                          type::TypeRef dest_type) {
+    const auto inst_id = get_inst_id();
+    const auto dest = emit_reg(dest_type, inst_id);
 
-    std::function<void(ast::Expr*, bool)> extract_recursive;
-    extract_recursive = [&](ast::Expr* e, bool first) {
-        if (auto* f = ast::dyn_cast<ast::FieldExpr>(e)) {
-            extract_recursive(f->container.get(), false);
-
-            auto container = *last_result;
-
-            const auto* struct_type =
-                ctxt->ty->get_as<type::StructType>(container.as_reg().type);
-            expect(struct_type != nullptr,
-                   "FieldExpr.container should have type StructType");
-
-            auto field_type = struct_type->get_field_type(f->field->get_id());
-            auto field_idx = struct_type->get_field_index(f->field->get_id());
-            expect(field_idx && field_type,
-                   "Couldn't find field in StructType");
-
-            aggregate_types.emplace_back(container, Operand::field(*field_idx));
-
-            if (first)
-                return;
-
-            auto result =
-                emit_inst(IROp::ExtractField,
-                          {container, Operand::field(*field_idx)}, *field_type);
-            last_result = Operand::reg(result);
-        } else if (auto* a = ast::dyn_cast<ast::ArrayExpr>(e)) {
-            extract_recursive(a->array.get(), false);
-
-            auto array = *last_result;
-            auto val = emit_op(a->val.get());
-
-            aggregate_types.emplace_back(array, val);
-
-            if (first)
-                return;
-
-            auto result =
-                emit_inst(IROp::ExtractElement, {array, val}, e->get_type());
-            last_result = Operand::reg(result);
-        } else if (auto* i = ast::dyn_cast<ast::Identifier>(e)) {
-            emit_op(i);
-            ident = i;
-        }
-    };
-
-    extract_recursive(lhs, true);
-
-    Operand val = new_val;
-    for (auto& [op, idx] : std::ranges::reverse_view(aggregate_types)) {
-        expect(op.is_reg(), "Should be reg");
-        const auto* t = ctxt->ty->get(op.as_reg().type);
-        if (type::isa<type::StructType>(t)) {
-            auto result =
-                emit_inst(IROp::InsertField, {op, idx, val}, op.as_reg().type);
-            val = Operand::reg(result);
-        } else if (type::isa<type::ArrayType>(t)) {
-            auto result = emit_inst(IROp::InsertElement, {op, idx, val},
-                                    op.as_reg().type);
-            val = Operand::reg(result);
+    for (const auto& op : ops) {
+        if (op.is_reg()) {
+            current_func->add_use(op.as_reg(), inst_id, *current_block);
         }
     }
 
-    *last_result = val;
-    write_var(ident->get_id(), val.as_reg());
-    return val;
+    current_func->insts.emplace_back(inst_id, op, dest, ops);
+    current_func->get_block(*current_block).insts.push_back(inst_id);
+    return dest;
+}
+
+VReg IRBuilder::emit_inst(IROp op, std::vector<Operand> ops,
+                          type::TypeRef dest_type) {
+    const auto inst_id = get_inst_id();
+    const auto dest = emit_reg(dest_type, inst_id);
+
+    for (const auto& op : ops) {
+        if (op.is_reg()) {
+            current_func->add_use(op.as_reg(), inst_id, *current_block);
+        }
+    }
+
+    current_func->insts.emplace_back(inst_id, op, dest, std::move(ops));
+    current_func->get_block(*current_block).insts.push_back(inst_id);
+    return dest;
+}
+
+void IRBuilder::emit_inst(IROp op, std::initializer_list<Operand> ops) {
+    const auto inst_id = get_inst_id();
+
+    for (const auto& op : ops) {
+        if (op.is_reg()) {
+            current_func->add_use(op.as_reg(), inst_id, *current_block);
+        }
+    }
+
+    current_func->insts.emplace_back(inst_id, op, ops);
+    current_func->get_block(*current_block).insts.push_back(inst_id);
+}
+
+void IRBuilder::emit_term(IROp op, std::initializer_list<Operand> ops) {
+    const auto inst_id = get_inst_id();
+
+    for (const auto& op : ops) {
+        if (op.is_reg()) {
+            current_func->add_use(op.as_reg(), inst_id, *current_block);
+        }
+    }
+
+    current_func->insts.emplace_back(inst_id, op, ops);
+    current_func->get_block(*current_block).insts.push_back(inst_id);
 }
 
 } // namespace z::ir

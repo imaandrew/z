@@ -8,7 +8,7 @@
 #include "ir/ir_ops.h"
 #include <ostream>
 #include <print>
-#include <string>
+#include <string_view>
 #include <utility>
 
 namespace z::ir {
@@ -224,90 +224,6 @@ void IRPrinter::dump_terminator(TerminatorKind term, std::ostream& os) {
         os << "unreachable";
         break;
     }
-}
-
-constexpr std::string IRPrinter::ir_op_to_string(IROp op) {
-    switch (op) {
-    case IROp::IAdd:
-        return "iadd";
-    case IROp::ISub:
-        return "isub";
-    case IROp::IMul:
-        return "imul";
-    case IROp::SDiv:
-        return "sdiv";
-    case IROp::UDiv:
-        return "udiv";
-    case IROp::SRem:
-        return "srem";
-    case IROp::URem:
-        return "urem";
-    case IROp::INeg:
-        return "ineg";
-    case IROp::FAdd:
-        return "fadd";
-    case IROp::FSub:
-        return "fsub";
-    case IROp::FMul:
-        return "fmul";
-    case IROp::FDiv:
-        return "fdiv";
-    case IROp::FNeg:
-        return "fneg";
-    case IROp::And:
-        return "and";
-    case IROp::Or:
-        return "or";
-    case IROp::Xor:
-        return "xor";
-    case IROp::Not:
-        return "not";
-    case IROp::Shl:
-        return "shl";
-    case IROp::Lsr:
-        return "lsr";
-    case IROp::Asr:
-        return "asr";
-    case IROp::ICmp:
-        return "icmp";
-    case IROp::FCmp:
-        return "fcmp";
-    case IROp::Alloca:
-        return "alloca";
-    case IROp::Load:
-        return "load";
-    case IROp::Store:
-        return "store";
-    case IROp::LoadConst:
-        return "loadconst";
-    case IROp::GetElementPtr:
-        return "getelementptr";
-    case IROp::ExtractElement:
-        return "extractelement";
-    case IROp::InsertElement:
-        return "insertelement";
-    case IROp::Call:
-        return "call";
-    case IROp::CallIndirect:
-        return "callindirect";
-    case IROp::Branch:
-        return "br";
-    case IROp::Jump:
-        return "jump";
-    case IROp::Ret:
-        return "ret";
-    case IROp::Arg:
-        return "arg";
-    case IROp::Phi:
-        return "phi";
-    case IROp::Copy:
-        return "copy";
-    case IROp::Dead:
-        return "dead";
-    case IROp::ParallelCopy:
-        return "parallelcopy";
-    }
-    std::unreachable();
 }
 
 } // namespace z::ir

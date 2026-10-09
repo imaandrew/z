@@ -1,7 +1,9 @@
 #pragma once
 
 #include "core/types.h"
+#include <string_view>
 #include <type_traits>
+#include <utility>
 namespace z::ir {
 enum class OpKind : u8 {
     Err = 0,
@@ -66,4 +68,16 @@ enum class IROp : u8 {
 #define IR_OP(name, mnemonic, class, dest, ...) name,
 #include "ir/ir_ops.def"
 };
+
+constexpr std::string_view ir_op_to_string(IROp op) {
+    static constexpr std::string_view ops[] = {
+        #ifdef IR_OP
+        #undef IR_OP
+        #define IR_OP(name, mnemonic, class, dest, ...) mnemonic,
+        #include "ir/ir_ops.def"
+        #endif
+    };
+
+    return ops[std::to_underlying(op)];
+}
 } // namespace z::ir
