@@ -52,11 +52,13 @@ class Chunk {
     std::vector<Instruction> insts;
 
 public:
-    explicit Chunk(u32 idx): idx(idx) {}
+    explicit Chunk(u32 idx) : idx(idx) {}
     void add_inst(Instruction inst) { insts.push_back(inst); }
 
     [[nodiscard]] u32 get_idx() const { return idx; }
-    [[nodiscard]] const std::vector<Instruction>& get_insts() const { return insts; }
+    [[nodiscard]] const std::vector<Instruction>& get_insts() const {
+        return insts;
+    }
 };
 
 class Function {
