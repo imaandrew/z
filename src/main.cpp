@@ -1,3 +1,5 @@
+#include "bytecode/builder.h"
+#include "bytecode/printer.h"
 #include "core/colour.h"
 #include "core/panic.h"
 #include "core/zctxt.h"
@@ -107,7 +109,7 @@ int main(int argc, char** argv) {
     if (no_colour)
         colour::disable();
 
-    auto lexer = Lexer(ctxt.src.get());
+    const auto lexer = Lexer(ctxt.src.get());
     auto parser = Parser(lexer, ctxt);
     auto file = parser.parse();
 
@@ -174,5 +176,15 @@ int main(int argc, char** argv) {
         const auto maxlive = ir::compute_maxlive(func, fa.live());
         expect(maxlive <= 256, "func {} has >= 256 active regs", func.id.id,
                maxlive);
+    }
+
+    auto bb = bytecode::Builder(ctxt);
+    auto bc = bb.lower_file(ir_code);
+
+    if (dump_bytecode) {
+        auto printer = bytecode::Printer(ctxt, std::cout);
+        for (const auto& func : bc) {
+            printer.print_func(func);
+        }
     }
 }

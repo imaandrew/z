@@ -1,4 +1,6 @@
 sources = files(
+  'bytecode/builder.cpp',
+  'bytecode/printer.cpp',
   'core/zctxt.cpp',
   'ir/analysis/liveness.cpp',
   'ir/analysis/maxlive.cpp',
