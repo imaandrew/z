@@ -17,12 +17,6 @@
 
 namespace z::ir {
 
-struct IRFile {
-    std::vector<IRFunction> funcs;
-
-    explicit IRFile(std::vector<IRFunction> funcs) : funcs(std::move(funcs)) {}
-};
-
 class IRBuilder final : public ast::ASTVisitor {
     struct BlockBuildState {
         std::unordered_map<StringID, VReg> var_map;
@@ -159,8 +153,8 @@ class IRBuilder final : public ast::ASTVisitor {
     Operand ensure_reg(Operand op) {
         if (op.is_reg())
             return op;
-        auto& imm = op.as_imm();
-        return Operand::reg(emit_inst(IROp::LoadConst, {op}, imm.type));
+        const auto& imm = op.as_imm();
+        return Operand::reg(emit_inst(IROp::Copy, {op}, imm.type));
     }
 
     void add_deferred_return(std::optional<Operand> val) {

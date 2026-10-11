@@ -5,17 +5,16 @@
 #include "core/types.h"
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
-#include "ir/ir_builder.h"
 #include "ir/ir_ops.h"
 #include "type/type.h"
 #include <utility>
-#include <variant>
 #include <vector>
 
 namespace z::bytecode {
 std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
     for (const auto& func : file.funcs) {
         current_func = &funcs.emplace_back(func.name);
+        chunk_map = std::vector<u32>(func.blocks.size());
         lower_func(func);
     }
 
@@ -163,17 +162,28 @@ void Builder::lower_int_arith(const ir::Instruction& inst) {
         const auto* op_type =
             ctxt->ty->get_as<type::IntegerType>(lhs->as_reg().type);
 
-        if (inst.op == IROp::IAdd && imm.get_width() <= 8) {
-            emit_inst(Instruction::RI(
-                op_type->is_signed() ? Op::SAddq : Op::UAddq, lower_vreg(dest),
-                lower_vreg(reg), static_cast<i8>(imm.get_bits())));
+        if (inst.op == IROp::IAdd && imm.fits_in(8, op_type->is_signed())) {
+            if (op_type->is_signed()) {
+                emit_inst(Instruction::RI(Op::SAddq, lower_vreg(dest),
+                                          lower_vreg(reg),
+                                          static_cast<i8>(imm.get_signed())));
+            } else {
+                emit_inst(Instruction::RIU(Op::UAddq, lower_vreg(dest),
+                                           lower_vreg(reg),
+                                           static_cast<u8>(imm.get_bits())));
+            }
             return;
         }
 
-        if (reg.id == dest.id && imm.get_width() <= 16) {
-            emit_inst(Instruction::I(imm_op(inst.op, op_type->is_signed()),
-                                     lower_vreg(dest),
-                                     static_cast<i16>(imm.get_bits())));
+        if (reg.id == dest.id && imm.fits_in(16, op_type->is_signed())) {
+            if (op_type->is_signed())
+                emit_inst(Instruction::I(imm_op(inst.op, true),
+                                         lower_vreg(dest),
+                                         static_cast<i16>(imm.get_signed())));
+            else
+                emit_inst(Instruction::IU(imm_op(inst.op, false),
+                                          lower_vreg(dest),
+                                          static_cast<u16>(imm.get_bits())));
             return;
         }
 
@@ -184,7 +194,7 @@ void Builder::lower_int_arith(const ir::Instruction& inst) {
 }
 
 void Builder::lower_int_logic(const ir::Instruction& inst) {
-    const auto reg_op = [](IROp op_, bool is_signed) {
+    const auto reg_op = [](IROp op_) {
         switch (op_) {
         case IROp::And:
             return Op::And;
@@ -197,7 +207,7 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
         }
     };
 
-    const auto imm_op = [](IROp op_, bool is_signed) {
+    const auto imm_op = [](IROp op_) {
         switch (op_) {
         case IROp::And:
             return Op::Andi;
@@ -218,11 +228,8 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
     const auto dest = inst.dest.value();
 
     if (lhs->is_reg() && rhs->is_reg()) {
-        const auto* op_type =
-            ctxt->ty->get_as<type::IntegerType>(lhs->as_reg().type);
-
-        emit_inst(Instruction::R(reg_op(inst.op, op_type->is_signed()),
-                                 lower_vreg(dest), lower_vreg(lhs->as_reg()),
+        emit_inst(Instruction::R(reg_op(inst.op), lower_vreg(dest),
+                                 lower_vreg(lhs->as_reg()),
                                  lower_vreg(rhs->as_reg())));
         return;
     }
@@ -234,12 +241,9 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
 
         const auto reg = lhs->as_reg();
         const auto& imm = rhs->as_imm().as_int();
-        const auto* op_type =
-            ctxt->ty->get_as<type::IntegerType>(lhs->as_reg().type);
 
         if (reg.id == dest.id && imm.get_width() <= 16) {
-            emit_inst(Instruction::I(imm_op(inst.op, op_type->is_signed()),
-                                     lower_vreg(dest),
+            emit_inst(Instruction::I(imm_op(inst.op), lower_vreg(dest),
                                      static_cast<i16>(imm.get_bits())));
             return;
         }
@@ -268,7 +272,21 @@ void Builder::lower_copy(const ir::Instruction& inst) {
 
     const auto& v = inst.operands.front();
     const auto dest = inst.dest.value();
-    expect(v.is_reg(), "ImmToReg should have moved immediate into register");
+
+    if (v.is_imm()) {
+        if (v.as_imm().is_bool()) {
+            emit_inst(Instruction::I(Op::LoadImm, lower_vreg(dest),
+                                     v.as_imm().as_bool() ? 1 : 0));
+            return;
+        }
+
+        expect(v.as_imm().is_int() && v.as_imm().as_int().fits_in(16, true),
+               "ImmToReg should have moved to reg");
+        emit_inst(
+            Instruction::I(Op::LoadImm, lower_vreg(dest),
+                           static_cast<i16>(v.as_imm().as_int().get_signed())));
+        return;
+    }
 
     emit_inst(
         Instruction::R(Op::Mov, lower_vreg(dest), lower_vreg(v.as_reg()), 0));
@@ -283,7 +301,7 @@ void Builder::lower_load_const(const ir::Instruction& inst) {
     expect(v.is_imm() && v.as_imm().is_int(), "ldc operand should be integer");
 
     emit_inst(Instruction::I(Op::LoadConst, lower_vreg(dest),
-                             static_cast<i16>(v.as_imm().as_int().get_bits())));
+                             static_cast<u16>(v.as_imm().as_int().get_bits())));
 }
 
 void Builder::lower_cmp(const ir::Instruction& inst) {
@@ -298,21 +316,27 @@ void Builder::lower_cmp(const ir::Instruction& inst) {
             return Op::Ne;
         case ir::IntCC::SignedGreaterThan:
             std::swap(lhs, rhs);
+            [[fallthrough]];
         case ir::IntCC::SignedLessThan:
             return Op::Lt;
         case ir::IntCC::UnsignedGreaterThan:
             std::swap(lhs, rhs);
+            [[fallthrough]];
         case ir::IntCC::UnsignedLessThan:
             return Op::LtU;
         case ir::IntCC::SignedGreaterEqual:
             std::swap(lhs, rhs);
+            [[fallthrough]];
         case ir::IntCC::SignedLessEqual:
             return Op::Le;
         case ir::IntCC::UnsignedGreaterEqual:
             std::swap(lhs, rhs);
+            [[fallthrough]];
         case ir::IntCC::UnsignedLessEqual:
             return Op::LeU;
         }
+
+        std::unreachable();
     };
 
     const auto get_float_op = [&lhs, &rhs](ir::FloatCC cc) {
@@ -323,13 +347,17 @@ void Builder::lower_cmp(const ir::Instruction& inst) {
             return Op::Ne;
         case ir::FloatCC::GreaterThan:
             std::swap(lhs, rhs);
+            [[fallthrough]];
         case ir::FloatCC::LessThan:
             return Op::LtF;
         case ir::FloatCC::GreaterEqual:
             std::swap(lhs, rhs);
+            [[fallthrough]];
         case ir::FloatCC::LessEqual:
             return Op::LeF;
         }
+
+        std::unreachable();
     };
 
     emit_inst(Instruction::R(
@@ -352,8 +380,5 @@ void Builder::lower_branch(const ir::Instruction& inst) {
     emit_inst(Instruction::B(Op::Bnz, lower_vreg(cond.as_reg()), 0));
 }
 
-void Builder::fixup_branches() {
-    for (const auto& branch : pending_branches) {
-    }
-}
+void Builder::fixup_branches() {}
 } // namespace z::bytecode

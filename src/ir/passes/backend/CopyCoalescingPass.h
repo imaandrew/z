@@ -5,6 +5,7 @@
 #include "ir/analysis/liveness.h"
 #include "ir/analysis/order.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/merge_set.h"
 #include "ir/pass.h"
 #include <algorithm>
@@ -45,7 +46,7 @@ class CopyCoalescingPass : public IRPass {
         bool operator()(VReg v, BlockID block, u32 pos) const {
             if (live->is_live_out(v, block))
                 return true;
-            auto it = last_use.find(key(v.id, block.id));
+            const auto it = last_use.find(key(v.id, block.id));
             return it != last_use.end() && it->second > pos;
         }
     };
@@ -55,7 +56,8 @@ public:
         return "CopyCoalescingPass";
     }
 
-    bool run(IRFunction& func, FuncAnalyses& analyses) override {
+    bool run(IRFunction& func, FuncAnalyses& analyses,
+             const IRFile& /*file*/) override {
         const auto& order = analyses.order();
         const auto& dom_tree = analyses.dom();
         const auto live_at = LiveAt(func, order, analyses.live());
@@ -154,7 +156,7 @@ public:
         }
 
         for (auto& param : func.params) {
-            auto new_reg = m.representative(param);
+            const auto new_reg = m.representative(param);
             if (param != new_reg) {
                 func.replace_uses(param, new_reg);
                 func.replace_defs(param, new_reg);

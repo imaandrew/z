@@ -18,7 +18,7 @@
 namespace z::ir {
 
 bool IRVerifier::verify_uses_table(const IRFunction& func) {
-    const auto check_use = [func](VReg v, IRFunction::InstRef use) {
+    const auto check_use = [&func](VReg v, IRFunction::InstRef use) {
         const auto& inst = func.insts[use.inst.id];
         return std::ranges::any_of(inst.operands, [v](auto op) {
             return op.is_reg() && op.as_reg().id == v.id;
@@ -44,8 +44,8 @@ bool IRVerifier::verify_uses_table(const IRFunction& func) {
 }
 
 bool IRVerifier::verify_uses_in_table(const IRFunction& func) {
-    const auto check_use = [func](const VReg r, const BlockID block,
-                                  const InstId inst) {
+    const auto check_use = [&func](const VReg r, const BlockID block,
+                                   const InstId inst) {
         const auto& uses = func.get_uses(r);
         return std::ranges::any_of(uses, [block, inst](const auto& use) {
             return use.block == block && use.inst == inst;

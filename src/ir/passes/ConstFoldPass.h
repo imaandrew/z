@@ -46,7 +46,8 @@ public:
         return "ConstFoldPass";
     }
 
-    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/,
+             const IRFile& /*file*/) override {
         bool changed = false;
 
         for (auto& inst : func.insts) {

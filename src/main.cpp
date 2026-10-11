@@ -30,7 +30,7 @@
 
 using namespace z;
 
-int main(int argc, char** argv) {
+int main(int argc, const char* const* argv) {
     bool dump_ast_untyped = false;
     bool dump_ast = false;
     bool dump_constraints = false;
@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
     }
 
     auto bb = bytecode::Builder(ctxt);
-    auto bc = bb.lower_file(ir_code);
+    const auto bc = bb.lower_file(ir_code);
 
     if (dump_bytecode) {
         auto printer = bytecode::Printer(ctxt, std::cout);

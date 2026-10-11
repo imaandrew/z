@@ -1,11 +1,18 @@
 #pragma once
 
+#include "core/index.h"
 #include "core/panic.h"
+#include "core/types.h"
 #include "ir/analysis/analyses.h"
+#include "ir/constants.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
+#include "type/type.h"
+#include "type/type_ref.h"
 #include <deque>
 #include <initializer_list>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -16,88 +23,298 @@ class ImmToReg : public IRPass {
     FuncAnalyses* analyses;
     std::deque<InstId> block_insts;
 
-    void handle_arith_inst(Instruction& inst, BlockID block) {
-        ASSERT(inst.operands.size() == 2);
-        ASSERT(inst.dest.has_value());
-        const auto* lhs = &inst.operands[0];
-        const auto* rhs = &inst.operands[1];
-        const auto& dest = inst.dest.value();
+    VReg emit_load_const(u64 c, BlockID block, type::TypeRef type) {
+        const auto ldc_inst_id = InstId(func->insts.size());
+        analyses->values().grow();
+        const auto loaded_const =
+            VReg{.id = func->add_reg(ldc_inst_id, block), .type = type};
 
-        if (lhs->is_reg() && rhs->is_reg())
+        const auto const_idx = ConstInt(func->const_pool.intern(c), 16, false);
+
+        func->insts.emplace_back(
+            ldc_inst_id, IROp::LoadConst, loaded_const,
+            std::initializer_list<Operand>{
+                Operand::imm(const_idx, type::builtin::U16),
+            });
+        block_insts.push_back(ldc_inst_id);
+
+        return loaded_const;
+    }
+
+    VReg emit_load_imm(const ConstInt& imm, BlockID block, type::TypeRef type) {
+        const auto ldi_inst_id = InstId(func->insts.size());
+        analyses->values().grow();
+        const auto loaded_const =
+            VReg{.id = func->add_reg(ldi_inst_id, block), .type = type};
+
+        func->insts.emplace_back(ldi_inst_id, IROp::Copy, loaded_const,
+                                 std::initializer_list<Operand>{
+                                     Operand::imm(imm, type),
+                                 });
+        block_insts.push_back(ldi_inst_id);
+
+        return loaded_const;
+    }
+
+    void intern(Operand& op, const Instruction& inst, BlockID block,
+                type::TypeRef type) {
+        if (!op.is_imm())
             return;
 
-        if (lhs->is_imm())
-            std::swap(lhs, rhs);
-        ASSERT(rhs->is_imm());
-        ASSERT(lhs->is_reg());
+        const auto load_bits = [&](u64 bits) {
+            const auto loaded_const = emit_load_const(bits, block, type);
+            op = Operand::reg(loaded_const);
+            func->add_use(loaded_const, inst.id, block);
+        };
 
-        const auto& imm = rhs->as_imm().as_int();
-        const auto reg = lhs->as_reg();
+        const auto& imm = op.as_imm();
+        if (imm.is_int()) {
+            const auto& i = imm.as_int();
 
-        if (inst.op == IROp::IAdd && imm.get_width() <= 8) // will lower to addq
+            if (i.fits_in(16, true)) {
+                const auto loaded_imm = emit_load_imm(i, block, type);
+                op = Operand::reg(loaded_imm);
+                func->add_use(loaded_imm, inst.id, block);
+                return;
+            }
+
+            load_bits(i.is_signed() ? static_cast<u64>(i.get_signed())
+                                    : i.get_bits());
+        } else if (imm.is_float()) {
+            load_bits(static_cast<u64>(imm.as_float().get_bits()));
+        } else if (imm.is_bool()) {
+            const auto loaded_imm = emit_load_imm(
+                ConstInt(imm.as_bool() ? 1 : 0, 1, false), block, type);
+            op = Operand::reg(loaded_imm);
+            func->add_use(loaded_imm, inst.id, block);
+        } else if (imm.is_string()) {
+            panic("ImmToReg: cannot intern string");
+        } else if (imm.is_char()) {
+            panic("ImmToReg: cannot intern char");
+        }
+    }
+
+    void handle_all_operands(Instruction& inst, BlockID block,
+                             type::TypeRef type) {
+        for (auto& op : inst.operands) {
+            intern(op, inst, block, type);
+        }
+    }
+
+    void handle_icmp(Instruction& inst, BlockID block) {
+        ASSERT(inst.op == IROp::ICmp);
+
+        auto& lhs = inst.operands[1];
+        auto& rhs = inst.operands[2];
+
+        if (lhs.is_reg() && rhs.is_reg())
             return;
 
-        if (reg.id == dest.id && imm.get_width() <= 16) {
+        if (lhs.is_reg()) {
+            intern(rhs, inst, block, lhs.as_reg().type);
             return;
         }
 
-        auto inst_id = InstId(func->insts.size());
-        analyses->values().grow();
-        auto t = VReg{.id = func->add_reg(inst_id, block), .type = reg.type};
-        func->insts.emplace_back(inst_id, IROp::LoadConst, t,
-                                 std::initializer_list<Operand>{*rhs});
-        inst.operands[1] = Operand::reg(t);
-        func->add_use(t, inst.id, block);
-        block_insts.push_back(inst_id);
+        if (rhs.is_reg()) {
+            intern(lhs, inst, block, rhs.as_reg().type);
+            return;
+        }
+
+        const auto& lhs_i = lhs.as_imm().as_int();
+        const auto& rhs_i = rhs.as_imm().as_int();
+
+        if (lhs_i.is_signed() || rhs_i.is_signed()) {
+            intern(lhs, inst, block, type::builtin::I64);
+            intern(rhs, inst, block, type::builtin::I64);
+        } else {
+            intern(lhs, inst, block, type::builtin::U64);
+            intern(rhs, inst, block, type::builtin::U64);
+        }
     }
 
-    void handle_ineg(Instruction& inst, BlockID block) {
-        ASSERT(inst.operands.size() == 1);
-        ASSERT(inst.dest.has_value());
-        const auto& v = inst.operands.front();
-        const auto& dest = inst.dest.value();
+    void handle_fcmp(Instruction& inst, BlockID block) {
+        ASSERT(inst.op == IROp::FCmp);
 
-        if (v.is_reg())
+        auto& lhs = inst.operands[1];
+        auto& rhs = inst.operands[2];
+
+        if (lhs.is_reg() && rhs.is_reg())
             return;
-        ASSERT(v.is_imm());
 
-        auto inst_id = InstId(func->insts.size());
-        analyses->values().grow();
-        auto t = VReg{.id = func->add_reg(inst_id, block), .type = dest.type};
-        func->insts.emplace_back(inst_id, IROp::LoadConst, t,
-                                 std::initializer_list<Operand>{v});
-        inst.operands[1] = Operand::reg(t);
-        func->add_use(t, inst.id, block);
-        block_insts.push_back(inst_id);
+        if (lhs.is_reg()) {
+            intern(rhs, inst, block, lhs.as_reg().type);
+            return;
+        }
+
+        if (rhs.is_reg()) {
+            intern(lhs, inst, block, rhs.as_reg().type);
+            return;
+        }
+
+        intern(lhs, inst, block, type::builtin::F64);
+        intern(rhs, inst, block, type::builtin::F64);
+    }
+
+    void handle_store(Instruction& inst, BlockID block) {
+        ASSERT(inst.op == IROp::Store);
+        const auto& ptr = inst.operands[0].as_reg();
+        auto& store_val = inst.operands[1];
+
+        if (store_val.is_reg())
+            return;
+
+        const auto ptr_type = analyses->ctxt()
+                                  .ty->get_as<type::PointerType>(ptr.type)
+                                  ->get_type();
+
+        intern(store_val, inst, block, ptr_type);
+    }
+
+    void handle_call(Instruction& inst, BlockID block, const IRFile& file) {
+        ASSERT(inst.op == IROp::Call);
+
+        const auto func_id = inst.operands.front().as_func();
+        const auto& callee = file.funcs[func_id.id];
+
+        for (usize i = 1; i < inst.operands.size(); i++) {
+            intern(inst.operands[i], inst, block, callee.params[i - 1].type);
+        }
+    }
+
+    void handle_copy(Instruction& inst) {
+        ASSERT(inst.op == IROp::Copy);
+
+        auto& val = inst.operands.front();
+        if (val.is_reg())
+            return;
+        ASSERT(val.is_imm());
+
+        const auto load_bits = [&](u64 bits) {
+            const auto const_idx =
+                ConstInt(func->const_pool.intern(bits), 16, false);
+            val = Operand::imm(const_idx, type::builtin::U16);
+            inst.op = IROp::LoadConst;
+        };
+
+        const auto& imm = val.as_imm();
+        if (imm.is_int()) {
+            const auto& int_imm = imm.as_int();
+            if (int_imm.fits_in(16, true))
+                return;
+
+            load_bits(int_imm.is_signed()
+                          ? static_cast<u64>(int_imm.get_signed())
+                          : int_imm.get_bits());
+        } else if (imm.is_float()) {
+            const auto& float_imm = imm.as_float();
+
+            load_bits(static_cast<u64>(float_imm.get_bits()));
+        } else if (imm.is_bool()) {
+            return;
+        } else if (imm.is_string()) {
+            panic("ImmToReg: cannot intern string");
+        } else if (imm.is_char()) {
+            panic("ImmToReg: cannot intern char");
+        }
     }
 
 public:
     [[nodiscard]] std::string_view name() const override { return "ImmToReg"; }
 
-    bool run(IRFunction& func, FuncAnalyses& analyses) override {
+    bool run(IRFunction& func, FuncAnalyses& analyses,
+             const IRFile& file) override {
         this->func = &func;
         this->analyses = &analyses;
+
         for (auto& block : func.blocks) {
             for (const auto inst_id : block.insts) {
                 auto& inst = func.get_inst(inst_id);
 
                 switch (inst.op) {
-                case IROp::IAdd:
+                case IROp::IAdd: {
+                    auto& lhs = inst.operands[0];
+                    auto& rhs = inst.operands[1];
+
+                    if (!(lhs.is_imm() && rhs.is_imm())) { // lowers to addq
+                        if (lhs.is_imm() && lhs.as_imm().is_int() &&
+                            lhs.as_imm().as_int().fits_in(
+                                8, lhs.as_imm().as_int().is_signed()))
+                            break;
+
+                        if (rhs.is_imm() && rhs.as_imm().is_int() &&
+                            rhs.as_imm().as_int().fits_in(
+                                8, rhs.as_imm().as_int().is_signed()))
+                            break;
+                    }
+                }
+                    [[fallthrough]];
                 case IROp::ISub:
                 case IROp::IMul:
                 case IROp::SDiv:
                 case IROp::UDiv:
                 case IROp::SRem:
                 case IROp::URem:
+                case IROp::INeg:
+                case IROp::FAdd:
+                case IROp::FSub:
+                case IROp::FMul:
+                case IROp::FDiv:
+                case IROp::FNeg:
+                case IROp::ZExt:
+                case IROp::SExt:
+                case IROp::Trunc:
                 case IROp::And:
                 case IROp::Or:
+                case IROp::Xor:
                 case IROp::Not:
-                    handle_arith_inst(inst, block.id);
+                    handle_all_operands(inst, block.id, inst.dest.value().type);
                     break;
-                case IROp::INeg:
-                    handle_ineg(inst, block.id);
+                case IROp::Shl:
+                case IROp::Lsr:
+                case IROp::Asr:
+                    intern(inst.operands[0], inst, block.id,
+                           inst.dest.value().type);
+                    intern(inst.operands[1], inst, block.id,
+                           type::builtin::I64);
                     break;
-                default:
+                case IROp::ICmp:
+                    handle_icmp(inst, block.id);
+                    break;
+                case IROp::FCmp:
+                    handle_fcmp(inst, block.id);
+                    break;
+                case IROp::Store:
+                    handle_store(inst, block.id);
+                    break;
+                case IROp::Call:
+                    handle_call(inst, block.id, file);
+                    break;
+                case IROp::CallIndirect:
+                    panic("TODO");
+                    break;
+                case IROp::Ret:
+                    if (!inst.operands.empty())
+                        intern(inst.operands.front(), inst, block.id,
+                               func.return_type);
+                    break;
+                case IROp::Copy:
+                    handle_copy(inst);
+                    break;
+                case IROp::Branch:
+                    intern(inst.operands.front(), inst, block.id,
+                           type::builtin::BOOL);
+                    break;
+                case IROp::Alloca:
+                case IROp::Load:
+                case IROp::LoadConst:
+                case IROp::GetElementPtr:
+                case IROp::ExtractElement:
+                case IROp::InsertElement:
+                case IROp::Jump:
+                case IROp::Arg:
+                case IROp::Phi:
+                case IROp::ParallelCopy:
+                case IROp::Dead:
                     break;
                 }
 

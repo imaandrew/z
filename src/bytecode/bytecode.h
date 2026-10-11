@@ -5,7 +5,6 @@
 #include "core/types.h"
 #include <vector>
 namespace z::bytecode {
-
 class Instruction {
     u32 raw;
 
@@ -23,7 +22,18 @@ public:
                            static_cast<u32>(rd) << 8U | static_cast<u32>(op));
     }
 
+    static Instruction IU(Op op, u8 rd, u16 imm) {
+        return Instruction(static_cast<u32>(imm) << 16U |
+                           static_cast<u32>(rd) << 8U | static_cast<u32>(op));
+    }
+
     static Instruction RI(Op op, u8 rd, u8 rs, i8 imm) {
+        return Instruction(static_cast<u32>(imm) << 24U |
+                           static_cast<u32>(rs) << 16U |
+                           static_cast<u32>(rd) << 8U | static_cast<u32>(op));
+    }
+
+    static Instruction RIU(Op op, u8 rd, u8 rs, u8 imm) {
         return Instruction(static_cast<u32>(imm) << 24U |
                            static_cast<u32>(rs) << 16U |
                            static_cast<u32>(rd) << 8U | static_cast<u32>(op));
@@ -43,7 +53,9 @@ public:
     [[nodiscard]] u8 rs() const { return (raw >> 16U) & 0xFFU; }
     [[nodiscard]] u8 rt() const { return (raw >> 24U) & 0xFFU; }
     [[nodiscard]] i16 imm16() const { return static_cast<i16>(raw >> 16U); }
+    [[nodiscard]] u16 imm16u() const { return static_cast<u16>(raw >> 16U); }
     [[nodiscard]] i8 imm8() const { return static_cast<i8>(raw >> 24U); }
+    [[nodiscard]] u8 imm8u() const { return static_cast<u8>(raw >> 24U); }
     [[nodiscard]] i32 offset24() const { return static_cast<i32>(raw) >> 8U; }
 };
 

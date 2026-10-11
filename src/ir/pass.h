@@ -17,6 +17,7 @@ public:
     IRPass& operator=(IRPass&&) = default;
 
     [[nodiscard]] virtual std::string_view name() const = 0;
-    virtual bool run(IRFunction& func, FuncAnalyses& analyses) = 0;
+    virtual bool run(IRFunction& func, FuncAnalyses& analyses,
+                     const IRFile& file) = 0;
 };
 } // namespace z::ir

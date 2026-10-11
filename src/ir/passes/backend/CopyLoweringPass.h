@@ -4,6 +4,7 @@
 #include "core/types.h"
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
 #include <cstdint>
 #include <deque>
@@ -33,15 +34,15 @@ class CopyLoweringPass : public IRPass {
         std::vector<VReg> vreg(max_regs);
         std::vector<InstId> copies;
 
-        auto emit_copy = [&](VReg dest, VReg src) {
-            auto inst_id = InstId(func->insts.size());
+        const auto emit_copy = [&](VReg dest, VReg src) {
+            const auto inst_id = InstId(func->insts.size());
             func->insts.emplace_back(inst_id, IROp::Copy, dest,
                                      std::initializer_list<Operand>{{src}});
             copies.push_back(inst_id);
         };
 
-        auto emit_copy_temp = [&](VReg src) {
-            auto inst_id = InstId(func->insts.size());
+        const auto emit_copy_temp = [&](VReg src) {
+            const auto inst_id = InstId(func->insts.size());
             auto dest = VReg(func->add_reg(inst_id, block), src.type);
             func->insts.emplace_back(inst_id, IROp::Copy, dest,
                                      std::initializer_list<Operand>{{src}});
@@ -65,10 +66,10 @@ class CopyLoweringPass : public IRPass {
 
         while (!todo.empty()) {
             while (!ready.empty()) {
-                auto b = ready.top();
+                const auto b = ready.top();
                 ready.pop();
-                auto a = pred[b];
-                auto c = loc[a];
+                const auto a = pred[b];
+                const auto c = loc[a];
 
                 emit_copy(vreg[b], vreg[c]);
                 loc[a] = b;
@@ -76,11 +77,11 @@ class CopyLoweringPass : public IRPass {
                     ready.push(a);
             }
 
-            auto b = todo.top();
+            const auto b = todo.top();
             todo.pop();
 
             if (b != loc[pred[b]]) {
-                auto n = emit_copy_temp(vreg[b]);
+                const auto n = emit_copy_temp(vreg[b]);
                 vreg[n.id] = n;
                 loc[b] = n.id;
                 ready.push(b);
@@ -101,8 +102,8 @@ class CopyLoweringPass : public IRPass {
         std::vector<u32> reg_map(func->num_regs(), UINT32_MAX);
         func->vreg_info = IRFunction::VRegInfo();
 
-        for (auto& block : func->blocks) {
-            for (auto inst_id : block.insts) {
+        for (const auto& block : func->blocks) {
+            for (const auto inst_id : block.insts) {
                 auto& inst = func->get_inst(inst_id);
                 if (inst.op == IROp::Dead)
                     continue;
@@ -112,23 +113,26 @@ class CopyLoweringPass : public IRPass {
                         reg_map[inst.dest.value().id] =
                             func->add_reg(inst_id, block.id);
                     } else {
-                        func->add_def(VReg{.id = reg_map[inst.dest.value().id],
-                                           .type = {}},
-                                      inst_id, block.id);
+                        func->add_def(
+                            VReg{
+                                .id = reg_map[inst.dest.value().id],
+                                .type = {},
+                            },
+                            inst_id, block.id);
                     }
                 }
             }
         }
 
-        for (auto& block : func->blocks) {
-            for (auto inst_id : block.insts) {
+        for (const auto& block : func->blocks) {
+            for (const auto inst_id : block.insts) {
                 auto& inst = func->get_inst(inst_id);
 
                 if (inst.op == IROp::Dead)
                     continue;
 
                 if (inst.dest) {
-                    auto id = reg_map[inst.dest.value().id];
+                    const auto id = reg_map[inst.dest.value().id];
                     inst.dest.value().id = id;
                 }
 
@@ -156,7 +160,8 @@ public:
         return "CopyLoweringPass";
     }
 
-    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/,
+             const IRFile& /*file*/) override {
         this->func = &func;
 
         for (auto& block : func.blocks) {

@@ -5,6 +5,7 @@
 #include "ir/analysis/analyses.h"
 #include "ir/analysis/value_set.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
 #include <deque>
 #include <initializer_list>
@@ -20,13 +21,13 @@ class CopyInsertionPass : public IRPass {
 
     VReg new_reg(VReg like, InstId inst, BlockID block) {
         values->grow();
-        auto reg_id = func->add_reg(inst, block);
+        const auto reg_id = func->add_reg(inst, block);
         return VReg{.id = reg_id, .type = like.type};
     }
 
     InstId get_copy_inst(std::vector<std::optional<InstId>>& v, BlockID b) {
         if (!v[b.id]) {
-            auto inst = func->insts.size();
+            const auto inst = func->insts.size();
             func->insts.push_back(
                 Instruction(InstId(inst), IROp::ParallelCopy, {}));
             v[b.id].emplace(inst);
@@ -78,25 +79,26 @@ public:
         return "CopyInsertionPass";
     }
 
-    bool run(IRFunction& func, FuncAnalyses& analyses) override {
+    bool run(IRFunction& func, FuncAnalyses& analyses,
+             const IRFile& /*file*/) override {
         std::vector<std::optional<InstId>> prologue(func.blocks.size());
         std::vector<std::optional<InstId>> epilogue(func.blocks.size());
         this->func = &func;
         values = &analyses.values();
 
         for (const auto& block : func.blocks) {
-            for (auto p : block.phis()) {
+            for (const auto p : block.phis()) {
                 for (auto&& [reg, label] : func.get_inst(p).phi_operands()) {
                     const auto pred = label.block_id;
                     const auto inst_id = get_copy_inst(epilogue, pred);
-                    auto copy = new_reg(reg, inst_id, pred);
+                    const auto copy = new_reg(reg, inst_id, pred);
                     add_copy(inst_id, copy, reg, p, pred);
                     reg = copy;
                 }
 
                 const auto inst_id = get_copy_inst(prologue, block.id);
-                auto dest = *func.get_inst(p).dest;
-                auto copy = new_reg(dest, inst_id, block.id);
+                const auto dest = *func.get_inst(p).dest;
+                const auto copy = new_reg(dest, inst_id, block.id);
 
                 auto& copy_inst = func.get_inst(inst_id);
                 copy_inst.add_copy_pair(dest, copy);

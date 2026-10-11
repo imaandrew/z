@@ -2,6 +2,7 @@
 
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
 #include <string_view>
 
@@ -12,7 +13,8 @@ public:
         return "ConstPropPass";
     }
 
-    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/,
+             const IRFile& /*file*/) override {
         bool changed = false;
 
         for (auto& inst : func.insts) {

@@ -4,7 +4,6 @@
 #include "ir/analysis/analyses.h"
 #include "ir/analysis/verifier.h"
 #include "ir/ir.h"
-#include "ir/ir_builder.h"
 #include "ir/pass.h"
 #include <concepts>
 #include <memory>
@@ -34,7 +33,8 @@ public:
         oneshot_passes.push_back(std::move(pass));
     }
 
-    bool run_fixpoint_passes(IRFunction& func, ZContext& ctxt, bool debug) {
+    bool run_fixpoint_passes(IRFunction& func, IRFile& file, ZContext& ctxt,
+                             bool debug) {
         bool changed = false;
         bool valid = true;
         auto analyses = FuncAnalyses(func, ctxt);
@@ -50,7 +50,7 @@ public:
                     dump(func);
                 }
 
-                if (pass->run(func, analyses)) {
+                if (pass->run(func, analyses, file)) {
                     changed = true;
                     analyses.invalidate();
                 }
@@ -78,13 +78,14 @@ public:
         bool valid = true;
 
         for (auto& func : file.funcs) {
-            valid &= run_fixpoint_passes(func, ctxt, debug);
+            valid &= run_fixpoint_passes(func, file, ctxt, debug);
         }
 
         return valid;
     }
 
-    bool run_oneshot_passes(IRFunction& func, ZContext& ctxt, bool debug) {
+    bool run_oneshot_passes(IRFunction& func, IRFile& file, ZContext& ctxt,
+                            bool debug) {
         bool valid = true;
         bool out_of_ssa = false;
         auto analyses = FuncAnalyses(func, ctxt);
@@ -96,7 +97,7 @@ public:
             if (print_before == pass->name())
                 dump(func);
 
-            pass->run(func, analyses);
+            pass->run(func, analyses, file);
             analyses.invalidate();
 
             if (pass->name() == "CopyLoweringPass")
@@ -121,7 +122,7 @@ public:
         bool valid = true;
 
         for (auto& func : file.funcs) {
-            valid &= run_oneshot_passes(func, ctxt, debug);
+            valid &= run_oneshot_passes(func, file, ctxt, debug);
         }
 
         return valid;

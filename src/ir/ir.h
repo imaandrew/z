@@ -5,6 +5,7 @@
 #include "core/string_pool.h"
 #include "core/types.h"
 #include "ir/condition_codes.h"
+#include "ir/const_pool.h"
 #include "ir/constants.h"
 #include "ir/ir_ops.h"
 #include "parser/ast.h"
@@ -537,6 +538,8 @@ struct IRFunction {
     std::vector<BasicBlock> blocks;
     std::deque<Instruction> insts;
 
+    ConstantPool const_pool;
+
     struct InstRef {
         InstId inst;
         BlockID block;
@@ -560,7 +563,7 @@ struct IRFunction {
         [[nodiscard]] usize num_regs() const { return def_use.size(); }
 
         u32 add_reg(InstId def_inst, BlockID def_block) {
-            auto id = def_use.size();
+            const auto id = def_use.size();
             def_use.emplace_back(def_inst, def_block);
             return id;
         }
@@ -674,6 +677,12 @@ struct IRFunction {
                std::vector<VReg> params)
         : id(id), name(name), return_type(return_type),
           params(std::move(params)) {}
+};
+
+struct IRFile {
+    std::vector<IRFunction> funcs;
+
+    explicit IRFile(std::vector<IRFunction> funcs) : funcs(std::move(funcs)) {}
 };
 
 } // namespace z::ir

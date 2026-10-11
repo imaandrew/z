@@ -2,6 +2,7 @@
 
 #include "ir/analysis/analyses.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "ir/pass.h"
 #include <initializer_list>
 #include <string_view>
@@ -29,23 +30,27 @@ public:
 
     static void update_phi_operands(BlockID old_id, BlockID new_id,
                                     BasicBlock& b, IRFunction& func) {
-        for (auto id : b.phis()) {
+        for (const auto id : b.phis()) {
             auto& inst = func.insts[id.id];
 
-            for (auto&& [_, label] : inst.phi_operands()) {
-                if (label.block_id == old_id)
+            for (auto&& [reg, label] : inst.phi_operands()) {
+                if (label.block_id == old_id) {
                     label.block_id = new_id;
+                    func.remove_use(reg, inst.id, old_id);
+                    func.add_use(reg, inst.id, new_id);
+                }
             }
         }
     }
 
-    bool run(IRFunction& func, FuncAnalyses& /*analyses*/) override {
+    bool run(IRFunction& func, FuncAnalyses& /*analyses*/,
+             const IRFile& /*file*/) override {
         std::vector<std::pair<BlockID, BlockID>> critical_edges;
 
-        for (auto& b : func.blocks) {
+        for (const auto& b : func.blocks) {
             if (b.successors.size() <= 1)
                 continue;
-            for (auto s : b.successors) {
+            for (const auto s : b.successors) {
                 if (func.get_block(s).predecessors.size() > 1)
                     critical_edges.emplace_back(b.id, s);
             }
@@ -55,7 +60,7 @@ public:
             auto& new_block =
                 func.blocks.emplace_back(BlockID(func.blocks.size()));
 
-            auto jump_id = InstId(func.insts.size());
+            const auto jump_id = InstId(func.insts.size());
             func.insts.emplace_back(
                 jump_id, IROp::Jump,
                 std::initializer_list{Operand::label(succ_id)});
