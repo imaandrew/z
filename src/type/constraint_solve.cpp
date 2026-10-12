@@ -127,8 +127,8 @@ bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
     }
 
     const auto b_type = b_inf->get_infer_type();
-    return (b_type == InferType::IntLiteral && b->is_integral()) ||
-           (b_type == InferType::FloatLiteral && b->is_float()) ||
+    return (b_type == InferType::IntLiteral && a->is_integral()) ||
+           (b_type == InferType::FloatLiteral && a->is_float()) ||
            b_type == InferType::Var || b_type == InferType::Block;
 }
 
