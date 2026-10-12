@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/index.h"
+#include "core/match.h"
 #include "core/panic.h"
 #include "core/types.h"
 #include "ir/analysis/analyses.h"
@@ -99,6 +100,40 @@ class ImmToReg : public IRPass {
         for (auto& op : inst.operands) {
             intern(op, inst, block, type);
         }
+    }
+
+    void handle_with_imm_inst(Instruction& inst, BlockID block) {
+        auto& lhs = inst.operands[0];
+        auto& rhs = inst.operands[1];
+
+        if (lhs.is_reg() && rhs.is_reg())
+            return;
+
+        const auto can_use_imm_inst = [&](const Immediate& imm) {
+            if (!imm.is_int())
+                return false;
+
+            const auto& imm_int = imm.as_int();
+            const bool is_signed =
+                matches(inst.op, IROp::Shl, IROp::Lsr, IROp::Asr, IROp::And,
+                        IROp::Or, IROp::Xor)
+                    ? false
+                    : imm_int.is_signed();
+            return imm_int.fits_in(16, is_signed);
+        };
+
+        if (lhs.is_reg() && rhs.is_imm() && can_use_imm_inst(rhs.as_imm()))
+            return;
+
+        if (lhs.is_imm() && rhs.is_reg() && is_commutative(inst.op) &&
+            can_use_imm_inst(lhs.as_imm()))
+            return;
+
+        intern(lhs, inst, block, inst.dest.value().type);
+        intern(rhs, inst, block,
+               matches(inst.op, IROp::Shl, IROp::Lsr, IROp::Asr)
+                   ? type::builtin::I64
+                   : inst.dest.value().type);
     }
 
     void handle_icmp(Instruction& inst, BlockID block) {
@@ -254,6 +289,14 @@ public:
                 case IROp::UDiv:
                 case IROp::SRem:
                 case IROp::URem:
+                case IROp::And:
+                case IROp::Or:
+                case IROp::Xor:
+                case IROp::Shl:
+                case IROp::Lsr:
+                case IROp::Asr:
+                    handle_with_imm_inst(inst, block.id);
+                    break;
                 case IROp::INeg:
                 case IROp::FAdd:
                 case IROp::FSub:
@@ -263,19 +306,8 @@ public:
                 case IROp::ZExt:
                 case IROp::SExt:
                 case IROp::Trunc:
-                case IROp::And:
-                case IROp::Or:
-                case IROp::Xor:
                 case IROp::Not:
                     handle_all_operands(inst, block.id, inst.dest.value().type);
-                    break;
-                case IROp::Shl:
-                case IROp::Lsr:
-                case IROp::Asr:
-                    intern(inst.operands[0], inst, block.id,
-                           inst.dest.value().type);
-                    intern(inst.operands[1], inst, block.id,
-                           type::builtin::I64);
                     break;
                 case IROp::ICmp:
                     handle_icmp(inst, block.id);

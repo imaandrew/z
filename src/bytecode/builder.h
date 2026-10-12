@@ -5,9 +5,7 @@
 #include "core/types.h"
 #include "core/zctxt.h"
 #include "ir/ir.h"
-#include "ir/ir_builder.h"
 #include <cstdint>
-#include <variant>
 #include <vector>
 namespace z::bytecode {
 using namespace z;
@@ -26,6 +24,11 @@ class Builder {
         ir::VReg cond;
         ir::BlockID b_true;
         ir::BlockID b_false;
+
+        PendingBranch(u32 chunk_idx, ir::VReg cond, ir::BlockID b_true,
+                      ir::BlockID b_false)
+            : chunk_idx(chunk_idx), cond(cond), b_true(b_true),
+              b_false(b_false) {}
     };
 
     /// MUST be sorted in ascending order by chunk_idx
@@ -35,7 +38,7 @@ class Builder {
     void lower_block(const ir::BasicBlock& block, const ir::IRFunction& func);
     void lower_int_arith(const ir::Instruction& inst);
     void lower_int_logic(const ir::Instruction& inst);
-    void lower_ineg(const ir::Instruction& inst);
+    void lower_r_rd(const ir::Instruction& inst);
     void lower_copy(const ir::Instruction& inst);
     void lower_load_const(const ir::Instruction& inst);
     void lower_cmp(const ir::Instruction& inst);

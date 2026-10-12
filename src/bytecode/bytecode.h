@@ -3,6 +3,7 @@
 #include "bytecode/byte_ops.h"
 #include "core/string_pool.h"
 #include "core/types.h"
+#include <utility>
 #include <vector>
 namespace z::bytecode {
 class Instruction {
@@ -79,7 +80,8 @@ class Function {
     std::vector<u64> constants;
 
 public:
-    explicit Function(StringID name) : name(name) {}
+    explicit Function(StringID name, std::vector<u64> constants)
+        : name(name), constants(std::move(constants)) {}
 
     Chunk& add_chunk(u32 idx) { return chunks.emplace_back(idx); }
 

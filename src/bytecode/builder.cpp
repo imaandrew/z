@@ -13,7 +13,7 @@
 namespace z::bytecode {
 std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
     for (const auto& func : file.funcs) {
-        current_func = &funcs.emplace_back(func.name);
+        current_func = &funcs.emplace_back(func.name, func.const_pool.values());
         chunk_map = std::vector<u32>(func.blocks.size());
         lower_func(func);
     }
@@ -51,10 +51,14 @@ void Builder::lower_block(const ir::BasicBlock& block,
         case IROp::And:
         case IROp::Or:
         case IROp::Xor:
+        case IROp::Shl:
+        case IROp::Lsr:
+        case IROp::Asr:
             lower_int_logic(inst);
             break;
         case IROp::INeg:
-            lower_ineg(inst);
+        case IROp::Not:
+            lower_r_rd(inst);
             break;
         case IROp::Copy:
             lower_copy(inst);
@@ -152,45 +156,57 @@ void Builder::lower_int_arith(const ir::Instruction& inst) {
         return;
     }
 
-    if (lhs->is_reg() || rhs->is_reg()) {
-        if (lhs->is_imm())
-            std::swap(lhs, rhs);
-        expect(rhs->is_imm(), "");
+    if (!lhs->is_reg() && !rhs->is_reg())
+        panic("ImmToReg should have moved immediate into register");
 
-        const auto reg = lhs->as_reg();
-        const auto& imm = rhs->as_imm().as_int();
-        const auto* op_type =
-            ctxt->ty->get_as<type::IntegerType>(lhs->as_reg().type);
+    if (lhs->is_imm() && ir::is_commutative(inst.op))
+        std::swap(lhs, rhs);
+    expect(rhs->is_imm(), "ImmToReg should have moved immediate into register");
 
-        if (inst.op == IROp::IAdd && imm.fits_in(8, op_type->is_signed())) {
-            if (op_type->is_signed()) {
-                emit_inst(Instruction::RI(Op::SAddq, lower_vreg(dest),
-                                          lower_vreg(reg),
-                                          static_cast<i8>(imm.get_signed())));
-            } else {
-                emit_inst(Instruction::RIU(Op::UAddq, lower_vreg(dest),
-                                           lower_vreg(reg),
-                                           static_cast<u8>(imm.get_bits())));
-            }
-            return;
+    const auto reg = lhs->as_reg();
+    const auto& imm = rhs->as_imm().as_int();
+    const auto* op_type =
+        ctxt->ty->get_as<type::IntegerType>(lhs->as_reg().type);
+
+    if (inst.op == IROp::IAdd && imm.fits_in(8, op_type->is_signed())) {
+        if (op_type->is_signed()) {
+            emit_inst(Instruction::RI(Op::SAddq, lower_vreg(dest),
+                                      lower_vreg(reg),
+                                      static_cast<i8>(imm.get_signed())));
+        } else {
+            emit_inst(Instruction::RIU(Op::UAddq, lower_vreg(dest),
+                                       lower_vreg(reg),
+                                       static_cast<u8>(imm.get_bits())));
         }
 
-        if (reg.id == dest.id && imm.fits_in(16, op_type->is_signed())) {
-            if (op_type->is_signed())
-                emit_inst(Instruction::I(imm_op(inst.op, true),
-                                         lower_vreg(dest),
-                                         static_cast<i16>(imm.get_signed())));
-            else
-                emit_inst(Instruction::IU(imm_op(inst.op, false),
-                                          lower_vreg(dest),
-                                          static_cast<u16>(imm.get_bits())));
-            return;
+        if (op_type->get_width() != 64) {
+            emit_inst(
+                Instruction::R(chk(op_type->get_width(), op_type->is_signed()),
+                               lower_vreg(dest), 0, 0));
         }
-
-        panic("ImmToReg should have moved the immediate into a register");
+        return;
     }
 
-    panic("unfolded arithmetic expression");
+    if (imm.fits_in(16, op_type->is_signed())) {
+        if (reg.id != dest.id)
+            emit_inst(
+                Instruction::R(Op::Mov, lower_vreg(dest), lower_vreg(reg), 0));
+
+        if (op_type->is_signed())
+            emit_inst(Instruction::I(imm_op(inst.op, true), lower_vreg(dest),
+                                     static_cast<i16>(imm.get_signed())));
+        else
+            emit_inst(Instruction::IU(imm_op(inst.op, false), lower_vreg(dest),
+                                      static_cast<u16>(imm.get_bits())));
+
+        if (op_type->get_width() != 64) {
+            emit_inst(
+                Instruction::R(chk(op_type->get_width(), op_type->is_signed()),
+                               lower_vreg(dest), 0, 0));
+        }
+    } else {
+        panic("ImmToReg should have moved the immediate into a register");
+    }
 }
 
 void Builder::lower_int_logic(const ir::Instruction& inst) {
@@ -202,6 +218,12 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
             return Op::Or;
         case IROp::Xor:
             return Op::Xor;
+        case IROp::Shl:
+            return Op::Shl;
+        case IROp::Lsr:
+            return Op::Lsr;
+        case IROp::Asr:
+            return Op::Asr;
         default:
             std::unreachable();
         }
@@ -215,6 +237,12 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
             return Op::Ori;
         case IROp::Xor:
             return Op::Xori;
+        case IROp::Shl:
+            return Op::Shli;
+        case IROp::Lsr:
+            return Op::Lsri;
+        case IROp::Asr:
+            return Op::Asri;
         default:
             std::unreachable();
         }
@@ -234,36 +262,49 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
         return;
     }
 
-    if (lhs->is_reg() || rhs->is_reg()) {
-        if (lhs->is_imm())
-            std::swap(lhs, rhs);
-        expect(rhs->is_imm(), "");
+    if (!lhs->is_reg() && !rhs->is_reg())
+        panic("ImmToReg should have moved immediate into register");
 
-        const auto reg = lhs->as_reg();
-        const auto& imm = rhs->as_imm().as_int();
+    if (lhs->is_imm() && ir::is_commutative(inst.op))
+        std::swap(lhs, rhs);
+    expect(rhs->is_imm(), "ImmToReg should have moved immediate into register");
 
-        if (reg.id == dest.id && imm.get_width() <= 16) {
-            emit_inst(Instruction::I(imm_op(inst.op), lower_vreg(dest),
-                                     static_cast<i16>(imm.get_bits())));
-            return;
-        }
+    const auto reg = lhs->as_reg();
+    const auto& imm = rhs->as_imm().as_int();
 
-        panic("ImmToReg should have moved the immediate into a register");
+    if (imm.fits_in(16, false)) {
+        if (reg.id != dest.id)
+            emit_inst(
+                Instruction::R(Op::Mov, lower_vreg(dest), lower_vreg(reg), 0));
+
+        emit_inst(Instruction::IU(imm_op(inst.op), lower_vreg(dest),
+                                  static_cast<u16>(imm.get_bits())));
+    } else {
+        panic("ImmToReg should have moved immediate into register");
     }
-
-    panic("unfolded logical expression");
 }
 
-void Builder::lower_ineg(const ir::Instruction& inst) {
-    expect(inst.operands.size() == 1, "ineg should have one operand");
-    expect(inst.dest.has_value(), "ineg should have dest");
+void Builder::lower_r_rd(const ir::Instruction& inst) {
+    expect(inst.operands.size() == 1, "instruction should have one operand");
+    expect(inst.dest.has_value(), "instruction should have dest");
+
+    const auto op = [](IROp op_) {
+        switch (op_) {
+        case IROp::INeg:
+            return Op::Neg;
+        case IROp::Not:
+            return Op::Not;
+        default:
+            std::unreachable();
+        }
+    };
 
     const auto& v = inst.operands.front();
     const auto dest = inst.dest.value();
     expect(v.is_reg(), "ImmToReg should have moved immediate into register");
 
-    emit_inst(
-        Instruction::R(Op::Neg, lower_vreg(dest), lower_vreg(v.as_reg()), 0));
+    emit_inst(Instruction::R(op(inst.op), lower_vreg(dest),
+                             lower_vreg(v.as_reg()), 0));
 }
 
 void Builder::lower_copy(const ir::Instruction& inst) {
@@ -300,8 +341,9 @@ void Builder::lower_load_const(const ir::Instruction& inst) {
     const auto dest = inst.dest.value();
     expect(v.is_imm() && v.as_imm().is_int(), "ldc operand should be integer");
 
-    emit_inst(Instruction::I(Op::LoadConst, lower_vreg(dest),
-                             static_cast<u16>(v.as_imm().as_int().get_bits())));
+    emit_inst(
+        Instruction::IU(Op::LoadConst, lower_vreg(dest),
+                        static_cast<u16>(v.as_imm().as_int().get_bits())));
 }
 
 void Builder::lower_cmp(const ir::Instruction& inst) {

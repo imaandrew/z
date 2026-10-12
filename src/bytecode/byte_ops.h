@@ -5,7 +5,7 @@
 #include <utility>
 
 namespace z::bytecode {
-enum class InstClass : u8 { R, RI, I };
+enum class InstClass : u8 { R, RI, RIU, I, IU };
 
 enum class Op : u8 {
 #define BYTE_OP(name, mnemonic, class) name,
