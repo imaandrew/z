@@ -84,24 +84,6 @@ static constexpr std::optional<ConstFloat> fold_float_op(IROp op,
     }
 }
 
-static constexpr std::optional<bool> fold_bool_op(BinOp op, bool lhs,
-                                                  bool rhs) {
-    switch (op) {
-    case BinOp::Eq:
-        return lhs == rhs;
-    case BinOp::Ne:
-        return lhs != rhs;
-    case BinOp::LogicAnd:
-        return lhs && rhs;
-    case BinOp::LogicOr:
-        return lhs || rhs;
-    case BinOp::BitXor:
-        return lhs ^ rhs;
-    default:
-        return std::nullopt;
-    }
-}
-
 static constexpr IROp get_ir_op(UnOp kind) {
     switch (kind) {
     case UnOp::BitNot:
@@ -175,6 +157,9 @@ static constexpr IROp get_int_ir_op(BinOp kind, bool is_signed) {
     case BinOp::Shr:
     case BinOp::ShrEq:
         return is_signed ? IROp::Asr : IROp::Lsr;
+    case BinOp::LogicAnd:
+    case BinOp::LogicOr:
+        panic("LogicAnd and LogicOr should return early");
     default:
         return get_ir_op(kind);
     }
@@ -274,7 +259,7 @@ struct VReg {
 };
 
 struct Immediate {
-    std::variant<ConstInt, ConstFloat, bool, StringID, unsigned char> val;
+    std::variant<ConstInt, ConstFloat, StringID, unsigned char> val;
     type::TypeRef type;
 
     [[nodiscard]] bool is_int() const {
@@ -283,10 +268,6 @@ struct Immediate {
 
     [[nodiscard]] bool is_float() const {
         return std::holds_alternative<ConstFloat>(val);
-    }
-
-    [[nodiscard]] bool is_bool() const {
-        return std::holds_alternative<bool>(val);
     }
 
     [[nodiscard]] bool is_string() const {
@@ -304,8 +285,6 @@ struct Immediate {
     [[nodiscard]] const ConstFloat& as_float() const {
         return std::get<ConstFloat>(val);
     }
-
-    [[nodiscard]] bool as_bool() const { return std::get<bool>(val); }
 
     [[nodiscard]] StringID as_string() const { return std::get<StringID>(val); }
 

@@ -4,7 +4,6 @@
 #include "core/zctxt.h"
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
-#include "ir/ir_builder.h"
 #include "ir/ir_ops.h"
 #include <ostream>
 #include <print>
@@ -51,7 +50,7 @@ void IRPrinter::dump_func(const IRFunction& func, const IRFile& ir,
 
         os << "\n";
 
-        for (auto inst_id : block.insts) {
+        for (const auto inst_id : block.insts) {
             const auto& inst = func.insts[inst_id.id];
             os << "  ";
             dump_inst(inst, ir, os);
@@ -197,9 +196,6 @@ void IRPrinter::dump_immediate(const Immediate& imm, std::ostream& os) const {
     } else if (imm.is_float()) {
         const auto& f = imm.as_float();
         std::print(os, "{}{}{}", colour::YELLOW, f.get_bits(), colour::RESET);
-    } else if (imm.is_bool()) {
-        auto b = imm.as_bool();
-        os << colour::YELLOW << (b ? "true" : "false") << colour::RESET;
     } else if (imm.is_string()) {
         std::print(os, "{}\"{}\"{}", colour::YELLOW,
                    ctxt->strings->get_string(imm.as_string()), colour::RESET);

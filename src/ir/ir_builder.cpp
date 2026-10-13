@@ -11,9 +11,7 @@
 #include "type/type_arena.h"
 #include "type/type_ref.h"
 #include <cassert>
-#include <functional>
 #include <optional>
-#include <ranges>
 #include <utility>
 #include <vector>
 
@@ -45,7 +43,7 @@ void IRBuilder::visit(ast::FloatExpr& expr) {
 }
 
 void IRBuilder::visit(ast::BoolExpr& expr) {
-    last_result = Operand::imm(expr.val, type::builtin::BOOL);
+    last_result = Operand::imm(ConstInt(expr.val, 1, false), type::builtin::I1);
 }
 
 void IRBuilder::visit(ast::PrefixExpr& expr) {
@@ -127,7 +125,33 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     std::optional<FloatCC> float_cc{};
 
     if (expr_op == BinOp::LogicAnd || expr_op == BinOp::LogicOr) {
-        auto lhs = emit_op(expr.lhs.get());
+        const auto lhs = emit_op(expr.lhs.get());
+
+        if (lhs.is_imm()) {
+            expect(lhs.as_imm().is_int(),
+                   "operands of `&&` or `||` expression should be bools");
+
+            const auto lhs_int = lhs.as_imm().as_int();
+
+            expect(lhs_int.fits_in(1, false),
+                   "operands of `&&` or `||` expression should be i1");
+
+            if (expr_op == BinOp::LogicAnd && lhs_int.get_bits() == 0) {
+                last_result =
+                    Operand::imm(ConstInt(0, 1, false), type::builtin::I1);
+                return;
+            }
+
+            if (expr_op == BinOp::LogicOr && lhs_int.get_bits() == 1) {
+                last_result =
+                    Operand::imm(ConstInt(1, 1, false), type::builtin::I1);
+                return;
+            }
+
+            emit_op(expr.rhs.get());
+            return;
+        }
+
         auto lhs_reg = ensure_reg(lhs);
         auto lhs_block = *current_block;
 
@@ -150,7 +174,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         seal_block(current_func->get_block(end_block));
 
         auto phi_inst = get_inst_id();
-        auto phi = emit_phi(type::builtin::BOOL);
+        auto phi = emit_phi(type::builtin::I1);
         add_phi_operand(phi_inst, lhs_reg.as_reg(), lhs_block);
         add_phi_operand(phi_inst, rhs_reg.as_reg(), rhs_exit);
 
@@ -171,7 +195,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     }
 
     auto op = [&] {
-        const auto* type = ctxt->ty->get(expr.lhs->get_type());
+        const auto* type = ctxt->ty->get(to_ir_type(expr.lhs->get_type()));
         if (type->is_integral()) {
             const auto* int_type = type::cast<const type::IntegerType>(type);
             auto op = get_int_ir_op(expr_op, int_type->is_signed());
@@ -201,7 +225,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         if (lhs_imm.is_int() && rhs_imm.is_int()) {
             if (op == IROp::ICmp) {
                 auto res = lhs_imm.as_int().cmp(rhs_imm.as_int(), *int_cc);
-                last_result = Operand::imm(res, type::builtin::BOOL);
+                last_result = Operand::imm(res, type::builtin::I1);
                 return;
             }
 
@@ -227,14 +251,14 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             }
 
             if (res) {
-                last_result = Operand::imm(*res, expr.get_type());
+                last_result = Operand::imm(*res, to_ir_type(expr.get_type()));
                 return;
             }
         } else if (lhs_imm.is_float() && rhs_imm.is_float()) {
             if (op == IROp::FCmp) {
                 auto res =
                     lhs_imm.as_float().cmp(rhs_imm.as_float(), *float_cc);
-                last_result = Operand::imm(res, type::builtin::BOOL);
+                last_result = Operand::imm(res, type::builtin::I1);
                 return;
             }
 
@@ -249,14 +273,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
                 return;
             }
             if (res) {
-                last_result = Operand::imm(*res, expr.get_type());
-                return;
-            }
-        } else if (lhs_imm.is_bool() && rhs_imm.is_bool()) {
-            auto res =
-                fold_bool_op(expr_op, lhs_imm.as_bool(), rhs_imm.as_bool());
-            if (res) {
-                last_result = Operand::imm(*res, type::builtin::BOOL);
+                last_result = Operand::imm(*res, to_ir_type(expr.get_type()));
                 return;
             }
         }
@@ -448,8 +465,9 @@ void IRBuilder::visit(ast::SourceFileDecl& file) {
 
 void IRBuilder::visit(ast::FuncDecl& func) {
     auto func_id = get_func_id();
-    current_func = &funcs.emplace_back(func_id, func.name->get_id(), func.ret,
-                                       std::vector<VReg>());
+    current_func =
+        &funcs.emplace_back(func_id, func.name->get_id(), to_ir_type(func.ret),
+                            std::vector<VReg>());
     block_state.clear();
 
     auto entry = new_block();
@@ -667,7 +685,7 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         auto cond = emit_inst(IROp::ICmp,
                               {Operand::intcc(IntCC::UnsignedLessThan),
                                Operand::reg(cnt_reg), max_loop_cnt},
-                              type::builtin::BOOL);
+                              type::builtin::I1);
 
         auto body_block = new_block();
         link_blocks(*current_block, body_block);

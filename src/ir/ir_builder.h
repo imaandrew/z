@@ -102,6 +102,10 @@ class IRBuilder final : public ast::ASTVisitor {
     void visit(ast::TypeAliasDecl& decl) override;
     void visit(ast::TraitFuncDecl& decl) override;
 
+    static constexpr type::TypeRef to_ir_type(type::TypeRef type) {
+        return type == type::builtin::BOOL ? type::builtin::I1 : type;
+    }
+
     IRFunction& get_func(FuncID id) { return funcs[id.id]; }
     IRFunction& get_func(StringID name) {
         for (auto& func : funcs) {
@@ -121,7 +125,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
     VReg emit_reg(type::TypeRef type, InstId inst) {
         auto reg_id = current_func->add_reg(inst, current_block.value());
-        return VReg{.id = reg_id, .type = type};
+        return VReg{.id = reg_id, .type = to_ir_type(type)};
     }
 
     BlockID new_block() {

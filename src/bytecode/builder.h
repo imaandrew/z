@@ -38,6 +38,7 @@ class Builder {
     void lower_block(const ir::BasicBlock& block, const ir::IRFunction& func);
     void lower_int_arith(const ir::Instruction& inst);
     void lower_int_logic(const ir::Instruction& inst);
+    void lower_not(const ir::Instruction& inst);
     void lower_r_rd(const ir::Instruction& inst);
     void lower_copy(const ir::Instruction& inst);
     void lower_load_const(const ir::Instruction& inst);

@@ -17,9 +17,9 @@ IR_OP(FMul, "fmul", Arithmetic, SameArgs, Op::FloatType, Op::FloatType)
 IR_OP(FDiv, "fdiv", Arithmetic, SameArgs, Op::FloatType, Op::FloatType)
 IR_OP(FNeg, "fneg", Arithmetic, SameArgs, Op::FloatType)
 
-IR_OP(ZExt, "zext", Arithmetic, Int, Op::IntType)
-IR_OP(SExt, "sext", Arithmetic, Int, Op::IntType)
-IR_OP(Trunc, "trunc", Arithmetic, Int, Op::IntType)
+IR_OP(ZExt, "zext", Conversion, Int, Op::IntType)
+IR_OP(SExt, "sext", Conversion, Int, Op::IntType)
+IR_OP(Trunc, "trunc", Conversion, Int, Op::IntType)
 
 IR_OP(And, "and", Logic, SameArgs, Op::IntType, Op::IntType)
 IR_OP(Or, "or", Logic, SameArgs, Op::IntType, Op::IntType)

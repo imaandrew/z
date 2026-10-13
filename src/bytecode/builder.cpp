@@ -57,8 +57,10 @@ void Builder::lower_block(const ir::BasicBlock& block,
             lower_int_logic(inst);
             break;
         case IROp::INeg:
-        case IROp::Not:
             lower_r_rd(inst);
+            break;
+        case IROp::Not:
+            lower_not(inst);
             break;
         case IROp::Copy:
             lower_copy(inst);
@@ -284,6 +286,35 @@ void Builder::lower_int_logic(const ir::Instruction& inst) {
     }
 }
 
+void Builder::lower_not(const ir::Instruction& inst) {
+    expect(inst.operands.size() == 1, "not should have one operand");
+    expect(inst.dest.has_value(), "not should have dest");
+
+    const auto& val = inst.operands.front();
+    expect(val.is_reg(), "ImmToReg should have moved immediate into register");
+
+    const auto* type = ctxt->ty->get_as<type::IntegerType>(val.as_reg().type);
+    switch (type->get_width()) {
+    case 1:
+    case 8:
+    case 16:
+    case 32:
+        if (!type->is_signed()) {
+            emit_inst(Instruction::RIU(Op::Notu, lower_vreg(inst.dest.value()),
+                                       lower_vreg(val.as_reg()),
+                                       type->get_width()));
+            return;
+        }
+        [[fallthrough]];
+    case 64:
+        emit_inst(Instruction::R(Op::Not, lower_vreg(inst.dest.value()),
+                                 lower_vreg(val.as_reg()), 0));
+        break;
+    default:
+        std::unreachable();
+    }
+}
+
 void Builder::lower_r_rd(const ir::Instruction& inst) {
     expect(inst.operands.size() == 1, "instruction should have one operand");
     expect(inst.dest.has_value(), "instruction should have dest");
@@ -292,8 +323,6 @@ void Builder::lower_r_rd(const ir::Instruction& inst) {
         switch (op_) {
         case IROp::INeg:
             return Op::Neg;
-        case IROp::Not:
-            return Op::Not;
         default:
             std::unreachable();
         }
@@ -315,12 +344,6 @@ void Builder::lower_copy(const ir::Instruction& inst) {
     const auto dest = inst.dest.value();
 
     if (v.is_imm()) {
-        if (v.as_imm().is_bool()) {
-            emit_inst(Instruction::I(Op::LoadImm, lower_vreg(dest),
-                                     v.as_imm().as_bool() ? 1 : 0));
-            return;
-        }
-
         expect(v.as_imm().is_int() && v.as_imm().as_int().fits_in(16, true),
                "ImmToReg should have moved to reg");
         emit_inst(
@@ -414,7 +437,7 @@ void Builder::lower_branch(const ir::Instruction& inst) {
     const auto lhs = inst.operands[1].as_label();
     const auto rhs = inst.operands[2].as_label();
 
-    if (cond.as_imm().is_bool())
+    if (cond.is_imm())
         panic("TODO");
 
     pending_branches.emplace_back(current_chunk->get_idx(), cond.as_reg(),

@@ -144,7 +144,8 @@ public:
     basic_name(const ZContext* /*ctxt*/) const override {
         if (_size_type)
             return std::format("{}size", _signed ? "i" : "u");
-        return std::format("{}{}", _signed ? "i" : "u", bit_width);
+        return std::format("{}{}", _signed || get_width() == 1 ? "i" : "u",
+                           bit_width);
     }
 };
 

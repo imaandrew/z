@@ -83,11 +83,6 @@ class ImmToReg : public IRPass {
                                     : i.get_bits());
         } else if (imm.is_float()) {
             load_bits(static_cast<u64>(imm.as_float().get_bits()));
-        } else if (imm.is_bool()) {
-            const auto loaded_imm = emit_load_imm(
-                ConstInt(imm.as_bool() ? 1 : 0, 1, false), block, type);
-            op = Operand::reg(loaded_imm);
-            func->add_use(loaded_imm, inst.id, block);
         } else if (imm.is_string()) {
             panic("ImmToReg: cannot intern string");
         } else if (imm.is_char()) {
@@ -244,8 +239,6 @@ class ImmToReg : public IRPass {
             const auto& float_imm = imm.as_float();
 
             load_bits(static_cast<u64>(float_imm.get_bits()));
-        } else if (imm.is_bool()) {
-            return;
         } else if (imm.is_string()) {
             panic("ImmToReg: cannot intern string");
         } else if (imm.is_char()) {
@@ -334,7 +327,7 @@ public:
                     break;
                 case IROp::Branch:
                     intern(inst.operands.front(), inst, block.id,
-                           type::builtin::BOOL);
+                           type::builtin::I1);
                     break;
                 case IROp::Alloca:
                 case IROp::Load:

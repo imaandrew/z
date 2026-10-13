@@ -141,7 +141,7 @@ public:
 
                     const auto res = lhs_int.cmp(rhs_int, cc);
 
-                    inst.operands = {Operand::imm(res, type::builtin::BOOL)};
+                    inst.operands = {Operand::imm(res, type::builtin::I1)};
                 } else if (inst.op == IROp::FCmp) {
                     const auto cc = inst.operands[0].as_floatcc();
                     const auto lhs_float = lhs.as_float();
@@ -149,7 +149,7 @@ public:
 
                     const auto res = lhs_float.cmp(rhs_float, cc);
 
-                    inst.operands = {Operand::imm(res, type::builtin::BOOL)};
+                    inst.operands = {Operand::imm(res, type::builtin::I1)};
                 } else {
                     panic("Invalid number of operands for inst");
                 }

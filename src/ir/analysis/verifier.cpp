@@ -333,7 +333,7 @@ bool IRVerifier::verify_inst_operands(const IRFunction& func,
         case Type::Float:
             return ty.isa<type::FloatType>(type);
         case Type::Bool:
-            return ty.isa<type::BooleanType>(type);
+            return type == type::builtin::I1;
         case Type::Type:
             return ty.isa<type::TypeType>(type);
         case Type::Pointer:
@@ -407,6 +407,14 @@ bool IRVerifier::verify_inst_operands(const IRFunction& func,
                                  "type for this op",
                                  func.id, inst.id, i);
                 }
+
+                if (op_info(inst.op).op_class == OpClass::Arithmetic &&
+                    type_of(op) == type::builtin::I1) {
+                    ok = false;
+                    std::println("func {}, inst {}: operand {} is bool in "
+                                 "arithmetic operation",
+                                 func.id, inst.id, i);
+                }
             }
 
             return ok;
@@ -470,9 +478,9 @@ bool IRVerifier::verify_inst_operands(const IRFunction& func,
                 check_operand(op);
             }
         } else if (info.ret == DestType::Bool) {
-            if (inst.dest->type != type::builtin::BOOL) {
+            if (inst.dest->type != type::builtin::I1) {
                 ret = false;
-                std::println("func {}, inst {}: dest type should be bool",
+                std::println("func {}, inst {}: dest type should be i1 (bool)",
                              func.id, inst.id);
             }
         } else if (info.ret == DestType::Int) {

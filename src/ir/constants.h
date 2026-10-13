@@ -58,8 +58,8 @@ class ConstInt {
         ASSERT(width == other.width);
         ASSERT(is_signed() == other.is_signed());
 
-        auto a = sign_extend(bits);
-        auto b = sign_extend(other.bits);
+        const auto a = sign_extend(bits);
+        const auto b = sign_extend(other.bits);
 
         return {mask(static_cast<u64>(a / b)), width, is_signed_};
     }
@@ -150,11 +150,12 @@ public:
         auto result = add(other);
 
         if (result.is_signed_) {
-            auto rhs_is_negative = other.is_negative();
-            auto result_lt_lhs = result.cmp(*this, IntCC::SignedLessThan);
-            overflow = rhs_is_negative ^ result_lt_lhs;
+            const auto rhs_is_negative = other.is_negative();
+            const auto result_lt_lhs = result.cmp(*this, IntCC::SignedLessThan);
+            overflow =
+                rhs_is_negative ^ static_cast<bool>(result_lt_lhs.get_bits());
         } else {
-            overflow = result.cmp(*this, IntCC::UnsignedLessThan);
+            overflow = result.cmp(*this, IntCC::UnsignedLessThan).get_bits();
         }
 
         return result;
@@ -164,11 +165,13 @@ public:
         auto result = sub(other);
 
         if (result.is_signed_) {
-            auto rhs_is_negative = other.is_negative();
-            auto result_gt_lhs = result.cmp(*this, IntCC::SignedGreaterThan);
-            overflow = rhs_is_negative ^ result_gt_lhs;
+            const auto rhs_is_negative = other.is_negative();
+            const auto result_gt_lhs =
+                result.cmp(*this, IntCC::SignedGreaterThan);
+            overflow =
+                rhs_is_negative ^ static_cast<bool>(result_gt_lhs.get_bits());
         } else {
-            overflow = other.cmp(*this, IntCC::UnsignedGreaterThan);
+            overflow = other.cmp(*this, IntCC::UnsignedGreaterThan).get_bits();
         }
 
         return result;
@@ -180,9 +183,9 @@ public:
 
         if (result.is_signed_) {
             if (bits != 0) {
-                auto lhs_signed = sign_extend(bits);
-                auto rhs_signed = sign_extend(other.bits);
-                auto result_signed = sign_extend(result.bits);
+                const auto lhs_signed = sign_extend(bits);
+                const auto rhs_signed = sign_extend(other.bits);
+                const auto result_signed = sign_extend(result.bits);
 
                 if (lhs_signed != -1) {
                     overflow = (result_signed / lhs_signed) != rhs_signed;
@@ -215,8 +218,8 @@ public:
         if (undefined)
             return {0, width, is_signed_};
 
-        auto lhs_signed = sign_extend(bits);
-        auto rhs_signed = sign_extend(other.bits);
+        const auto lhs_signed = sign_extend(bits);
+        const auto rhs_signed = sign_extend(other.bits);
 
         i64 const min_val =
             -static_cast<i64>(1ULL << static_cast<u64>(width - 1));
@@ -249,8 +252,8 @@ public:
         if (undefined)
             return {0, width, is_signed_};
 
-        auto a = sign_extend(bits);
-        auto b = sign_extend(other.bits);
+        const auto a = sign_extend(bits);
+        const auto b = sign_extend(other.bits);
 
         if (a == std::numeric_limits<i64>::min() && b == -1)
             return {0, width, is_signed_};
@@ -311,68 +314,76 @@ public:
         return ConstInt{mask(bits ^ other.bits), width, is_signed_};
     }
 
-    [[nodiscard]] bool cmp(const ConstInt& other, IntCC cc) const {
+    [[nodiscard]] ConstInt cmp(const ConstInt& other, IntCC cc) const {
         ASSERT(width == other.width);
         ASSERT(is_signed() == other.is_signed());
 
         const auto lhs_signed = sign_extend(bits);
         const auto rhs_signed = sign_extend(other.bits);
 
-        switch (cc) {
-        case IntCC::Equal:
-            return bits == other.bits;
-        case IntCC::NotEqual:
-            return bits != other.bits;
-        case IntCC::UnsignedGreaterThan:
-            return bits > other.bits;
-        case IntCC::UnsignedGreaterEqual:
-            return bits >= other.bits;
-        case IntCC::UnsignedLessThan:
-            return bits < other.bits;
-        case IntCC::UnsignedLessEqual:
-            return bits <= other.bits;
-        case IntCC::SignedGreaterThan:
-            return lhs_signed > rhs_signed;
-        case IntCC::SignedGreaterEqual:
-            return lhs_signed >= rhs_signed;
-        case IntCC::SignedLessThan:
-            return lhs_signed < rhs_signed;
-        case IntCC::SignedLessEqual:
-            return lhs_signed <= rhs_signed;
-        }
+        const auto cmp_val = [&] {
+            switch (cc) {
+            case IntCC::Equal:
+                return bits == other.bits;
+            case IntCC::NotEqual:
+                return bits != other.bits;
+            case IntCC::UnsignedGreaterThan:
+                return bits > other.bits;
+            case IntCC::UnsignedGreaterEqual:
+                return bits >= other.bits;
+            case IntCC::UnsignedLessThan:
+                return bits < other.bits;
+            case IntCC::UnsignedLessEqual:
+                return bits <= other.bits;
+            case IntCC::SignedGreaterThan:
+                return lhs_signed > rhs_signed;
+            case IntCC::SignedGreaterEqual:
+                return lhs_signed >= rhs_signed;
+            case IntCC::SignedLessThan:
+                return lhs_signed < rhs_signed;
+            case IntCC::SignedLessEqual:
+                return lhs_signed <= rhs_signed;
+            default:
+                std::unreachable();
+            }
+        }();
 
-        std::unreachable();
+        return ConstInt(cmp_val, 1, false);
     }
 
-    [[nodiscard]] bool cmp_imm(i64 other, IntCC cc) const {
+    [[nodiscard]] ConstInt cmp_imm(i64 other, IntCC cc) const {
 
         const auto lhs_signed = sign_extend(bits);
         const auto rhs_bits = mask_val(static_cast<u64>(other), width);
 
-        switch (cc) {
-        case IntCC::Equal:
-            return bits == rhs_bits;
-        case IntCC::NotEqual:
-            return bits != rhs_bits;
-        case IntCC::UnsignedGreaterThan:
-            return bits > rhs_bits;
-        case IntCC::UnsignedGreaterEqual:
-            return bits >= rhs_bits;
-        case IntCC::UnsignedLessThan:
-            return bits < rhs_bits;
-        case IntCC::UnsignedLessEqual:
-            return bits <= rhs_bits;
-        case IntCC::SignedGreaterThan:
-            return lhs_signed > other;
-        case IntCC::SignedGreaterEqual:
-            return lhs_signed >= other;
-        case IntCC::SignedLessThan:
-            return lhs_signed < other;
-        case IntCC::SignedLessEqual:
-            return lhs_signed <= other;
-        }
+        const auto cmp_val = [&] {
+            switch (cc) {
+            case IntCC::Equal:
+                return bits == rhs_bits;
+            case IntCC::NotEqual:
+                return bits != rhs_bits;
+            case IntCC::UnsignedGreaterThan:
+                return bits > rhs_bits;
+            case IntCC::UnsignedGreaterEqual:
+                return bits >= rhs_bits;
+            case IntCC::UnsignedLessThan:
+                return bits < rhs_bits;
+            case IntCC::UnsignedLessEqual:
+                return bits <= rhs_bits;
+            case IntCC::SignedGreaterThan:
+                return lhs_signed > other;
+            case IntCC::SignedGreaterEqual:
+                return lhs_signed >= other;
+            case IntCC::SignedLessThan:
+                return lhs_signed < other;
+            case IntCC::SignedLessEqual:
+                return lhs_signed <= other;
+            default:
+                std::unreachable();
+            }
+        }();
 
-        std::unreachable();
+        return ConstInt(cmp_val, 1, false);
     }
 };
 
@@ -438,25 +449,29 @@ public:
         return {bits / other.bits, width};
     }
 
-    [[nodiscard]] bool cmp(const ConstFloat& other, FloatCC cc) const {
+    [[nodiscard]] ConstInt cmp(const ConstFloat& other, FloatCC cc) const {
         ASSERT(width == other.width);
 
-        switch (cc) {
-        case FloatCC::Equal:
-            return bits == other.bits;
-        case FloatCC::NotEqual:
-            return bits != other.bits;
-        case FloatCC::GreaterThan:
-            return bits > other.bits;
-        case FloatCC::GreaterEqual:
-            return bits >= other.bits;
-        case FloatCC::LessThan:
-            return bits < other.bits;
-        case FloatCC::LessEqual:
-            return bits <= other.bits;
-        }
+        const auto cmp_val = [&] {
+            switch (cc) {
+            case FloatCC::Equal:
+                return bits == other.bits;
+            case FloatCC::NotEqual:
+                return bits != other.bits;
+            case FloatCC::GreaterThan:
+                return bits > other.bits;
+            case FloatCC::GreaterEqual:
+                return bits >= other.bits;
+            case FloatCC::LessThan:
+                return bits < other.bits;
+            case FloatCC::LessEqual:
+                return bits <= other.bits;
+            default:
+                std::unreachable();
+            }
+        }();
 
-        std::unreachable();
+        return ConstInt(cmp_val, 1, false);
     }
 };
 } // namespace z::ir

@@ -9,6 +9,7 @@
 namespace z::type {
 enum BuiltInType : u8 {
     BT_UNINITIALIZED = 0,
+    BT_I1,
     BT_I8,
     BT_I16,
     BT_I32,
@@ -46,6 +47,7 @@ public:
 
 namespace builtin {
 inline constexpr TypeRef UNINITALIZED{BT_UNINITIALIZED};
+inline constexpr TypeRef I1{BT_I1};
 inline constexpr TypeRef I8{BT_I8};
 inline constexpr TypeRef I16{BT_I16};
 inline constexpr TypeRef I32{BT_I32};

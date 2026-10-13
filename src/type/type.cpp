@@ -16,6 +16,7 @@ namespace z::type {
 TypeArena::TypeArena() {
     types.reserve(BT_COUNT);
     types.push_back(std::make_unique<InvalidType>());
+    types.push_back(std::make_unique<IntegerType>(1, false));
     types.push_back(std::make_unique<IntegerType>(8, true));
     types.push_back(std::make_unique<IntegerType>(16, true));
     types.push_back(std::make_unique<IntegerType>(32, true));

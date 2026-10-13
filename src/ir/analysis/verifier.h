@@ -27,9 +27,21 @@ struct OperandsList {
     constexpr OpC operator[](usize i) const { return operands.at(i); }
 };
 
+enum class OpClass : u8 {
+    Arithmetic,
+    Conversion,
+    Logic,
+    Memory,
+    Aggregate,
+    Call,
+    Term,
+    Misc,
+};
+
 struct OpInfo {
     IROp op;
     std::string mnemonic;
+    OpClass op_class;
     DestType ret;
     OperandsList operands;
 };
@@ -42,7 +54,8 @@ template <typename... Ts> constexpr OperandsList make_operands(Ts... operands) {
 inline constexpr std::array<OpInfo, 42> op_info_arr = {
 #undef IR_OP
 #define IR_OP(name, mnemonic, class, dest, ...)                                \
-    OpInfo{IROp::name, mnemonic, DestType::dest, make_operands(__VA_ARGS__)},
+    OpInfo{IROp::name, mnemonic, OpClass::class, DestType::dest,               \
+           make_operands(__VA_ARGS__)},
 #include "ir/ir_ops.def"
 };
 
