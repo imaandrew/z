@@ -24,27 +24,27 @@ struct Span {
     Span(u32 index, u16 len) : index(index), len(len) {};
 
     Span& operator+=(const Span& rhs) {
-        auto start = index < rhs.index ? index : rhs.index;
+        const auto start = index < rhs.index ? index : rhs.index;
 
-        auto lhs_end = index + len;
-        auto rhs_end = rhs.index + rhs.len;
-        auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
+        const auto lhs_end = index + len;
+        const auto rhs_end = rhs.index + rhs.len;
+        const auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
 
         index = start;
-        auto new_len = end - index;
+        const auto new_len = end - index;
         len = new_len > 0xFFFF ? 0xFFFF : static_cast<u16>(new_len);
 
         return *this;
     }
 
     friend Span operator+(Span lhs, const Span& rhs) {
-        auto index = lhs.index < rhs.index ? lhs.index : rhs.index;
+        const auto index = lhs.index < rhs.index ? lhs.index : rhs.index;
 
-        auto lhs_end = lhs.index + lhs.len;
-        auto rhs_end = rhs.index + rhs.len;
-        auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
+        const auto lhs_end = lhs.index + lhs.len;
+        const auto rhs_end = rhs.index + rhs.len;
+        const auto end = lhs_end > rhs_end ? lhs_end : rhs_end;
 
-        auto new_len = end - index;
+        const auto new_len = end - index;
         return Span(index,
                     new_len > 0xFFFF ? 0xFFFF : static_cast<u16>(new_len));
     }
@@ -112,7 +112,7 @@ public:
             return nullptr;
         }
 
-        auto size = file.tellg();
+        const auto size = file.tellg();
         file.seekg(0);
         auto input = std::vector<char>(size);
         if (!file.read(input.data(), size)) {

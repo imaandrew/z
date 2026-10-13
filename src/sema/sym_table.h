@@ -32,7 +32,7 @@ public:
           strings(strings) {};
 
     ScopeID new_scope() {
-        auto id = scopes.size();
+        const auto id = scopes.size();
         scopes.emplace_back();
         return ScopeID(id);
     }
@@ -52,7 +52,6 @@ public:
     get_global_var(StringID name) const;
     [[nodiscard]] std::optional<type::TypeRef> get_func(StringID name) const;
     [[nodiscard]] std::optional<type::TypeRef> get_type(StringID name) const;
-    void update_type(StringID name, type::TypeRef& type);
     void resolve_types(
         const std::function<type::TypeRef(type::TypeRef)>& resolve_fn);
     [[nodiscard]] bool is_var_initialized(StringID name) const;

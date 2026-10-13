@@ -201,7 +201,7 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         return;
 
     auto* l_type = ctxt->ty->get(expr.lhs->get_type());
-    auto* r_type = ctxt->ty->get(expr.rhs->get_type());
+    auto const* r_type = ctxt->ty->get(expr.rhs->get_type());
 
     bool valid = true;
     using ast::BinOp;
@@ -352,14 +352,12 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
         return;
 
     if (is_assignment_op(expr.op)) {
-        if (const auto* ident = dyn_cast<ast::Identifier>(expr.lhs.get())) {
-            if (ctxt->syms->is_var_const(ident->get_id())) {
-                ctxt->diag
-                    .error(expr.lhs->get_span(),
-                           DiagnosticKind::AssignmentToConst,
-                           ctxt->strings->get_string(ident->get_id()))
-                    .add_primary_note("declared as const");
-            }
+        if (const auto* ident = dyn_cast<ast::Identifier>(expr.lhs.get());
+            ident && ctxt->syms->is_var_const(ident->get_id())) {
+            ctxt->diag
+                .error(expr.lhs->get_span(), DiagnosticKind::AssignmentToConst,
+                       ctxt->strings->get_string(ident->get_id()))
+                .add_primary_note("declared as const");
         }
     }
 
@@ -370,11 +368,9 @@ void SemChecker::visit(ast::BinaryExpr& expr) {
                                  DiagnosticKind::DivisionByZero);
             }
         } else if (const auto* float_expr =
-                       dyn_cast<ast::FloatExpr>(expr.rhs.get())) {
-            if (float_expr->val == 0) {
-                ctxt->diag.error(expr.get_span(),
-                                 DiagnosticKind::DivisionByZero);
-            }
+                       dyn_cast<ast::FloatExpr>(expr.rhs.get());
+                   float_expr && (float_expr->val == 0)) {
+            ctxt->diag.error(expr.get_span(), DiagnosticKind::DivisionByZero);
         }
     }
 }
@@ -394,7 +390,8 @@ void SemChecker::visit(ast::CallExpr& expr) {
         return;
     }
 
-    auto* func = ctxt->ty->get_as<type::FunctionType>(expr.ident->get_type());
+    auto const* func =
+        ctxt->ty->get_as<type::FunctionType>(expr.ident->get_type());
     if (!func) {
         ctxt->diag.error(ident->get_span(), DiagnosticKind::UndefinedIdentifier,
                          ctxt->strings->get_string(ident->get_id()));
@@ -433,7 +430,7 @@ void SemChecker::visit(ast::ArrayExpr& expr) {
             .add_primary_note("must be an array type");
     }
 
-    auto* val = ctxt->ty->get(expr.val->get_type());
+    auto const* val = ctxt->ty->get(expr.val->get_type());
     if (val && !val->is_integral()) {
         ctxt->diag
             .error(expr.val->get_span(), DiagnosticKind::InvalidIndexType,
@@ -632,7 +629,8 @@ void SemChecker::visit(ast::BreakStmt& stmt) {
         stmt.expr->accept(*this);
 
     auto& ctx = loop_stack.back();
-    auto break_type = stmt.expr ? stmt.expr->get_type() : type::builtin::VOID;
+    const auto break_type =
+        stmt.expr ? stmt.expr->get_type() : type::builtin::VOID;
 
     if (!ctx.has_break) {
         ctx.has_break = true;
@@ -716,11 +714,12 @@ void SemChecker::visit(ast::ReturnStmt& stmt) {
     if (!return_type.is_valid())
         return;
 
-    if (*current_return_type != return_type) {
-        ctxt->diag.error(stmt.get_span(), DiagnosticKind::ReturnTypeMismatch,
-                         ctxt->strings->get_string(current_func_name->get_id()),
-                         ctxt->ty->get(*current_return_type)->basic_name(ctxt),
-                         ctxt->ty->get(return_type)->basic_name(ctxt));
+    if (current_return_type.value() != return_type) {
+        ctxt->diag.error(
+            stmt.get_span(), DiagnosticKind::ReturnTypeMismatch,
+            ctxt->strings->get_string(current_func_name->get_id()),
+            ctxt->ty->get(current_return_type.value())->basic_name(ctxt),
+            ctxt->ty->get(return_type)->basic_name(ctxt));
     }
 }
 

@@ -16,7 +16,7 @@
 
 namespace z::ir {
 class CopyLoweringPass : public IRPass {
-    IRFunction* func;
+    IRFunction* func{};
     struct Copy {
         VReg dest;
         VReg src;

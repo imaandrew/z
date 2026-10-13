@@ -1,6 +1,7 @@
 #include "liveness.h"
 #include "core/types.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include <stack>
 #include <vector>
 
@@ -55,7 +56,7 @@ void LivenessBuilder::up_and_mark(LivenessInfo& live, BlockID block_id,
             continue;
         }
 
-        for (auto pred_id : func.get_block(bid).predecessors) {
+        for (const auto pred_id : func.get_block(bid).predecessors) {
             live.live_out[pred_id.id].set(vreg.id);
             blocks.push(pred_id);
         }

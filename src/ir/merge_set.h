@@ -44,7 +44,7 @@ class MergeSetManager {
 
         while (s_it != src.end()) {
             if (d_it == dst.end() || !def_before(*d_it, *s_it)) {
-                auto next = std::next(s_it);
+                const auto next = std::next(s_it);
                 dst.splice(d_it, src, s_it);
                 s_it = next;
             } else {
@@ -69,6 +69,7 @@ class MergeSetManager {
             Value current;
             bool from_a = false;
 
+            // NOLINTBEGIN(bugprone-branch-clone)
             if (it_b == rb->members.end()) {
                 current = *it_a++;
                 from_a = true;
@@ -82,6 +83,7 @@ class MergeSetManager {
                 current = *it_b++;
                 from_a = false;
             }
+            // NOLINTEND(bugprone-branch-clone)
 
             while (!dom.empty() && !dominates(dom.back().first, current))
                 dom.pop_back();

@@ -16,8 +16,8 @@
 
 namespace z::ir {
 class CopyInsertionPass : public IRPass {
-    IRFunction* func;
-    ValueSet* values;
+    IRFunction* func{};
+    ValueSet* values{};
 
     VReg new_reg(VReg like, InstId inst, BlockID block) {
         values->grow();
@@ -33,7 +33,7 @@ class CopyInsertionPass : public IRPass {
             v[b.id].emplace(inst);
         }
 
-        return *v[b.id];
+        return v[b.id].value();
     }
 
     void add_copy(InstId copy_id, VReg dest, VReg src, InstId old_id,
@@ -97,7 +97,7 @@ public:
                 }
 
                 const auto inst_id = get_copy_inst(prologue, block.id);
-                const auto dest = *func.get_inst(p).dest;
+                const auto dest = func.get_inst(p).dest.value();
                 const auto copy = new_reg(dest, inst_id, block.id);
 
                 auto& copy_inst = func.get_inst(inst_id);

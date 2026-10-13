@@ -2,7 +2,6 @@
 
 #include "constraint.h"
 #include "core/zctxt.h"
-#include "diag/diagnostics.h"
 #include "type.h"
 #include "type_arena.h"
 #include "type_ref.h"
@@ -21,7 +20,6 @@ class ConstraintSolver {
     };
 
     std::vector<Entry> entries;
-    DiagnosticsEngine* diag;
     TypeArena* ty;
 
     TypeID find(TypeID x);
@@ -35,8 +33,7 @@ class ConstraintSolver {
     static bool types_compatible(const Type* a, const Type* b);
 
 public:
-    explicit ConstraintSolver(ZContext& ctxt)
-        : diag(&ctxt.diag), ty(ctxt.ty.get()) {}
+    explicit ConstraintSolver(ZContext& ctxt) : ty(ctxt.ty.get()) {}
 
     void register_vars(std::vector<TypeRef>& types);
     bool solve(std::vector<Constraint>& constraints);

@@ -252,7 +252,7 @@ enum class TerminatorKind : u8 {
 };
 
 struct VReg {
-    u32 id;
+    u32 id{};
     type::TypeRef type;
 
     bool operator==(const VReg&) const = default;

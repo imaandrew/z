@@ -29,7 +29,7 @@ compute_postorder(const std::vector<BasicBlock>& blocks) {
             stack.emplace(b, true);
             visited[b.id] = true;
 
-            for (auto succ : blocks[b.id].successors) {
+            for (const auto succ : blocks[b.id].successors) {
                 if (!visited[succ.id])
                     stack.emplace(succ, false);
             }
@@ -61,7 +61,7 @@ class InstOrder {
                 stack.emplace(b, true);
                 visited[b.id] = true;
 
-                for (auto succ : blocks[b.id].successors) {
+                for (const auto succ : blocks[b.id].successors) {
                     if (!visited[succ.id])
                         stack.emplace(succ, false);
                 }
@@ -74,9 +74,9 @@ class InstOrder {
     void number_insts(const IRFunction& func) {
         auto idx = 1;
 
-        for (auto id : postorder_ | std::views::reverse) {
+        for (const auto id : postorder_ | std::views::reverse) {
             const auto& block = func.blocks.at(id.id);
-            for (auto inst : block.insts) {
+            for (const auto inst : block.insts) {
                 inst_order[inst.id] = idx;
                 idx += 2;
             }
@@ -94,8 +94,12 @@ public:
         return inst_order[id.id];
     }
 
-    const std::vector<BlockID>& postorder() const { return postorder_; }
+    [[nodiscard]] const std::vector<BlockID>& postorder() const {
+        return postorder_;
+    }
 
-    const std::vector<BlockID>& rev_postorder() const { return revpostorder_; }
+    [[nodiscard]] const std::vector<BlockID>& rev_postorder() const {
+        return revpostorder_;
+    }
 };
 } // namespace z::ir

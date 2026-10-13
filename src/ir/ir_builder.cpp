@@ -11,6 +11,7 @@
 #include "type/type_arena.h"
 #include "type/type_ref.h"
 #include <cassert>
+#include <initializer_list>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -63,11 +64,14 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
     case UnOp::Dec: {
         const auto* int_type = ctxt->ty->get_as<type::IntegerType>(expr_type);
 
-        auto dest =
+        const auto dest =
             emit_inst(get_int_ir_op(expr_op),
-                      {var, Operand::imm(ConstInt(1, int_type->get_width(),
-                                                  int_type->is_signed()),
-                                         expr_type)},
+                      {
+                          var,
+                          Operand::imm(ConstInt(1, int_type->get_width(),
+                                                int_type->is_signed()),
+                                       expr_type),
+                      },
                       expr_type);
 
         write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
@@ -76,17 +80,17 @@ void IRBuilder::visit(ast::PrefixExpr& expr) {
     }
     case UnOp::LogicNot:
     case UnOp::BitNot: {
-        auto dest = emit_inst(get_ir_op(expr_op), {var}, expr_type);
+        const auto dest = emit_inst(get_ir_op(expr_op), {var}, expr_type);
         last_result = Operand::reg(dest);
         return;
     }
     case UnOp::Neg: {
         const auto* type = ctxt->ty->get(expr_type);
         if (type->is_integral()) {
-            auto dest = emit_inst(IROp::INeg, {var}, expr_type);
+            const auto dest = emit_inst(IROp::INeg, {var}, expr_type);
             last_result = Operand::reg(dest);
         } else if (type->is_float()) {
-            auto dest = emit_inst(IROp::FNeg, {var}, expr_type);
+            const auto dest = emit_inst(IROp::FNeg, {var}, expr_type);
             last_result = Operand::reg(dest);
         } else {
             panic("Invalid type for negation operator");
@@ -110,11 +114,15 @@ void IRBuilder::visit(ast::PostfixExpr& expr) {
 
     const auto* int_type = ctxt->ty->get_as<type::IntegerType>(expr_type);
 
-    auto dest = emit_inst(get_int_ir_op(expr.op),
-                          {var, Operand::imm(ConstInt(1, int_type->get_width(),
-                                                      int_type->is_signed()),
-                                             expr_type)},
-                          expr_type);
+    const auto dest =
+        emit_inst(get_int_ir_op(expr.op),
+                  {
+                      var,
+                      Operand::imm(ConstInt(1, int_type->get_width(),
+                                            int_type->is_signed()),
+                                   expr_type),
+                  },
+                  expr_type);
     write_var(ast::cast<ast::Identifier>(expr.expr.get())->get_id(), dest);
     last_result = var;
 }
@@ -153,10 +161,10 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         }
 
         auto lhs_reg = ensure_reg(lhs);
-        auto lhs_block = *current_block;
+        const auto lhs_block = cur();
 
-        auto rhs_block = new_block();
-        auto end_block = new_block();
+        const auto rhs_block = new_block();
+        const auto end_block = new_block();
 
         if (expr_op == BinOp::LogicAnd)
             emit_branch(lhs_reg, rhs_block, end_block);
@@ -165,16 +173,16 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
 
         switch_block(rhs_block);
         seal_block(current_func->get_block(rhs_block));
-        auto rhs = emit_op(expr.rhs.get());
+        const auto rhs = emit_op(expr.rhs.get());
         auto rhs_reg = ensure_reg(rhs);
-        auto rhs_exit = *current_block;
+        const auto rhs_exit = cur();
         emit_jump(end_block);
 
         switch_block(end_block);
         seal_block(current_func->get_block(end_block));
 
-        auto phi_inst = get_inst_id();
-        auto phi = emit_phi(type::builtin::I1);
+        const auto phi_inst = get_inst_id();
+        const auto phi = emit_phi(type::builtin::I1);
         add_phi_operand(phi_inst, lhs_reg.as_reg(), lhs_block);
         add_phi_operand(phi_inst, rhs_reg.as_reg(), rhs_exit);
 
@@ -194,11 +202,11 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         return;
     }
 
-    auto op = [&] {
+    const auto op = [&] {
         const auto* type = ctxt->ty->get(to_ir_type(expr.lhs->get_type()));
         if (type->is_integral()) {
             const auto* int_type = type::cast<const type::IntegerType>(type);
-            auto op = get_int_ir_op(expr_op, int_type->is_signed());
+            const auto op = get_int_ir_op(expr_op, int_type->is_signed());
             if (op == IROp::ICmp)
                 int_cc = get_int_cc(expr_op, int_type->is_signed());
 
@@ -206,7 +214,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
         }
 
         if (type->is_float()) {
-            auto op = get_float_ir_op(expr_op);
+            const auto op = get_float_ir_op(expr_op);
             if (op == IROp::FCmp)
                 float_cc = get_float_cc(expr_op);
             return op;
@@ -219,12 +227,13 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     const auto rhs = emit_op(expr.rhs.get());
 
     if (lhs.is_imm() && rhs.is_imm()) {
-        auto lhs_imm = lhs.as_imm();
-        auto rhs_imm = rhs.as_imm();
+        const auto lhs_imm = lhs.as_imm();
+        const auto rhs_imm = rhs.as_imm();
 
         if (lhs_imm.is_int() && rhs_imm.is_int()) {
             if (op == IROp::ICmp) {
-                auto res = lhs_imm.as_int().cmp(rhs_imm.as_int(), *int_cc);
+                const auto res =
+                    lhs_imm.as_int().cmp(rhs_imm.as_int(), int_cc.value());
                 last_result = Operand::imm(res, type::builtin::I1);
                 return;
             }
@@ -243,8 +252,6 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             }
 
             if (undefined) {
-                const auto name =
-                    ctxt->ty->get(expr.get_type())->basic_name(ctxt);
                 ctxt->diag.error(expr.get_span(),
                                  DiagnosticKind::OperationUndefined);
                 return;
@@ -256,8 +263,8 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             }
         } else if (lhs_imm.is_float() && rhs_imm.is_float()) {
             if (op == IROp::FCmp) {
-                auto res =
-                    lhs_imm.as_float().cmp(rhs_imm.as_float(), *float_cc);
+                const auto res = lhs_imm.as_float().cmp(rhs_imm.as_float(),
+                                                        float_cc.value());
                 last_result = Operand::imm(res, type::builtin::I1);
                 return;
             }
@@ -266,8 +273,6 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
             auto res = fold_float_op(op, lhs_imm.as_float(), rhs_imm.as_float(),
                                      undefined);
             if (undefined) {
-                const auto name =
-                    ctxt->ty->get(expr.get_type())->basic_name(ctxt);
                 ctxt->diag.error(expr.get_span(),
                                  DiagnosticKind::OperationUndefined);
                 return;
@@ -290,7 +295,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::BitOrEq:
     case BinOp::ShlEq:
     case BinOp::ShrEq: {
-        auto dest = emit_inst(op, {lhs, rhs}, expr.lhs->get_type());
+        const auto dest = emit_inst(op, {lhs, rhs}, expr.lhs->get_type());
         write_var(ast::cast<ast::Identifier>(expr.lhs.get())->get_id(), dest);
         last_result = std::nullopt;
         break;
@@ -306,7 +311,7 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
     case BinOp::Sub:
     case BinOp::Mul:
     case BinOp::Div: {
-        auto dest = emit_inst(op, {lhs, rhs}, expr.get_type());
+        const auto dest = emit_inst(op, {lhs, rhs}, expr.get_type());
         last_result = Operand::reg(dest);
         break;
     }
@@ -342,32 +347,33 @@ void IRBuilder::visit(ast::BinaryExpr& expr) {
 }
 
 void IRBuilder::visit(ast::CallExpr& expr) {
-    auto& func =
+    const auto& func =
         get_func(ast::cast<ast::Identifier>(expr.ident.get())->get_id());
 
     std::vector<Operand> args;
     args.reserve(expr.args.size() + 1);
     args.push_back(Operand::func(func.id));
-    for (auto& arg : expr.args) {
+    for (const auto& arg : expr.args) {
         args.push_back(emit_op(arg.get()));
     }
 
-    auto result = emit_inst(IROp::Call, std::move(args), func.return_type);
+    const auto result =
+        emit_inst(IROp::Call, std::move(args), func.return_type);
     last_result = Operand::reg(result);
 }
 
 void IRBuilder::visit(ast::ArrayExpr& expr) {
     auto container = emit_op(expr.array.get());
-    auto val = emit_op(expr.val.get());
+    const auto val = emit_op(expr.val.get());
 
     const auto* arr_type =
         ctxt->ty->get_as<type::ArrayType>(container.as_reg().type);
     expect(arr_type != nullptr, "ArrayExpr should have type ArrayType");
 
-    auto ptr =
+    const auto ptr =
         emit_inst(IROp::GetElementPtr, {container, val},
                   ctxt->ty->make<type::PointerType>(arr_type->get_type()));
-    auto result =
+    const auto result =
         emit_inst(IROp::Load, {Operand::reg(ptr)}, arr_type->get_type());
     last_result = Operand::reg(result);
 }
@@ -383,10 +389,11 @@ void IRBuilder::visit(ast::FieldExpr& expr) {
     auto field_idx = struct_type->get_field_index(expr.field->get_id());
     expect(field_idx && field_type, "Couldn't find field in StructType");
 
-    auto ptr =
-        emit_inst(IROp::GetElementPtr, {container, Operand::field(*field_idx)},
-                  ctxt->ty->make<type::PointerType>(*field_type));
-    auto result = emit_inst(IROp::Load, {Operand::reg(ptr)}, *field_type);
+    const auto ptr = emit_inst(
+        IROp::GetElementPtr, {container, Operand::field(field_idx.value())},
+        ctxt->ty->make<type::PointerType>(field_type.value()));
+    const auto result =
+        emit_inst(IROp::Load, {Operand::reg(ptr)}, field_type.value());
     last_result = Operand::reg(result);
 }
 
@@ -396,8 +403,8 @@ void IRBuilder::visit(ast::ArrayInitExpr& expr) {
 
     std::vector<Operand> vals;
 
-    for (auto& val : expr.vals) {
-        auto v = emit_op(val.get());
+    for (const auto& val : expr.vals) {
+        const auto v = emit_op(val.get());
         vals.push_back(v);
     }
 
@@ -439,7 +446,7 @@ void IRBuilder::visit(ast::Block& block) {
     ctxt->syms->enter_scope(block.get_scope_id());
 
     for (const auto& stmt : block.stmts) {
-        if (current_func->get_block(*current_block).term) {
+        if (current_func->get_block(cur()).term) {
             ctxt->diag.warn(stmt->get_span(), DiagnosticKind::UnreachableStmt);
             break;
         }
@@ -449,7 +456,7 @@ void IRBuilder::visit(ast::Block& block) {
 }
 
 void IRBuilder::visit(ast::Param& param) {
-    auto reg = emit_inst(IROp::Arg, {}, param.type);
+    const auto reg = emit_inst(IROp::Arg, {}, param.type);
     current_func->params.push_back(reg);
     write_var(param.name->get_id(), reg);
 }
@@ -464,13 +471,13 @@ void IRBuilder::visit(ast::SourceFileDecl& file) {
 }
 
 void IRBuilder::visit(ast::FuncDecl& func) {
-    auto func_id = get_func_id();
+    const auto func_id = get_func_id();
     current_func =
         &funcs.emplace_back(func_id, func.name->get_id(), to_ir_type(func.ret),
                             std::vector<VReg>());
     block_state.clear();
 
-    auto entry = new_block();
+    const auto entry = new_block();
     seal_block(current_func->get_block(entry));
     switch_block(entry);
 
@@ -482,7 +489,9 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     func.body->accept(*this);
 
-    auto& exit_block = current_func->get_block(*current_block);
+    const auto block = cur();
+
+    const auto& exit_block = current_func->get_block(block);
     if (!exit_block.term) {
         if (func.body->get_type() == type::builtin::VOID)
             add_deferred_return(std::nullopt);
@@ -492,7 +501,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
 
     if (deferred_returns.size() == 1) {
         auto& [from, val] = deferred_returns.front();
-        assert(from == *current_block);
+        assert(from == block);
 
         if (val)
             emit_term(IROp::Ret, {*val});
@@ -500,11 +509,11 @@ void IRBuilder::visit(ast::FuncDecl& func) {
             emit_term(IROp::Ret, {});
 
         deferred_returns.clear();
-        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+        current_func->get_block(block).term = TerminatorKind::Jump;
         return;
     }
 
-    auto ret_block = new_block();
+    const auto ret_block = new_block();
 
     switch_block(ret_block);
 
@@ -528,7 +537,7 @@ void IRBuilder::visit(ast::FuncDecl& func) {
     seal_block(current_func->get_block(ret_block));
 
     if (ret_phi_inst) {
-        auto simplified = try_remove_trivial_phi(
+        const auto simplified = try_remove_trivial_phi(
             *ret_phi_inst, current_func->get_block(ret_block));
         ret_reg = simplified;
     }
@@ -559,8 +568,8 @@ void IRBuilder::visit(ast::LetStmt& stmt) {
     if (!stmt.val)
         return;
 
-    auto val = emit_op(stmt.val.get());
-    auto reg = ensure_reg(val).as_reg();
+    const auto val = emit_op(stmt.val.get());
+    const auto reg = ensure_reg(val).as_reg();
     write_var(stmt.ident->get_id(), reg);
 }
 
@@ -572,13 +581,13 @@ void IRBuilder::visit(ast::ReturnStmt& stmt) {
     }
 
     add_deferred_return(val);
-    current_func->get_block(*current_block).term = TerminatorKind::Jump;
+    current_func->get_block(cur()).term = TerminatorKind::Jump;
 }
 
 void IRBuilder::visit(ast::IfExpr& expr) {
-    auto cond = emit_op(expr.expr.get());
-    auto then_block = new_block();
-    auto branch_source = *current_block;
+    const auto cond = emit_op(expr.expr.get());
+    const auto then_block = new_block();
+    const auto branch_source = cur();
 
     switch_block(then_block);
     seal_block(current_func->get_block(then_block));
@@ -587,23 +596,29 @@ void IRBuilder::visit(ast::IfExpr& expr) {
     if (expr.else_expr) {
         // Then
         expr.block->accept(*this);
-        auto then_result = expr.block->get_type() != type::builtin::VOID
-                               ? std::make_optional(ensure_reg(*last_result))
-                               : std::nullopt;
-        auto then_exit = *current_block;
+        expect(expr.block->get_type() == type::builtin::VOID || last_result,
+               "block should have set result");
+        auto then_result =
+            expr.block->get_type() != type::builtin::VOID
+                ? std::make_optional(ensure_reg(last_result.value()))
+                : std::nullopt;
+        const auto then_exit = cur();
         bool const then_returned =
             current_func->get_block(then_exit).term.has_value();
 
         // Else
-        auto else_block = new_block();
+        const auto else_block = new_block();
         switch_block(else_block);
         seal_block(current_func->get_block(else_block));
         link_blocks(branch_source, else_block);
         expr.else_expr->accept(*this);
-        auto else_result = expr.else_expr->get_type() != type::builtin::VOID
-                               ? std::make_optional(ensure_reg(*last_result))
-                               : std::nullopt;
-        auto else_exit = *current_block;
+        expect(expr.else_expr->get_type() == type::builtin::VOID || last_result,
+               "block should have set result");
+        auto else_result =
+            expr.else_expr->get_type() != type::builtin::VOID
+                ? std::make_optional(ensure_reg(last_result.value()))
+                : std::nullopt;
+        const auto else_exit = cur();
         bool const else_returned =
             current_func->get_block(else_exit).term.has_value();
 
@@ -615,7 +630,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
             return;
         }
 
-        auto end_block = new_block();
+        const auto end_block = new_block();
 
         if (!then_returned) {
             switch_block(then_exit);
@@ -631,8 +646,8 @@ void IRBuilder::visit(ast::IfExpr& expr) {
         seal_block(current_func->get_block(end_block));
 
         if (then_result && else_result) {
-            auto phi = emit_phi(expr.get_type());
-            auto phi_inst = current_func->get_def(phi).inst;
+            const auto phi = emit_phi(expr.get_type());
+            const auto phi_inst = current_func->get_def(phi).inst;
             add_phi_operand(phi_inst, then_result->as_reg(), then_exit);
             add_phi_operand(phi_inst, else_result->as_reg(), else_exit);
             last_result = Operand::reg(phi);
@@ -643,7 +658,7 @@ void IRBuilder::visit(ast::IfExpr& expr) {
     } else {
         expr.block->accept(*this);
 
-        auto end_block = new_block();
+        const auto end_block = new_block();
 
         emit_jump(end_block);
 
@@ -664,52 +679,59 @@ void IRBuilder::visit(ast::ElseExpr& expr) {
 
 void IRBuilder::visit(ast::LoopExpr& expr) {
     if (expr.expr) {
-        auto max_loop_cnt = ensure_reg(emit_op(expr.expr.get()));
+        const auto max_loop_cnt = ensure_reg(emit_op(expr.expr.get()));
         auto loop_cnt = Operand::reg(
             emit_inst(IROp::LoadConst,
-                      {Operand::imm(ConstInt(0, sizeof(usize), false),
-                                    type::builtin::USIZE)},
+                      {
+                          Operand::imm(ConstInt(0, sizeof(usize), false),
+                                       type::builtin::USIZE),
+                      },
                       type::builtin::USIZE));
-        auto entry_block = *current_block;
+        const auto entry_block = cur();
 
-        auto cond_block = new_block();
-        seal_block(current_func->get_block(*current_block));
+        const auto cond_block = new_block();
+        seal_block(current_func->get_block(cur()));
         emit_jump(cond_block);
         switch_block(cond_block);
 
-        auto cnt_reg_id = get_inst_id();
-        auto cnt_reg = emit_phi(type::builtin::USIZE);
+        const auto cnt_reg_id = get_inst_id();
+        const auto cnt_reg = emit_phi(type::builtin::USIZE);
 
         add_phi_operand(cnt_reg_id, loop_cnt.as_reg(), entry_block);
 
-        auto cond = emit_inst(IROp::ICmp,
-                              {Operand::intcc(IntCC::UnsignedLessThan),
-                               Operand::reg(cnt_reg), max_loop_cnt},
-                              type::builtin::I1);
+        const auto cond = emit_inst(IROp::ICmp,
+                                    {
+                                        Operand::intcc(IntCC::UnsignedLessThan),
+                                        Operand::reg(cnt_reg),
+                                        max_loop_cnt,
+                                    },
+                                    type::builtin::I1);
 
-        auto body_block = new_block();
-        link_blocks(*current_block, body_block);
+        const auto body_block = new_block();
+        link_blocks(cur(), body_block);
         switch_block(body_block);
         expr.block->accept(*this);
 
-        auto inc_block = new_block();
+        const auto inc_block = new_block();
         emit_jump(inc_block);
 
         seal_block(current_func->get_block(inc_block));
         switch_block(inc_block);
 
-        const auto new_loop_cnt = emit_inst(
-            IROp::IAdd,
-            std::vector<Operand>{Operand::reg(cnt_reg),
-                                 Operand::imm(ConstInt(0, sizeof(usize), false),
-                                              type::builtin::USIZE)},
-            type::builtin::USIZE);
+        const auto new_loop_cnt =
+            emit_inst(IROp::IAdd,
+                      std::vector<Operand>{
+                          Operand::reg(cnt_reg),
+                          Operand::imm(ConstInt(0, sizeof(usize), false),
+                                       type::builtin::USIZE),
+                      },
+                      type::builtin::USIZE);
 
-        add_phi_operand(cnt_reg_id, new_loop_cnt, *current_block);
+        add_phi_operand(cnt_reg_id, new_loop_cnt, cur());
 
         emit_jump(cond_block);
         switch_block(cond_block);
-        auto end_block = new_block();
+        const auto end_block = new_block();
         emit_branch(Operand::reg(cond), body_block, end_block);
         seal_block(current_func->get_block(cond_block));
         seal_block(current_func->get_block(body_block));
@@ -730,9 +752,9 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         switch_block(end_block);
         seal_block(current_func->get_block(end_block));
     } else {
-        auto loop_body = new_block();
+        const auto loop_body = new_block();
 
-        seal_block(current_func->get_block(*current_block));
+        seal_block(current_func->get_block(cur()));
         emit_jump(loop_body);
         switch_block(loop_body);
 
@@ -740,7 +762,7 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
         emit_jump(loop_body);
         seal_block(current_func->get_block(loop_body));
 
-        auto end_block = new_block();
+        const auto end_block = new_block();
 
         for (const auto& jump : deferred_loop_jumps) {
             current_func->get_block(jump.from_block).term = std::nullopt;
@@ -762,23 +784,23 @@ void IRBuilder::visit(ast::LoopExpr& expr) {
 }
 
 void IRBuilder::visit(ast::WhileExpr& expr) {
-    auto cond_block = new_block();
+    const auto cond_block = new_block();
 
-    seal_block(current_func->get_block(*current_block));
+    seal_block(current_func->get_block(cur()));
     emit_jump(cond_block);
     switch_block(cond_block);
 
-    auto cond = emit_op(expr.expr.get());
+    const auto cond = emit_op(expr.expr.get());
 
-    auto body_block = new_block();
-    link_blocks(*current_block, body_block);
+    const auto body_block = new_block();
+    link_blocks(cur(), body_block);
     switch_block(body_block);
 
     expr.block->accept(*this);
     emit_jump(cond_block);
     switch_block(cond_block);
 
-    auto end_block = new_block();
+    const auto end_block = new_block();
     emit_branch(cond, body_block, end_block);
     seal_block(current_func->get_block(cond_block));
     seal_block(current_func->get_block(body_block));
@@ -827,14 +849,16 @@ VReg IRBuilder::emit_inst(IROp op, std::initializer_list<Operand> ops,
     const auto inst_id = get_inst_id();
     const auto dest = emit_reg(dest_type, inst_id);
 
+    const auto block = cur();
+
     for (const auto& op : ops) {
         if (op.is_reg()) {
-            current_func->add_use(op.as_reg(), inst_id, *current_block);
+            current_func->add_use(op.as_reg(), inst_id, block);
         }
     }
 
     current_func->insts.emplace_back(inst_id, op, dest, ops);
-    current_func->get_block(*current_block).insts.push_back(inst_id);
+    current_func->get_block(block).insts.push_back(inst_id);
     return dest;
 }
 
@@ -843,41 +867,45 @@ VReg IRBuilder::emit_inst(IROp op, std::vector<Operand> ops,
     const auto inst_id = get_inst_id();
     const auto dest = emit_reg(dest_type, inst_id);
 
+    const auto block = cur();
+
     for (const auto& op : ops) {
         if (op.is_reg()) {
-            current_func->add_use(op.as_reg(), inst_id, *current_block);
+            current_func->add_use(op.as_reg(), inst_id, block);
         }
     }
 
     current_func->insts.emplace_back(inst_id, op, dest, std::move(ops));
-    current_func->get_block(*current_block).insts.push_back(inst_id);
+    current_func->get_block(block).insts.push_back(inst_id);
     return dest;
 }
 
 void IRBuilder::emit_inst(IROp op, std::initializer_list<Operand> ops) {
     const auto inst_id = get_inst_id();
+    const auto block = cur();
 
     for (const auto& op : ops) {
         if (op.is_reg()) {
-            current_func->add_use(op.as_reg(), inst_id, *current_block);
+            current_func->add_use(op.as_reg(), inst_id, block);
         }
     }
 
     current_func->insts.emplace_back(inst_id, op, ops);
-    current_func->get_block(*current_block).insts.push_back(inst_id);
+    current_func->get_block(block).insts.push_back(inst_id);
 }
 
 void IRBuilder::emit_term(IROp op, std::initializer_list<Operand> ops) {
     const auto inst_id = get_inst_id();
+    const auto block = cur();
 
     for (const auto& op : ops) {
         if (op.is_reg()) {
-            current_func->add_use(op.as_reg(), inst_id, *current_block);
+            current_func->add_use(op.as_reg(), inst_id, block);
         }
     }
 
     current_func->insts.emplace_back(inst_id, op, ops);
-    current_func->get_block(*current_block).insts.push_back(inst_id);
+    current_func->get_block(block).insts.push_back(inst_id);
 }
 
 } // namespace z::ir

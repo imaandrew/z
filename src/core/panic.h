@@ -26,6 +26,7 @@ template <typename... Args> struct PanicFormat {
         : fmt(s), loc(loc) {}
 };
 
+// NOLINTBEGIN(bugprone-exception-escape)
 template <typename... Args>
 [[noreturn]] static void constexpr panic(
     PanicFormat<std::type_identity_t<Args>...> fmt, Args&&... args) noexcept {
@@ -45,6 +46,7 @@ template <typename... Args>
     std::cerr.flush();
     std::abort();
 }
+// NOLINTEND(bugprone-exception-escape)
 
 #define ASSERT(condition)                                                      \
     (static_cast<bool>(condition)                                              \

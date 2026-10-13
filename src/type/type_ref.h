@@ -7,7 +7,7 @@
 #include <functional>
 
 namespace z::type {
-enum BuiltInType : u8 {
+enum BuiltInType : u8 { // NOLINT(cppcoreguidelines-use-enum-class)
     BT_UNINITIALIZED = 0,
     BT_I1,
     BT_I8,
@@ -27,7 +27,7 @@ enum BuiltInType : u8 {
     BT_CHAR,
     BT_VOID,
     BT_INVALID,
-    BT_COUNT
+    BT_COUNT,
 };
 
 class TypeRef {
@@ -87,7 +87,7 @@ enum class TypeKind : u8 {
     Inferred,
     Type,
     Trait,
-    Temp
+    Temp,
 };
 
 struct TypeKey {
@@ -122,7 +122,7 @@ constexpr TypeKey make_type_key(TypeKind kind, Args... args) {
 template <> struct std::hash<z::type::TypeKey> {
     usize operator()(const z::type::TypeKey& k) const {
         usize h = std::hash<int>{}(static_cast<int>(k.kind));
-        for (auto v : k.data) {
+        for (const auto v : k.data) {
             h ^= std::hash<u64>{}(v) + 0x9e3779b9 + (h << 6U) + (h >> 2U);
         }
         return h;

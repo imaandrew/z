@@ -772,7 +772,7 @@ StmtResult Parser::parse_let_stmt() {
             return StmtError();
 
         if (tok.is(TokenKind::Eq)) {
-            auto eq = tok.get_span();
+            const auto eq = tok.get_span();
             if (!tok_assert(TokenKind::Eq))
                 return StmtError();
 
@@ -850,7 +850,7 @@ ExprResult Parser::parse_expr(const int precedence,
     case TokenKind::LogicalNot:
     case TokenKind::Not:
     case TokenKind::Minus: {
-        auto prefix_tok = tok;
+        const auto prefix_tok = tok;
         auto expr =
             prime_parse_expr(static_cast<int>(BinOpPrecedence::Prefix), ignore);
         if (!expr.is_valid())
@@ -1027,7 +1027,7 @@ ExprResult Parser::parse_expr(const int precedence,
         case TokenKind::ShlEq:
         case TokenKind::ShrEq:
         case TokenKind::Eq: {
-            auto operator_tok = tok;
+            const auto operator_tok = tok;
             auto expr = prime_parse_expr(
                 static_cast<int>(get_op_precedence(tok.get_kind())) - 1);
             if (!expr.is_valid())
@@ -1039,11 +1039,12 @@ ExprResult Parser::parse_expr(const int precedence,
             break;
         }
         default: {
-            auto prec = static_cast<int>(get_op_precedence(tok.get_kind()));
+            const auto prec =
+                static_cast<int>(get_op_precedence(tok.get_kind()));
             if (prec == 0)
                 throw std::runtime_error("invalid operator");
 
-            auto operator_tok = tok;
+            const auto operator_tok = tok;
             auto expr = prime_parse_expr(prec, ignore);
             if (!expr.is_valid())
                 return ExprError();

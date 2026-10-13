@@ -21,7 +21,8 @@ constexpr TokenKind get_keyword(std::string_view keyword) {
         {"loop", TokenKind::KwLoop},     {"return", TokenKind::KwReturn},
         {"self", TokenKind::KwSelf},     {"static", TokenKind::KwStatic},
         {"struct", TokenKind::KwStruct}, {"trait", TokenKind::KwTrait},
-        {"true", TokenKind::KwTrue},     {"while", TokenKind::KwWhile}};
+        {"true", TokenKind::KwTrue},     {"while", TokenKind::KwWhile},
+    };
 
     if (const auto kind = keywords.find(keyword); kind != keywords.end()) {
         return kind->second;
@@ -257,7 +258,7 @@ Token Lexer::lex_token() {
         return make_token(TokenKind::Eof);
     case '"': {
         while (peek() != '"' && peek() != '\0') {
-            auto c = next();
+            const auto c = next();
             if (c == '\\' && peek() == '"')
                 next();
         }

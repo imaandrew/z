@@ -21,12 +21,12 @@ public:
 
     StringPool() {
         strings.emplace_back("_");
-        auto id = StringID(current_id++);
+        const auto id = StringID(current_id++);
         map.insert({std::string_view(strings[id.id]), id});
     }
 
     StringID intern(std::string_view s) {
-        if (auto it = map.find(s); it != map.end()) {
+        if (const auto it = map.find(s); it != map.end()) {
             return it->second;
         }
 

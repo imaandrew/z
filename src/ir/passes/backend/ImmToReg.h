@@ -20,8 +20,8 @@
 
 namespace z::ir {
 class ImmToReg : public IRPass {
-    IRFunction* func;
-    FuncAnalyses* analyses;
+    IRFunction* func{};
+    FuncAnalyses* analyses{};
     std::deque<InstId> block_insts;
 
     VReg emit_load_const(u64 c, BlockID block, type::TypeRef type) {

@@ -13,7 +13,7 @@ enum class IntCC : u8 {
     SignedGreaterThan,
     SignedGreaterEqual,
     SignedLessThan,
-    SignedLessEqual
+    SignedLessEqual,
 };
 
 enum class FloatCC : u8 {

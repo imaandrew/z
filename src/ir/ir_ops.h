@@ -52,10 +52,14 @@ enum class DestType : u8 {
 namespace Op {
 constexpr OpC IntConst = {.kind = OpKind::Imm, .type = Type::Int};
 constexpr OpC IntType = {.kind = OpKind::Imm | OpKind::Reg, .type = Type::Int};
-constexpr OpC FloatType = {.kind = OpKind::Imm | OpKind::Reg,
-                           .type = Type::Float};
-constexpr OpC BoolType = {.kind = OpKind::Imm | OpKind::Reg,
-                          .type = Type::Bool};
+constexpr OpC FloatType = {
+    .kind = OpKind::Imm | OpKind::Reg,
+    .type = Type::Float,
+};
+constexpr OpC BoolType = {
+    .kind = OpKind::Imm | OpKind::Reg,
+    .type = Type::Bool,
+};
 constexpr OpC AnyType = {.kind = OpKind::Reg | OpKind::Imm, .type = Type::Any};
 constexpr OpC Ptr = {.kind = OpKind::Reg, .type = Type::Pointer};
 constexpr OpC AggregateType = {.kind = OpKind::Reg, .type = Type::Aggregate};
@@ -65,10 +69,13 @@ constexpr OpC BlockLabel = {.kind = OpKind::Label, .type = Type::None};
 constexpr OpC MetaType = {.kind = OpKind::Type, .type = Type::Type};
 } // namespace Op
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage, readability-trailing-comma,
+// cppcoreguidelines-avoid-c-arrays,
+// cppcoreguidelines-pro-bounds-constant-array-index)
 enum class IROp : u8 {
 #define IR_OP(name, mnemonic, class, dest, ...) name,
 #include "ir/ir_ops.def"
-};
+}; // NOLINT(readability-trailing-comma)
 
 constexpr std::string_view ir_op_to_string(IROp op) {
     static constexpr std::string_view ops[] = {
@@ -86,4 +93,7 @@ constexpr bool is_commutative(IROp op) {
     return matches(op, IROp::IAdd, IROp::IMul, IROp::And, IROp::Or, IROp::Xor,
                    IROp::FAdd, IROp::FMul);
 }
+// NOLINTEND(cppcoreguidelines-macro-usage, readability-trailing-comma,
+// cppcoreguidelines-avoid-c-arrays,
+// cppcoreguidelines-pro-bounds-constant-array-index)
 } // namespace z::ir

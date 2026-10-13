@@ -1,7 +1,6 @@
 #include "scope.h"
 #include "core/string_pool.h"
 #include "parser/ast.h"
-#include "type/type.h"
 #include "type/type_ref.h"
 #include <functional>
 #include <memory>
@@ -42,7 +41,7 @@ bool ScopeContext::declare_type(const std::unique_ptr<ast::Identifier>& name,
 
 std::optional<ScopeContext::VarInfo>
 ScopeContext::get_var(StringID name) const {
-    if (auto var = vars.find(name); var != vars.end()) {
+    if (const auto var = vars.find(name); var != vars.end()) {
         return var->second;
     }
 

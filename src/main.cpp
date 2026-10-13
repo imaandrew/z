@@ -29,7 +29,7 @@
 #include <utility>
 
 using namespace z;
-
+// NOLINTBEGIN(bugprone-exception-escape)
 int main(int argc, const char* const* argv) {
     bool dump_ast_untyped = false;
     bool dump_ast = false;
@@ -93,13 +93,12 @@ int main(int argc, const char* const* argv) {
             .flag()
             .store_into(no_colour);
         z.parse_args(argc, argv);
+        print_ir = z.get("--print-ir");
     } catch (const std::exception& err) {
         std::cerr << err.what() << '\n';
         std::cerr << z;
         return 1;
     }
-
-    print_ir = z.get("--print-ir");
 
     auto c = ZContext::CreateFromPath(input);
     if (!c)
@@ -188,3 +187,5 @@ int main(int argc, const char* const* argv) {
         }
     }
 }
+
+// NOLINTEND(bugprone-exception-escape)

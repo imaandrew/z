@@ -110,7 +110,7 @@ public:
                         continue;
 
                     expect(res.has_value(), "Result should have value");
-                    inst.operands = {Operand::imm(*res, lhs.type)};
+                    inst.operands = {Operand::imm(res.value(), lhs.type)};
                     break;
                 }
                 case IROp::FAdd:
@@ -124,7 +124,7 @@ public:
                         continue;
 
                     expect(res.has_value(), "Result should have value");
-                    inst.operands = {Operand::imm(*res, lhs.type)};
+                    inst.operands = {Operand::imm(res.value(), lhs.type)};
                     break;
                 }
                 default:

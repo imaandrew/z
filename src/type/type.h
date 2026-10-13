@@ -771,7 +771,7 @@ public:
 
 class TempType final : public Type {
     StringID name;
-    TypeKind real_type;
+    TypeKind real_type; // NOLINT(clang-diagnostic-unused-private-field)
 
 public:
     static constexpr TypeKind Kind = TypeKind::Temp;

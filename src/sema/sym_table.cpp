@@ -3,7 +3,6 @@
 #include "diag/diagnostics.h"
 #include "parser/ast.h"
 #include "sema/scope.h"
-#include "type/type.h"
 #include "type/type_ref.h"
 #include <algorithm>
 #include <functional>
@@ -15,7 +14,7 @@ namespace z {
 
 std::optional<ScopeContext::VarInfo>
 SymbolTable::_get_var(StringID name) const {
-    for (auto* scope : std::ranges::reverse_view(stack)) {
+    for (auto const* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_var(name)) {
             return type;
         }
@@ -109,7 +108,7 @@ std::optional<type::TypeRef> SymbolTable::get_global_var(StringID name) const {
 }
 
 std::optional<type::TypeRef> SymbolTable::get_func(StringID name) const {
-    for (auto* scope : std::ranges::reverse_view(stack)) {
+    for (auto const* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_func(name)) {
             return type->type;
         }
@@ -119,22 +118,13 @@ std::optional<type::TypeRef> SymbolTable::get_func(StringID name) const {
 }
 
 std::optional<type::TypeRef> SymbolTable::get_type(StringID name) const {
-    for (auto* scope : std::ranges::reverse_view(stack)) {
+    for (auto const* scope : std::ranges::reverse_view(stack)) {
         if (auto type = scope->get_type(name)) {
             return type->type;
         }
     }
 
     return std::nullopt;
-}
-
-void SymbolTable::update_type(StringID name, type::TypeRef& new_type) {
-
-    for (auto* scope : std::ranges::reverse_view(stack)) {
-        if (auto type = scope->get_type(name)) {
-            type->type = new_type;
-        }
-    }
 }
 
 void SymbolTable::resolve_types(

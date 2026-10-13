@@ -28,19 +28,19 @@ class DominatorTree {
 
         while (changed) {
             changed = false;
-            for (auto block : rev_postorder | std::views::drop(1)) {
-                auto bid = block.id;
+            for (const auto block : rev_postorder | std::views::drop(1)) {
+                const auto bid = block.id;
                 const auto& preds = blocks[bid].predecessors;
 
                 auto new_idom = UNDEFINED;
-                for (auto p : preds) {
+                for (const auto p : preds) {
                     if (idom[p.id] != UNDEFINED) {
                         new_idom = p.id;
                         break;
                     }
                 }
 
-                for (auto p : preds) {
+                for (const auto p : preds) {
                     if (p.id != new_idom && idom[p.id] != UNDEFINED)
                         new_idom = intersect(p.id, new_idom);
                 }
@@ -83,7 +83,7 @@ class DominatorTree {
             } else {
                 pre[b] = time++;
                 stack.emplace_back(b, true);
-                for (auto child : children[b]) {
+                for (const auto child : children[b]) {
                     stack.emplace_back(child, false);
                 }
             }
@@ -96,7 +96,7 @@ public:
     static DominatorTree build(const std::vector<BasicBlock>& blocks,
                                const InstOrder& order) {
         DominatorTree dt;
-        auto n = blocks.size();
+        const auto n = blocks.size();
         dt.rpo_number.resize(n);
         dt.children.resize(n);
         dt.pre.resize(n);

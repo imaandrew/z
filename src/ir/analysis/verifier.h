@@ -51,6 +51,8 @@ template <typename... Ts> constexpr OperandsList make_operands(Ts... operands) {
     return {operands...};
 }
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage,
+// cppcoreguidelines-pro-bounds-constant-array-index)
 inline constexpr std::array<OpInfo, 42> op_info_arr = {
 #undef IR_OP
 #define IR_OP(name, mnemonic, class, dest, ...)                                \
@@ -62,6 +64,8 @@ inline constexpr std::array<OpInfo, 42> op_info_arr = {
 constexpr const OpInfo& op_info(IROp op) {
     return op_info_arr[static_cast<std::underlying_type_t<IROp>>(op)];
 }
+// NOLINTEND(cppcoreguidelines-macro-usage,
+// cppcoreguidelines-pro-bounds-constant-array-index)
 
 class IRVerifier {
     [[nodiscard]] static bool verify_uses_table(const IRFunction& func);

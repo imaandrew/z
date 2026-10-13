@@ -131,7 +131,8 @@ void ConstraintGenerator::visit(ast::ArrayExpr& expr) {
 void ConstraintGenerator::visit(ast::FieldExpr& expr) {
     expr.container->accept(*this);
 
-    auto* struct_type = ty->get_as<StructType>(expr.container->get_type());
+    auto const* struct_type =
+        ty->get_as<StructType>(expr.container->get_type());
     if (!struct_type)
         return;
 
@@ -144,7 +145,7 @@ void ConstraintGenerator::visit(ast::FieldExpr& expr) {
 }
 
 void ConstraintGenerator::visit(ast::ArrayInitExpr& expr) {
-    auto array_type = new_var();
+    const auto array_type = new_var();
     if (const auto expected = peek_expected()) {
         if (const auto* concrete = ty->get_as<ArrayType>(*expected)) {
             eq(array_type, concrete->get_type());
@@ -164,7 +165,7 @@ void ConstraintGenerator::visit(ast::StructExprField& expr) {
 }
 
 void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
-    auto* ident = dyn_cast<ast::Identifier>(expr.ident.get());
+    auto const* ident = dyn_cast<ast::Identifier>(expr.ident.get());
     if (!ident)
         return;
 
@@ -175,7 +176,7 @@ void ConstraintGenerator::visit(ast::StructInitExpr& expr) {
     expr.set_type(*type);
     expr.ident->set_type(ty->make<TypeType>(*type));
 
-    auto* struct_type = ty->get_as<StructType>(*type);
+    auto const* struct_type = ty->get_as<StructType>(*type);
     if (!struct_type)
         return;
 
@@ -358,7 +359,7 @@ void ConstraintGenerator::visit(ast::LoopExpr& expr) {
     if (expr.expr)
         expr.expr->accept(*this);
 
-    auto loop_result = new_var();
+    const auto loop_result = new_var();
     push_loop_result(loop_result);
 
     expr.block->accept(*this);

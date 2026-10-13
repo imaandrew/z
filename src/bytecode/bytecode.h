@@ -58,6 +58,7 @@ public:
     [[nodiscard]] u16 imm16u() const { return static_cast<u16>(raw >> 16U); }
     [[nodiscard]] i8 imm8() const { return static_cast<i8>(raw >> 24U); }
     [[nodiscard]] u8 imm8u() const { return static_cast<u8>(raw >> 24U); }
+    // NOLINTNEXTLINE(bugprone-signed-bitwise)
     [[nodiscard]] i32 offset24() const { return static_cast<i32>(raw) >> 8U; }
 };
 

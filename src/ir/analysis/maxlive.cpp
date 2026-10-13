@@ -1,6 +1,7 @@
 #include "maxlive.h"
 #include "core/types.h"
 #include "ir/ir.h"
+#include "ir/ir_ops.h"
 #include "liveness.h"
 #include <algorithm>
 #include <ranges>

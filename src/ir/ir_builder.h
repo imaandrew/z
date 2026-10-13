@@ -63,47 +63,13 @@ class IRBuilder final : public ast::ASTVisitor {
 
     std::unordered_map<StringID, Operand> constants;
 
-    void visit(ast::Identifier& ident) override;
-    void visit(ast::IntExpr& expr) override;
-    void visit(ast::FloatExpr& expr) override;
-    void visit(ast::BoolExpr& expr) override;
-    void visit(ast::PrefixExpr& expr) override;
-    void visit(ast::PostfixExpr& expr) override;
-    void visit(ast::BinaryExpr& expr) override;
-    void visit(ast::CallExpr& expr) override;
-    void visit(ast::ArrayExpr& expr) override;
-    void visit(ast::FieldExpr& expr) override;
-    void visit(ast::ArrayInitExpr& expr) override;
-    void visit(ast::StructExprField& expr) override;
-    void visit(ast::StructInitExpr& expr) override;
-    void visit(ast::TupleExpr& expr) override;
-    void visit(ast::Block& block) override;
-    void visit(ast::Param& param) override;
-    void visit(ast::SourceFileDecl& file) override;
-    void visit(ast::FuncDecl& func) override;
-    void visit(ast::BreakStmt& stmt) override;
-    void visit(ast::ContinueStmt& stmt) override;
-    void visit(ast::ForExpr& expr) override;
-    void visit(ast::LetStmt& stmt) override;
-    void visit(ast::ReturnStmt& stmt) override;
-    void visit(ast::IfExpr& expr) override;
-    void visit(ast::ElseExpr& expr) override;
-    void visit(ast::LoopExpr& expr) override;
-    void visit(ast::WhileExpr& expr) override;
-    void visit(ast::StringExpr& expr) override;
-    void visit(ast::CharExpr& expr) override;
-    void visit(ast::StructField& /*field*/) override {}
-    void visit(ast::StructDecl& /*decl*/) override {}
-    void visit(ast::EnumField& /*field*/) override {}
-    void visit(ast::EnumDecl& /*decl*/) override {}
-    void visit(ast::ConstDecl& decl) override;
-    void visit(ast::StaticDecl& decl) override;
-    void visit(ast::TraitDecl& decl) override;
-    void visit(ast::TypeAliasDecl& decl) override;
-    void visit(ast::TraitFuncDecl& decl) override;
-
     static constexpr type::TypeRef to_ir_type(type::TypeRef type) {
         return type == type::builtin::BOOL ? type::builtin::I1 : type;
+    }
+
+    BlockID cur() const {
+        expect(current_block.has_value(), "current_block should be set");
+        return current_block.value();
     }
 
     IRFunction& get_func(FuncID id) { return funcs[id.id]; }
@@ -124,7 +90,7 @@ class IRBuilder final : public ast::ASTVisitor {
     FuncID get_func_id() const { return FuncID(funcs.size()); }
 
     VReg emit_reg(type::TypeRef type, InstId inst) {
-        auto reg_id = current_func->add_reg(inst, current_block.value());
+        const auto reg_id = current_func->add_reg(inst, cur());
         return VReg{.id = reg_id, .type = to_ir_type(type)};
     }
 
@@ -166,40 +132,43 @@ class IRBuilder final : public ast::ASTVisitor {
             val = std::make_optional<Operand>(ensure_reg(*val).as_reg());
         }
 
-        deferred_returns.emplace_back(*current_block, val);
+        deferred_returns.emplace_back(cur(), val);
     }
 
     void add_deferred_break(std::optional<Operand> val) {
-        deferred_loop_jumps.emplace_back(DeferredJumpType::Break,
-                                         *current_block, val);
-        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+        const auto block = cur();
+        deferred_loop_jumps.emplace_back(DeferredJumpType::Break, block, val);
+        current_func->get_block(block).term = TerminatorKind::Jump;
     }
 
     void add_deferred_continue() {
-        deferred_loop_jumps.emplace_back(DeferredJumpType::Continue,
-                                         *current_block, std::nullopt);
-        current_func->get_block(*current_block).term = TerminatorKind::Jump;
+        const auto block = cur();
+        deferred_loop_jumps.emplace_back(DeferredJumpType::Continue, block,
+                                         std::nullopt);
+        current_func->get_block(block).term = TerminatorKind::Jump;
     }
 
     void emit_jump(BlockID to) {
-        if (current_func->get_block(*current_block).term)
+        const auto block = cur();
+        if (current_func->get_block(block).term)
             return;
         emit_term(IROp::Jump, {Operand::label(to)});
-        current_func->get_block(*current_block).term = TerminatorKind::Jump;
-        current_func->get_block(to).add_predecessor(*current_block);
-        current_func->get_block(*current_block).add_successor(to);
+        current_func->get_block(block).term = TerminatorKind::Jump;
+        current_func->get_block(to).add_predecessor(block);
+        current_func->get_block(block).add_successor(to);
     }
 
     void emit_branch(Operand cond, BlockID _true, BlockID _false) {
-        if (current_func->get_block(*current_block).term)
+        const auto block = cur();
+        if (current_func->get_block(block).term)
             return;
         emit_term(IROp::Branch,
                   {cond, Operand::label(_true), Operand::label(_false)});
-        current_func->get_block(*current_block).term = TerminatorKind::Branch;
-        current_func->get_block(_true).add_predecessor(*current_block);
-        current_func->get_block(_false).add_predecessor(*current_block);
-        current_func->get_block(*current_block).add_successor(_true);
-        current_func->get_block(*current_block).add_successor(_false);
+        current_func->get_block(block).term = TerminatorKind::Branch;
+        current_func->get_block(_true).add_predecessor(block);
+        current_func->get_block(_false).add_predecessor(block);
+        current_func->get_block(block).add_successor(_true);
+        current_func->get_block(block).add_successor(_false);
     }
 
     void link_blocks(BlockID from, BlockID to) {
@@ -223,7 +192,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
         current_func->insts.emplace_back(inst_id, IROp::Phi, dest,
                                          std::initializer_list<Operand>{});
-        current_func->get_block(*current_block).add_phi(inst_id);
+        current_func->get_block(cur()).add_phi(inst_id);
         return dest;
     }
 
@@ -236,15 +205,15 @@ class IRBuilder final : public ast::ASTVisitor {
     }
 
     VReg read_var(StringID var) {
-        if (auto it = current_block_state->var_map.find(var);
+        if (const auto it = current_block_state->var_map.find(var);
             it != current_block_state->var_map.end())
             return it->second;
 
-        return read_var_recursive(var, *current_block);
+        return read_var_recursive(var, cur());
     }
 
     VReg read_var(StringID var, BlockID block) {
-        if (auto it = block_state[block].var_map.find(var);
+        if (const auto it = block_state[block].var_map.find(var);
             it != block_state[block].var_map.end())
             return it->second;
 
@@ -256,20 +225,20 @@ class IRBuilder final : public ast::ASTVisitor {
         auto& state = block_state[block_id];
         auto& block = current_func->get_block(block_id);
 
-        auto saved_block = current_block;
+        const auto saved_block = current_block;
         auto* saved_state = current_block_state;
         switch_block(block_id);
 
         if (!state.sealed) {
             auto id = get_inst_id();
-            auto phi = emit_phi(*ctxt->syms->get_var(var));
+            const auto phi = emit_phi(ctxt->syms->get_var(var).value());
             state.incomplete_phis.insert_or_assign(var, id);
             val = phi;
         } else if (block.predecessors.size() == 1) {
             val = read_var(var, block.predecessors.front());
         } else {
-            auto inst_id = get_inst_id();
-            auto phi = emit_phi(*ctxt->syms->get_var(var));
+            const auto inst_id = get_inst_id();
+            const auto phi = emit_phi(ctxt->syms->get_var(var).value());
             write_var(var, block_id, phi);
             val = add_phi_operands(var, block, inst_id);
         }
@@ -289,7 +258,7 @@ class IRBuilder final : public ast::ASTVisitor {
 
     VReg add_phi_operands(StringID var, BasicBlock& block, InstId phi) {
         for (const auto pred : block.predecessors) {
-            auto v = read_var(var, pred);
+            const auto v = read_var(var, pred);
             add_phi_operand(phi, v, pred);
         }
 
@@ -297,7 +266,7 @@ class IRBuilder final : public ast::ASTVisitor {
     }
 
     VReg try_remove_trivial_phi(InstId inst_id, BasicBlock& block) {
-        const auto f = [&]() {
+        const auto f = [&] {
             VReg same;
             bool has_same = false;
             auto& phi = current_func->insts[inst_id.id];
@@ -305,7 +274,7 @@ class IRBuilder final : public ast::ASTVisitor {
             for (const auto& op_ : phi.operands) {
                 if (!op_.is_reg())
                     continue;
-                auto op = op_.as_reg();
+                const auto op = op_.as_reg();
 
                 if (op.id == phi.dest.value().id)
                     continue;
@@ -375,6 +344,45 @@ class IRBuilder final : public ast::ASTVisitor {
 
 public:
     explicit IRBuilder(ZContext& ctxt) : ctxt(&ctxt) {}
+
+    void visit(ast::Identifier& ident) override;
+    void visit(ast::IntExpr& expr) override;
+    void visit(ast::FloatExpr& expr) override;
+    void visit(ast::BoolExpr& expr) override;
+    void visit(ast::PrefixExpr& expr) override;
+    void visit(ast::PostfixExpr& expr) override;
+    void visit(ast::BinaryExpr& expr) override;
+    void visit(ast::CallExpr& expr) override;
+    void visit(ast::ArrayExpr& expr) override;
+    void visit(ast::FieldExpr& expr) override;
+    void visit(ast::ArrayInitExpr& expr) override;
+    void visit(ast::StructExprField& expr) override;
+    void visit(ast::StructInitExpr& expr) override;
+    void visit(ast::TupleExpr& expr) override;
+    void visit(ast::Block& block) override;
+    void visit(ast::Param& param) override;
+    void visit(ast::SourceFileDecl& file) override;
+    void visit(ast::FuncDecl& func) override;
+    void visit(ast::BreakStmt& stmt) override;
+    void visit(ast::ContinueStmt& stmt) override;
+    void visit(ast::ForExpr& expr) override;
+    void visit(ast::LetStmt& stmt) override;
+    void visit(ast::ReturnStmt& stmt) override;
+    void visit(ast::IfExpr& expr) override;
+    void visit(ast::ElseExpr& expr) override;
+    void visit(ast::LoopExpr& expr) override;
+    void visit(ast::WhileExpr& expr) override;
+    void visit(ast::StringExpr& expr) override;
+    void visit(ast::CharExpr& expr) override;
+    void visit(ast::StructField& /*field*/) override {}
+    void visit(ast::StructDecl& /*decl*/) override {}
+    void visit(ast::EnumField& /*field*/) override {}
+    void visit(ast::EnumDecl& /*decl*/) override {}
+    void visit(ast::ConstDecl& decl) override;
+    void visit(ast::StaticDecl& decl) override;
+    void visit(ast::TraitDecl& decl) override;
+    void visit(ast::TypeAliasDecl& decl) override;
+    void visit(ast::TraitFuncDecl& decl) override;
 
     IRFile lower_ast(ast::SourceFileDecl* ast) {
         ast->accept(*this);

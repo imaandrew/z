@@ -34,7 +34,7 @@ public:
         }
 
         TypeKey key = T::make_key(args...);
-        if (auto it = intern_map.find(key); it != intern_map.end()) {
+        if (const auto it = intern_map.find(key); it != intern_map.end()) {
             return it->second;
         }
 

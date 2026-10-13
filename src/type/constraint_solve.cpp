@@ -32,8 +32,8 @@ void ConstraintSolver::union_types(TypeID x, TypeID y, TypeRef merged) {
 }
 
 bool ConstraintSolver::solve_equality(EqualityConstraint& c) {
-    auto lhs_ref = canonicalize(c.lhs);
-    auto rhs_ref = canonicalize(c.rhs);
+    const auto lhs_ref = canonicalize(c.lhs);
+    const auto rhs_ref = canonicalize(c.rhs);
 
     auto* lhs = ty->get(lhs_ref);
     auto* rhs = ty->get(rhs_ref);
@@ -51,7 +51,7 @@ bool ConstraintSolver::solve_equality(EqualityConstraint& c) {
 }
 
 TypeRef ConstraintSolver::canonicalize(TypeRef type) {
-    if (auto* infer = ty->get_as<InferredType>(type)) {
+    if (auto const* infer = ty->get_as<InferredType>(type)) {
         return entries[find(infer->get_id())].type;
     }
     return type;
@@ -59,11 +59,11 @@ TypeRef ConstraintSolver::canonicalize(TypeRef type) {
 
 bool ConstraintSolver::unify_with_variable(TypeRef lhs_ref, TypeRef rhs_ref,
                                            Type* lhs, Type* rhs) {
-    auto* lhs_var = dyn_cast<InferredType>(lhs);
-    auto* rhs_var = dyn_cast<InferredType>(rhs);
+    auto const* lhs_var = dyn_cast<InferredType>(lhs);
+    auto const* rhs_var = dyn_cast<InferredType>(rhs);
 
     if (lhs_var && rhs_var) {
-        auto merged = pick_more_specific(lhs_var, rhs_var);
+        const auto merged = pick_more_specific(lhs_var, rhs_var);
         union_types(lhs_var->get_id(), rhs_var->get_id(), merged);
         return true;
     }
@@ -135,7 +135,7 @@ bool ConstraintSolver::types_compatible(const Type* a, const Type* b) {
 void ConstraintSolver::register_vars(std::vector<TypeRef>& types) {
     entries.reserve(types.size());
     for (usize i = 0; i < types.size(); i++) {
-        auto* inf = ty->get_as<InferredType>(types[i]);
+        auto const* inf = ty->get_as<InferredType>(types[i]);
         assert(i == inf->get_id());
         entries.emplace_back(inf->get_id(), types[i]);
     }
@@ -144,23 +144,22 @@ void ConstraintSolver::register_vars(std::vector<TypeRef>& types) {
 bool ConstraintSolver::solve(std::vector<Constraint>& constraints) {
     bool all_ok = true;
     for (auto& c : constraints) {
-        if (auto* eq = std::get_if<EqualityConstraint>(&c)) {
-            if (!solve_equality(*eq))
-                all_ok = false;
-        }
+        if (auto* eq = std::get_if<EqualityConstraint>(&c);
+            eq && (!solve_equality(*eq)))
+            all_ok = false;
     }
     return all_ok;
 }
 
 TypeRef ConstraintSolver::resolve(TypeRef type) {
-    if (auto* infer = ty->get_as<InferredType>(type)) {
+    if (auto const* infer = ty->get_as<InferredType>(type)) {
         auto resolved = entries[find(infer->get_id())].type;
         auto* resolved_type = ty->get(resolved);
 
         if (resolved_type->is_explicit())
             return resolved;
 
-        auto* resolved_infer = dyn_cast<InferredType>(resolved_type);
+        auto const* resolved_infer = dyn_cast<InferredType>(resolved_type);
         if (resolved_infer->get_infer_type() == InferType::IntLiteral)
             return builtin::I64;
         if (resolved_infer->get_infer_type() == InferType::FloatLiteral)
