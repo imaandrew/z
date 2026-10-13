@@ -64,3 +64,7 @@ BYTE_OP(LeF, "le.f", InstClass::R)
 BYTE_OP(Bnz, "bnz", InstClass::B)
 BYTE_OP(Bz, "bz", InstClass::B)
 BYTE_OP(Jump, "j", InstClass::J)
+
+BYTE_OP(Call, "call", InstClass::IU)
+BYTE_OP(Ret, "ret", InstClass::R)
+BYTE_OP(RetVoid, "retv", InstClass::R)

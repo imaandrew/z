@@ -40,13 +40,14 @@ public:
                            static_cast<u32>(rd) << 8U | static_cast<u32>(op));
     }
 
-    static Instruction J(Op op, u32 offset) {
-        return Instruction(offset << 8U | static_cast<u32>(op));
+    static Instruction J(Op op, i32 offset) {
+        return Instruction(static_cast<u32>(offset) << 8U |
+                           static_cast<u32>(op));
     }
 
-    static Instruction B(Op op, u8 rs, i16 offset) {
-        return Instruction(static_cast<u16>(offset) << 16U |
-                           static_cast<u32>(rs) << 8U | static_cast<u32>(op));
+    static Instruction B(Op op, u8 rd, i16 offset) {
+        return Instruction(static_cast<u32>(static_cast<u16>(offset)) << 16U |
+                           static_cast<u32>(rd) << 8U | static_cast<u32>(op));
     }
 
     [[nodiscard]] Op op() const { return static_cast<Op>(raw & 0xFFU); }
@@ -78,12 +79,17 @@ class Function {
     StringID name;
     std::vector<Chunk> chunks;
     std::vector<u64> constants;
+    u32 nregs = 0;
 
 public:
     explicit Function(StringID name, std::vector<u64> constants)
         : name(name), constants(std::move(constants)) {}
 
     Chunk& add_chunk(u32 idx) { return chunks.emplace_back(idx); }
+
+    void set_nregs(u32 n) { nregs = n; }
+
+    [[nodiscard]] u32 get_nregs() const { return nregs; }
 
     [[nodiscard]] StringID get_name() const { return name; }
 

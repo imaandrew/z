@@ -7,6 +7,8 @@
 #include "ir/ir.h"
 #include "ir/ir_ops.h"
 #include "type/type.h"
+#include <algorithm>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -15,6 +17,8 @@ std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
     for (const auto& func : file.funcs) {
         current_func = &funcs.emplace_back(func.name, func.const_pool.values());
         chunk_map = std::vector<u32>(func.blocks.size());
+        arg_index = 0;
+        current_func->set_nregs(func.num_regs());
         lower_func(func);
     }
 
@@ -72,6 +76,21 @@ void Builder::lower_block(const ir::BasicBlock& block,
         case IROp::FCmp:
             lower_cmp(inst);
             break;
+        case IROp::Call:
+            lower_call(inst, func.num_regs());
+            break;
+        case IROp::Ret:
+            lower_ret(inst);
+            break;
+        case IROp::Arg: {
+            const auto k = arg_index++;
+            const auto dest = inst.dest.value();
+            expect(k < func.params.size() && func.params[k].id == dest.id,
+                   "arg {} doesn't match param list", k);
+            expect(lower_vreg(dest) == k, "arg {} must lower to r{}, got r{}",
+                   k, k, lower_vreg(dest));
+            break;
+        }
         default:
             panic("unimplemented op: {}", ir::ir_op_to_string(inst.op));
         }
@@ -443,6 +462,44 @@ void Builder::lower_branch(const ir::Instruction& inst) {
     pending_branches.emplace_back(current_chunk->get_idx(), cond.as_reg(),
                                   lhs.block_id, rhs.block_id);
     emit_inst(Instruction::B(Op::Bnz, lower_vreg(cond.as_reg()), 0));
+}
+
+void Builder::lower_call(const ir::Instruction& inst, u32 num_regs) {
+    const auto func_id = inst.operands[0].as_func().id;
+    const u32 base = num_regs;
+    const u32 nargs = inst.operands.size() - 1;
+
+    expect(base + std::max(nargs, 1U) - 1 <= UINT8_MAX,
+           "frame setup exceeds register bank");
+    for (usize i = 0; i < nargs; i++) {
+        const auto& op = inst.operands[i + 1];
+        expect(op.is_reg(), "ImmToReg should have moved immediate to register");
+        emit_inst(Instruction::R(Op::Mov, static_cast<u8>(base + i),
+                                 lower_vreg(op.as_reg()), 0));
+    }
+
+    const auto nregs = current_func->get_nregs();
+    current_func->set_nregs(std::max(nregs, base + std::max(nargs, 1U)));
+
+    expect(func_id <= UINT16_MAX, "func id cannot fit in u16");
+    emit_inst(Instruction::IU(Op::Call, static_cast<u8>(base),
+                              static_cast<u16>(func_id)));
+
+    if (inst.dest.has_value())
+        emit_inst(Instruction::R(Op::Mov, lower_vreg(inst.dest.value()),
+                                 static_cast<u8>(base), 0));
+}
+
+void Builder::lower_ret(const ir::Instruction& inst) {
+    if (inst.operands.empty()) {
+        emit_inst(Instruction::R(Op::RetVoid, 0, 0, 0));
+        return;
+    }
+
+    const auto& ret_val = inst.operands[0];
+    expect(ret_val.is_reg(), "IRBuilder forces return val to be vreg");
+
+    emit_inst(Instruction::R(Op::Ret, 0, lower_vreg(ret_val.as_reg()), 0));
 }
 
 void Builder::fixup_branches() {}

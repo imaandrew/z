@@ -542,6 +542,58 @@ bool IRVerifier::verify_inst_operands(const IRFunction& func,
     return ret;
 }
 
+bool IRVerifier::verify_func_args(const IRFunction& func) {
+    bool ret = true;
+
+    if (func.blocks.empty())
+        return true;
+
+    usize arg_count = 0;
+    bool args_end = false;
+    for (const auto inst : func.blocks[0].insts) {
+        if (func.get_inst(inst).op == IROp::Arg) {
+            if (args_end) {
+                ret = false;
+                std::println("func {}: arg instruction appears after non arg "
+                             "instruction",
+                             func.id);
+            } else {
+                if (arg_count < func.params.size() &&
+                    func.params[arg_count] !=
+                        func.get_inst(inst).dest.value()) {
+                    ret = false;
+                    std::println(
+                        "func {}: arg {} doesn't match function's param",
+                        func.id, arg_count);
+                }
+                arg_count++;
+            }
+        } else {
+            args_end = true;
+        }
+    }
+
+    if (arg_count != func.params.size()) {
+        ret = false;
+        std::println("func {}: number of arg instructions doesn't match number "
+                     "of params",
+                     func.id);
+    }
+
+    for (usize i = 1; i < func.blocks.size(); i++) {
+        for (const auto inst : func.blocks[i].insts) {
+            if (func.get_inst(inst).op == IROp::Arg) {
+                ret = false;
+                std::println("func {}, block {}: arg instruction appears in "
+                             "non-entry block",
+                             func.id, i);
+            }
+        }
+    }
+
+    return ret;
+}
+
 bool IRVerifier::verify(const IRFunction& func, const type::TypeArena& ty) {
     bool ret = verify_uses_table(func);
     ret &= verify_uses_in_table(func);
@@ -551,6 +603,7 @@ bool IRVerifier::verify(const IRFunction& func, const type::TypeArena& ty) {
     ret &= verify_no_unused_insts(func);
     ret &= verify_last_inst_is_term(func);
     ret &= verify_inst_operands(func, ty);
+    ret &= verify_func_args(func);
 
     return ret;
 }

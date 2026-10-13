@@ -15,6 +15,7 @@ class Builder {
     Function* current_func = nullptr;
     Chunk* current_chunk = nullptr;
     ZContext* ctxt;
+    u32 arg_index = 0;
 
     /// BlockID to chunk idx
     std::vector<u32> chunk_map;
@@ -44,6 +45,8 @@ class Builder {
     void lower_load_const(const ir::Instruction& inst);
     void lower_cmp(const ir::Instruction& inst);
     void lower_branch(const ir::Instruction& inst);
+    void lower_call(const ir::Instruction& inst, u32 num_regs);
+    void lower_ret(const ir::Instruction& inst);
 
     void emit_inst(Instruction inst) { current_chunk->add_inst(inst); }
 

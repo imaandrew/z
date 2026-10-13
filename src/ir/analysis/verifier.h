@@ -73,6 +73,7 @@ class IRVerifier {
     [[nodiscard]] static bool verify_last_inst_is_term(const IRFunction& func);
     [[nodiscard]] static bool verify_inst_operands(const IRFunction& func,
                                                    const type::TypeArena& ty);
+    [[nodiscard]] static bool verify_func_args(const IRFunction& func);
 
 public:
     [[nodiscard]] static bool verify(const IRFunction& func,
