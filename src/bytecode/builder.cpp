@@ -15,6 +15,7 @@
 namespace z::bytecode {
 std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
     for (const auto& func : file.funcs) {
+        expect(func.id.id == funcs.size(), "function id should match order");
         current_func = &funcs.emplace_back(func.name, func.const_pool.values());
         chunk_map = std::vector<u32>(func.blocks.size());
         arg_index = 0;
