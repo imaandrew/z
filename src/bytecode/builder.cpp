@@ -442,9 +442,9 @@ void Builder::lower_cmp(const ir::Instruction& inst) {
     const auto get_float_op = [&lhs, &rhs](ir::FloatCC cc) {
         switch (cc) {
         case ir::FloatCC::Equal:
-            return Op::Eq;
+            return Op::EqF;
         case ir::FloatCC::NotEqual:
-            return Op::Ne;
+            return Op::NeF;
         case ir::FloatCC::GreaterThan:
             std::swap(lhs, rhs);
             [[fallthrough]];

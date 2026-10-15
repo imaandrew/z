@@ -2,7 +2,6 @@
 
 #include "core/zctxt.h"
 #include "ir/ir.h"
-#include "ir/ir_builder.h"
 #include <ostream>
 #include <string>
 #include <string_view>

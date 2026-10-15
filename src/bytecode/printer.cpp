@@ -27,64 +27,50 @@ void Printer::print_chunk(const Chunk& chunk) {
 void Printer::print_inst(const Instruction& inst) {
     print_op(inst.op());
 
-    switch (inst.op()) {
-    case Op::SAdd: // op rd, rs, rt
-    case Op::UAdd:
-    case Op::SSub:
-    case Op::USub:
-    case Op::SMul:
-    case Op::UMul:
-    case Op::SDiv:
-    case Op::UDiv:
-    case Op::SRem:
-    case Op::URem:
-        print_reg(inst.rd());
-        os << ", ";
-        print_reg(inst.rs());
-        os << ", ";
-        print_reg(inst.rt());
+    const auto& info = op_info(inst.op());
+    const auto& [dest, src1, src2] = info.operands.operands;
+
+    bool first = true;
+    const auto sep = [&] {
+        if (!first)
+            os << ", ";
+        first = false;
+    };
+    const auto reg = [&](u8 r) {
+        sep();
+        print_reg(r);
+    };
+    const auto is_signed = [](OperandType t) {
+        return t == OperandType::i8 || t == OperandType::i16 ||
+               t == OperandType::i32 || t == OperandType::i64;
+    };
+
+    switch (info.i_class) {
+    case InstClass::R: // op rd, rs, rt
+        if (dest != OperandType::_)
+            reg(inst.rd());
+        if (src1 != OperandType::_)
+            reg(inst.rs());
+        if (src2 != OperandType::_)
+            reg(inst.rt());
         break;
-    case Op::Neg: // op rd, rs
-        print_reg(inst.rd());
-        os << ", ";
-        print_reg(inst.rs());
+    case InstClass::RI:  // op rd, rs, i8
+    case InstClass::RIU: // op rd, rs, u8
+        reg(inst.rd());
+        reg(inst.rs());
+        sep();
+        print_imm8(inst.imm8(), is_signed(src2));
         break;
-    case Op::ChkS8: // op rd
-    case Op::ChkU8:
-    case Op::ChkS16:
-    case Op::ChkU16:
-    case Op::ChkS32:
-    case Op::ChkU32:
-        print_reg(inst.rd());
+    case InstClass::I:  // op rd, i16
+    case InstClass::IU: // op rd, u16
+    case InstClass::B:  // op rd, offset
+        reg(inst.rd());
+        sep();
+        print_imm16(inst.imm16(), is_signed(src2));
         break;
-    case Op::SAddq: // op rd, i8
-        print_reg(inst.rd());
-        os << ", ";
-        print_imm8(inst.imm8(), true);
-        break;
-    case Op::UAddq: // op rd, u8
-        print_reg(inst.rd());
-        os << ", ";
-        print_imm8(inst.imm8(), false);
-        break;
-    case Op::SAddi: // op rd, i16
-    case Op::SSubi:
-    case Op::SMuli:
-    case Op::SDivi:
-    case Op::SRemi:
-        print_reg(inst.rd());
-        os << ", ";
-        print_imm16(inst.imm16(), true);
-        break;
-    case Op::UAddi: // op rd, u16
-    case Op::USubi:
-    case Op::UMuli:
-    case Op::UDivi:
-    case Op::URemi:
-    case Op::LoadConst:
-        print_reg(inst.rd());
-        os << ", ";
-        print_imm16(inst.imm16(), false);
+    case InstClass::J: // op offset
+        sep();
+        print_offset(inst.offset24());
         break;
     }
 
@@ -108,5 +94,9 @@ void Printer::print_imm8(i8 imm, bool is_signed) {
 void Printer::print_imm16(i16 imm, bool is_signed) {
     std::print(os, "{}{}{}", colour::YELLOW,
                is_signed ? imm : static_cast<u16>(imm), colour::RESET);
+}
+
+void Printer::print_offset(i32 offset) {
+    std::print(os, "{}{}{}", colour::YELLOW, offset, colour::RESET);
 }
 } // namespace z::bytecode
