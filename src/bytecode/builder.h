@@ -59,13 +59,13 @@ class Builder {
                                       current_chunk->get_insts().size());
         emit_inst(
             Instruction::B(op, lower_vreg(cond), static_cast<i16>(chunk)));
-    };
+    }
 
     void emit_jump(u32 chunk) {
         pending_jumps.emplace_back(current_chunk->get_idx(),
                                    current_chunk->get_insts().size());
         emit_inst(Instruction::J(Op::Jump, static_cast<i32>(chunk)));
-    };
+    }
 
 public:
     explicit Builder(ZContext& ctxt) : ctxt(&ctxt) {}

@@ -571,6 +571,11 @@ void Builder::fixup_branches() {
         const auto target_chunk = inst.offset24();
         const auto jump_offset =
             calc_branch_offset(chunk_idx, inst_idx, target_chunk);
+
+        const i64 offset_max = (1U << 23U) - 1;
+        const i64 offset_min = -static_cast<i64>((1U << 23U));
+        expect(jump_offset <= offset_max && jump_offset >= offset_min,
+               "oob jump");
         inst = Instruction::J(inst.op(), static_cast<i32>(jump_offset));
     }
     pending_branches.clear();
