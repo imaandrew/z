@@ -13,6 +13,7 @@
 #include "ir/passes/ConstPropPass.h"
 #include "ir/passes/CriticalEdgeSplitPass.h"
 #include "ir/passes/DCEPass.h"
+#include "ir/passes/SimplifyCFGPass.h"
 #include "ir/passes/backend/CopyCoalescingPass.h"
 #include "ir/passes/backend/CopyInsertionPass.h"
 #include "ir/passes/backend/CopyLoweringPass.h"
@@ -162,6 +163,7 @@ int main(int argc, const char* const* argv) {
     pass_mgr.add_oneshot_pass(std::make_unique<ir::CopyInsertionPass>());
     pass_mgr.add_oneshot_pass(std::make_unique<ir::CopyCoalescingPass>());
     pass_mgr.add_oneshot_pass(std::make_unique<ir::CopyLoweringPass>());
+    pass_mgr.add_oneshot_pass(std::make_unique<ir::SimplifyCFGPass>());
     const bool ir_valid = pass_mgr.run_oneshot_passes(ir_code, ctxt, verify_ir);
 
     if (print_ir == "final" || print_ir == "all")

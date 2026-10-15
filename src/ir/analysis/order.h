@@ -23,6 +23,9 @@ compute_postorder(const std::vector<BasicBlock>& blocks) {
         auto [b, returning] = stack.top();
         stack.pop();
 
+        if (visited[b.id] && !returning)
+            continue;
+
         if (returning) {
             postorder.push_back(b);
         } else {
@@ -45,7 +48,6 @@ class InstOrder {
 
     void compute_postorder(const std::vector<BasicBlock>& blocks) {
         postorder_.reserve(blocks.size());
-        revpostorder_.reserve(blocks.size());
 
         auto visited = std::vector<bool>(blocks.size(), false);
         std::stack<std::pair<BlockID, bool>> stack;
@@ -54,6 +56,9 @@ class InstOrder {
         while (!stack.empty()) {
             auto [b, returning] = stack.top();
             stack.pop();
+
+            if (visited[b.id] && !returning)
+                continue;
 
             if (returning) {
                 postorder_.push_back(b);
@@ -68,6 +73,7 @@ class InstOrder {
             }
         }
 
+        revpostorder_.resize(postorder_.size(), BlockID(0));
         std::ranges::reverse_copy(postorder_, revpostorder_.begin());
     }
 

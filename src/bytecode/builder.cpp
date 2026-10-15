@@ -3,6 +3,7 @@
 #include "bytecode/bytecode.h"
 #include "core/panic.h"
 #include "core/types.h"
+#include "ir/analysis/order.h"
 #include "ir/condition_codes.h"
 #include "ir/ir.h"
 #include "ir/ir_ops.h"
@@ -15,11 +16,6 @@
 namespace z::bytecode {
 std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
     for (const auto& func : file.funcs) {
-        expect(func.id.id == funcs.size(), "function id should match order");
-        current_func = &funcs.emplace_back(func.name, func.const_pool.values());
-        chunk_map = std::vector<u32>(func.blocks.size());
-        arg_index = 0;
-        current_func->set_nregs(func.num_regs());
         lower_func(func);
     }
 
@@ -28,19 +24,32 @@ std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
 
 void Builder::lower_func(const ir::IRFunction& func) {
     expect(func.num_regs() < 256, "func.num_regs() >= 256");
+    expect(func.id.id == funcs.size(), "function id should match order");
+    current_func = &funcs.emplace_back(func.name, func.const_pool.values());
+    chunk_map = std::vector<u32>(func.blocks.size());
+    arg_index = 0;
+    current_func->set_nregs(func.num_regs());
+    layout = ir::InstOrder(func).rev_postorder();
 
-    for (const auto& block : func.blocks) {
-        const auto chunk_id = current_func->get_chunks().size();
-        chunk_map[block.id.id] = chunk_id;
-        current_chunk = &current_func->add_chunk(chunk_id);
+    for (usize i = 0; i < layout.size(); i++) {
+        chunk_map[layout[i].id] = i;
+    }
+
+    for (const auto block_id : layout) {
+        const auto& block = func.get_block(block_id);
         lower_block(block, func);
     }
+
+    fixup_branches();
 }
 
 using ir::IROp;
 
 void Builder::lower_block(const ir::BasicBlock& block,
                           const ir::IRFunction& func) {
+    const auto chunk_id = chunk_map[block.id.id];
+    current_chunk = &current_func->add_chunk(chunk_id);
+
     for (const auto inst_id : block.insts) {
         const auto& inst = func.get_inst(inst_id);
         switch (inst.op) {
@@ -92,6 +101,12 @@ void Builder::lower_block(const ir::BasicBlock& block,
                    k, k, lower_vreg(dest));
             break;
         }
+        case IROp::Branch:
+            lower_branch(inst);
+            break;
+        case IROp::Jump:
+            lower_jump(inst);
+            break;
         default:
             panic("unimplemented op: {}", ir::ir_op_to_string(inst.op));
         }
@@ -172,7 +187,7 @@ void Builder::lower_int_arith(const ir::Instruction& inst) {
         if (op_type->get_width() != 64) {
             emit_inst(
                 Instruction::R(chk(op_type->get_width(), op_type->is_signed()),
-                               lower_vreg(dest), 0, 0));
+                               0, lower_vreg(dest), 0));
         }
 
         return;
@@ -204,7 +219,7 @@ void Builder::lower_int_arith(const ir::Instruction& inst) {
         if (op_type->get_width() != 64) {
             emit_inst(
                 Instruction::R(chk(op_type->get_width(), op_type->is_signed()),
-                               lower_vreg(dest), 0, 0));
+                               0, lower_vreg(dest), 0));
         }
         return;
     }
@@ -224,7 +239,7 @@ void Builder::lower_int_arith(const ir::Instruction& inst) {
         if (op_type->get_width() != 64) {
             emit_inst(
                 Instruction::R(chk(op_type->get_width(), op_type->is_signed()),
-                               lower_vreg(dest), 0, 0));
+                               0, lower_vreg(dest), 0));
         }
     } else {
         panic("ImmToReg should have moved the immediate into a register");
@@ -445,24 +460,45 @@ void Builder::lower_cmp(const ir::Instruction& inst) {
         std::unreachable();
     };
 
-    emit_inst(Instruction::R(
-        inst.op == ir::IROp::ICmp
-            ? get_int_op(inst.operands.front().as_intcc())
-            : get_float_op(inst.operands.front().as_floatcc()),
-        lower_vreg(inst.dest.value()), lower_vreg(lhs), lower_vreg(rhs)));
+    const auto op = inst.op == ir::IROp::ICmp
+                        ? get_int_op(inst.operands.front().as_intcc())
+                        : get_float_op(inst.operands.front().as_floatcc());
+    emit_inst(Instruction::R(op, lower_vreg(inst.dest.value()), lower_vreg(lhs),
+                             lower_vreg(rhs)));
 }
 
 void Builder::lower_branch(const ir::Instruction& inst) {
     const auto cond = inst.operands[0];
-    const auto lhs = inst.operands[1].as_label();
-    const auto rhs = inst.operands[2].as_label();
+    const auto true_chunk = chunk_map[inst.operands[1].as_label().block_id.id];
+    const auto false_chunk = chunk_map[inst.operands[2].as_label().block_id.id];
 
-    if (cond.is_imm())
-        panic("TODO");
+    if (cond.is_imm()) {
+        const auto b = cond.as_imm().as_int();
+        expect(b.get_width() == 1, "branch condition should be bool");
+        const bool bool_cond = static_cast<bool>(b.get_bits());
+        if (bool_cond && current_chunk->get_idx() + 1 != true_chunk) {
+            emit_jump(true_chunk);
+        } else if (!bool_cond && current_chunk->get_idx() + 1 != false_chunk) {
+            emit_jump(false_chunk);
+        }
+        return;
+    }
 
-    pending_branches.emplace_back(current_chunk->get_idx(), cond.as_reg(),
-                                  lhs.block_id, rhs.block_id);
-    emit_inst(Instruction::B(Op::Bnz, lower_vreg(cond.as_reg()), 0));
+    if (current_chunk->get_idx() + 1 == true_chunk) {
+        emit_branch(Op::Bz, cond.as_reg(), false_chunk);
+    } else if (current_chunk->get_idx() + 1 == false_chunk) {
+        emit_branch(Op::Bnz, cond.as_reg(), true_chunk);
+    } else {
+        emit_branch(Op::Bnz, cond.as_reg(), true_chunk);
+        emit_jump(false_chunk);
+    }
+}
+
+void Builder::lower_jump(const ir::Instruction& inst) {
+    const auto target = chunk_map[inst.operands[0].as_label().block_id.id];
+
+    if (current_chunk->get_idx() + 1 != target)
+        emit_jump(target);
 }
 
 void Builder::lower_call(const ir::Instruction& inst, u32 num_regs) {
@@ -503,5 +539,41 @@ void Builder::lower_ret(const ir::Instruction& inst) {
     emit_inst(Instruction::R(Op::Ret, 0, lower_vreg(ret_val.as_reg()), 0));
 }
 
-void Builder::fixup_branches() {}
+void Builder::fixup_branches() {
+    auto& chunks = current_func->get_chunks();
+    auto chunk_insts = std::vector<u32>(chunks.size());
+
+    const auto calc_branch_offset = [&](u32 branch_chunk, u32 branch_inst,
+                                        i64 target_chunk) {
+        return static_cast<i64>(chunk_insts[target_chunk]) -
+               static_cast<i64>(chunk_insts[branch_chunk] + branch_inst);
+    };
+
+    for (usize i = 1; i < chunks.size(); i++) {
+        chunk_insts[i] = chunk_insts[i - 1] + chunks[i - 1].get_insts().size();
+    }
+
+    for (const auto [chunk_idx, inst_idx] : pending_branches) {
+        auto& insts = chunks[chunk_idx].get_insts();
+        auto& inst = insts[inst_idx];
+        const auto target_chunk = inst.imm16();
+        const auto branch_offset =
+            calc_branch_offset(chunk_idx, inst_idx, target_chunk);
+        expect(branch_offset <= INT16_MAX && branch_offset >= INT16_MIN,
+               "oob branch");
+        inst = Instruction::B(inst.op(), inst.rd(),
+                              static_cast<i16>(branch_offset));
+    }
+
+    for (const auto [chunk_idx, inst_idx] : pending_jumps) {
+        auto& insts = chunks[chunk_idx].get_insts();
+        auto& inst = insts[inst_idx];
+        const auto target_chunk = inst.offset24();
+        const auto jump_offset =
+            calc_branch_offset(chunk_idx, inst_idx, target_chunk);
+        inst = Instruction::J(inst.op(), static_cast<i32>(jump_offset));
+    }
+    pending_branches.clear();
+    pending_jumps.clear();
+}
 } // namespace z::bytecode

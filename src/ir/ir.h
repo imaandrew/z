@@ -472,6 +472,10 @@ struct BasicBlock {
         predecessors.push_back(pred);
     }
 
+    void remove_predecessor(BlockID pred) {
+        std::erase_if(predecessors, [pred](auto x) { return x == pred; });
+    }
+
     void add_successor(BlockID successor) {
         for (const auto s : successors) {
             if (s == successor)

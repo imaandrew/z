@@ -1,5 +1,6 @@
 #pragma once
 
+#include "bytecode/byte_ops.h"
 #include "bytecode/bytecode.h"
 #include "core/panic.h"
 #include "core/types.h"
@@ -16,24 +17,19 @@ class Builder {
     Chunk* current_chunk = nullptr;
     ZContext* ctxt;
     u32 arg_index = 0;
+    std::vector<ir::BlockID> layout;
 
     /// BlockID to chunk idx
     std::vector<u32> chunk_map;
 
     struct PendingBranch {
         u32 chunk_idx;
-        ir::VReg cond;
-        ir::BlockID b_true;
-        ir::BlockID b_false;
-
-        PendingBranch(u32 chunk_idx, ir::VReg cond, ir::BlockID b_true,
-                      ir::BlockID b_false)
-            : chunk_idx(chunk_idx), cond(cond), b_true(b_true),
-              b_false(b_false) {}
+        u32 inst_idx;
     };
 
     /// MUST be sorted in ascending order by chunk_idx
     std::vector<PendingBranch> pending_branches;
+    std::vector<PendingBranch> pending_jumps;
 
     void lower_func(const ir::IRFunction& func);
     void lower_block(const ir::BasicBlock& block, const ir::IRFunction& func);
@@ -45,6 +41,7 @@ class Builder {
     void lower_load_const(const ir::Instruction& inst);
     void lower_cmp(const ir::Instruction& inst);
     void lower_branch(const ir::Instruction& inst);
+    void lower_jump(const ir::Instruction& inst);
     void lower_call(const ir::Instruction& inst, u32 num_regs);
     void lower_ret(const ir::Instruction& inst);
 
@@ -56,6 +53,19 @@ class Builder {
         expect(vreg.id <= UINT8_MAX, "");
         return static_cast<u8>(vreg.id);
     }
+
+    void emit_branch(Op op, ir::VReg cond, u32 chunk) {
+        pending_branches.emplace_back(current_chunk->get_idx(),
+                                      current_chunk->get_insts().size());
+        emit_inst(
+            Instruction::B(op, lower_vreg(cond), static_cast<i16>(chunk)));
+    };
+
+    void emit_jump(u32 chunk) {
+        pending_jumps.emplace_back(current_chunk->get_idx(),
+                                   current_chunk->get_insts().size());
+        emit_inst(Instruction::J(Op::Jump, static_cast<i32>(chunk)));
+    };
 
 public:
     explicit Builder(ZContext& ctxt) : ctxt(&ctxt) {}
