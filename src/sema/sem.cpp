@@ -3,6 +3,7 @@
 #include "core/string_pool.h"
 #include "core/types.h"
 #include "diag/diagnostics.h"
+#include "diag/src_mgr.h"
 #include "parser/ast.h"
 #include "type/type.h"
 #include "type/type_arena.h"
@@ -585,18 +586,22 @@ void SemChecker::visit(ast::SourceFileDecl& file) {
 
     for (auto& decl : file.decls)
         decl->accept(*this);
+
+    if (!seen_main) {
+        ctxt->diag.error(Span(0, 0), DiagnosticKind::NoMainFunction);
+    }
 }
 
 void SemChecker::visit(ast::FuncDecl& func) {
-    const auto name = ctxt->strings->get_string(func.name->get_id());
-    if (name == "main") {
+    if (func.name->get_id() == StringPool::MAIN) {
+        seen_main = true;
         if (!func.params.empty()) {
             ctxt->diag.error(func.name->get_span(),
                              DiagnosticKind::MainFunctionParams);
         }
 
         if (func.ret.is_valid() && func.ret != type::builtin::VOID &&
-            func.ret != type::builtin::I64) {
+            func.ret != type::builtin::I32) {
             ctxt->diag.error(func.name->get_span(),
                              DiagnosticKind::MainFunctionReturnType);
         }
@@ -610,7 +615,8 @@ void SemChecker::visit(ast::FuncDecl& func) {
     current_return_type = std::nullopt;
     current_func_name = nullptr;
 
-    if (func.ret.is_valid() && func.ret != func.body->get_type()) {
+    if (func.ret.is_valid() && !ast::ends_in_return(*func.body) &&
+        func.ret != func.body->get_type()) {
         ctxt->diag.error(
             func.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
             ctxt->strings->get_string(func.name->get_id()),
@@ -879,7 +885,8 @@ void SemChecker::visit(ast::TraitFuncDecl& decl) {
 
         decl.body->accept(*this);
 
-        if (decl.body->has_type() && decl.ret != decl.body->get_type()) {
+        if (decl.body->has_type() && !ast::ends_in_return(*decl.body) &&
+            decl.ret != decl.body->get_type()) {
             ctxt->diag.error(
                 decl.body->get_span(), DiagnosticKind::ReturnTypeMismatch,
                 ctxt->strings->get_string(decl.name->get_id()),

@@ -987,6 +987,10 @@ struct ReturnStmt final : Stmt {
     }
 };
 
+inline bool ends_in_return(const Block& block) {
+    return !block.stmts.empty() && isa<ReturnStmt>(block.stmts.back().get());
+}
+
 struct ElseExpr final : Expr {
     std::unique_ptr<Expr> if_expr;
     std::unique_ptr<Block> block;

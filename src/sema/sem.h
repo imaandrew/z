@@ -22,6 +22,7 @@ class SemChecker : public ast::ASTVisitor {
     ast::Identifier* current_func_name = nullptr;
     std::optional<type::TypeRef> current_return_type;
     std::vector<LoopContext> loop_stack;
+    bool seen_main = false;
 
 public:
     explicit SemChecker(ZContext& ctxt) : ctxt(&ctxt) {};

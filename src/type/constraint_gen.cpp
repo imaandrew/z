@@ -241,11 +241,12 @@ void ConstraintGenerator::visit(ast::FuncDecl& func) {
     }
 
     func.body->set_type(new_type(InferType::Block));
-    func_type = func.body->get_type();
+    func_type = func.ret;
     func.body->accept(*this);
     func_type = std::nullopt;
 
-    eq(func.body->get_type(), func.ret);
+    if (!ast::ends_in_return(*func.body))
+        eq(func.body->get_type(), func.ret);
 
     if (const auto f = syms->get_func(func.name->get_id())) {
         func.set_type(*f);
@@ -479,8 +480,12 @@ void ConstraintGenerator::visit(ast::TraitFuncDecl& decl) {
     }
 
     if (decl.body) {
+        func_type = decl.ret;
         decl.body->accept(*this);
-        eq(decl.body->get_type(), decl.ret);
+        func_type = std::nullopt;
+
+        if (!ast::ends_in_return(*decl.body))
+            eq(decl.body->get_type(), decl.ret);
     }
 
     if (const auto t = syms->get_func(decl.name->get_id())) {

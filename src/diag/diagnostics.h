@@ -60,6 +60,7 @@ enum class DiagnosticKind : u8 {
     AssignmentToConst,
     DivisionByZero,
     InvalidArraySize,
+    NoMainFunction,
     MainFunctionParams,
     MainFunctionReturnType,
     RecursiveStructDefiniton,
@@ -157,6 +158,8 @@ constexpr std::string_view get_diagnostic_string(DiagnosticKind kind) {
         return "denominator cannot be zero";
     case DiagnosticKind::InvalidArraySize:
         return "size of array must be a positive integer";
+    case DiagnosticKind::NoMainFunction:
+        return "file does not contain a `main` function";
     case DiagnosticKind::MainFunctionParams:
         return "main function cannot have parameters";
     case DiagnosticKind::MainFunctionReturnType:
