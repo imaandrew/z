@@ -2,6 +2,7 @@
 #include "bytecode/byte_ops.h"
 #include "bytecode/bytecode.h"
 #include "core/panic.h"
+#include "core/string_pool.h"
 #include "core/types.h"
 #include "ir/analysis/order.h"
 #include "ir/condition_codes.h"
@@ -10,26 +11,35 @@
 #include "type/type.h"
 #include <algorithm>
 #include <cstdint>
+#include <optional>
+#include <ranges>
 #include <utility>
 #include <vector>
 
 namespace z::bytecode {
-std::vector<Function> Builder::lower_file(const ir::IRFile& file) {
+File Builder::lower_file(const ir::IRFile& file) {
+    std::optional<usize> entry;
+
     for (const auto& func : file.funcs) {
         lower_func(func);
+        if (func.name == z::StringPool::MAIN)
+            entry = func.id.id;
     }
 
-    return std::move(funcs);
+    expect(!entry, "main function not found");
+    return File(std::move(funcs), entry.value());
 }
 
 void Builder::lower_func(const ir::IRFunction& func) {
     expect(func.num_regs() < 256, "func.num_regs() >= 256");
     expect(func.id.id == funcs.size(), "function id should match order");
-    current_func = &funcs.emplace_back(func.name, func.const_pool.values());
+    current_func = &funcs.emplace_back(func.name, func.const_pool.values(),
+                                       func.params.size());
     chunk_map = std::vector<u32>(func.blocks.size());
     arg_index = 0;
     current_func->set_nregs(func.num_regs());
     layout = ir::InstOrder(func).rev_postorder();
+    chunks = {};
 
     for (usize i = 0; i < layout.size(); i++) {
         chunk_map[layout[i].id] = i;
@@ -41,6 +51,7 @@ void Builder::lower_func(const ir::IRFunction& func) {
     }
 
     fixup_branches();
+    flatten_chunks();
 }
 
 using ir::IROp;
@@ -48,7 +59,7 @@ using ir::IROp;
 void Builder::lower_block(const ir::BasicBlock& block,
                           const ir::IRFunction& func) {
     const auto chunk_id = chunk_map[block.id.id];
-    current_chunk = &current_func->add_chunk(chunk_id);
+    current_chunk = &chunks.emplace_back(chunk_id);
 
     for (const auto inst_id : block.insts) {
         const auto& inst = func.get_inst(inst_id);
@@ -540,7 +551,6 @@ void Builder::lower_ret(const ir::Instruction& inst) {
 }
 
 void Builder::fixup_branches() {
-    auto& chunks = current_func->get_chunks();
     auto chunk_insts = std::vector<u32>(chunks.size());
 
     const auto calc_branch_offset = [&](u32 branch_chunk, u32 branch_inst,
@@ -580,5 +590,13 @@ void Builder::fixup_branches() {
     }
     pending_branches.clear();
     pending_jumps.clear();
+}
+
+void Builder::flatten_chunks() {
+    current_func->get_insts() =
+        chunks | std::views::transform([](const Chunk& chunk) -> auto& {
+            return chunk.get_insts();
+        }) |
+        std::views::join | std::ranges::to<std::vector>();
 }
 } // namespace z::bytecode

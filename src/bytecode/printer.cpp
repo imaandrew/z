@@ -7,21 +7,20 @@
 
 namespace z::bytecode {
 
+void Printer::print_file(const File& file) {
+    for (const auto& func : file.get_funcs()) {
+        print_func(func);
+    }
+}
 void Printer::print_func(const Function& func) {
     std::println(os, "{}{}:{}", colour::BOLD_YELLOW,
                  ctxt->strings->get_string(func.get_name()), colour::RESET);
 
-    for (const auto& chunk : func.get_chunks()) {
-        print_chunk(chunk);
+    for (const auto& inst : func.get_insts()) {
+        print_inst(inst);
     }
 
     os << "\n";
-}
-
-void Printer::print_chunk(const Chunk& chunk) {
-    for (const auto& inst : chunk.get_insts()) {
-        print_inst(inst);
-    }
 }
 
 void Printer::print_inst(const Instruction& inst) {

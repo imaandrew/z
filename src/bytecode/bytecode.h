@@ -62,44 +62,45 @@ public:
     [[nodiscard]] i32 offset24() const { return static_cast<i32>(raw) >> 8U; }
 };
 
-class Chunk {
-    u32 idx;
-    std::vector<Instruction> insts;
-
-public:
-    explicit Chunk(u32 idx) : idx(idx) {}
-    void add_inst(Instruction inst) { insts.push_back(inst); }
-
-    [[nodiscard]] u32 get_idx() const { return idx; }
-    [[nodiscard]] const std::vector<Instruction>& get_insts() const {
-        return insts;
-    }
-    [[nodiscard]] std::vector<Instruction>& get_insts() { return insts; }
-};
-
 class Function {
     StringID name;
-    std::vector<Chunk> chunks;
+    std::vector<Instruction> insts;
     std::vector<u64> constants;
     u32 nregs = 0;
+    u32 nparams = 0;
 
 public:
-    explicit Function(StringID name, std::vector<u64> constants)
-        : name(name), constants(std::move(constants)) {}
-
-    Chunk& add_chunk(u32 idx) { return chunks.emplace_back(idx); }
+    explicit Function(StringID name, std::vector<u64> constants, u32 nparams)
+        : name(name), constants(std::move(constants)), nparams(nparams) {}
 
     void set_nregs(u32 n) { nregs = n; }
 
     [[nodiscard]] u32 get_nregs() const { return nregs; }
 
+    [[nodiscard]] u32 get_nparams() const { return nparams; }
+
     [[nodiscard]] StringID get_name() const { return name; }
 
-    [[nodiscard]] const std::vector<Chunk>& get_chunks() const {
-        return chunks;
+    [[nodiscard]] std::vector<Instruction>& get_insts() { return insts; }
+
+    [[nodiscard]] const std::vector<Instruction>& get_insts() const {
+        return insts;
+    }
+};
+
+class File {
+    std::vector<Function> funcs;
+    usize entry;
+
+public:
+    File(std::vector<Function> funcs, usize entry)
+        : funcs(std::move(funcs)), entry(entry) {}
+
+    [[nodiscard]] const std::vector<Function>& get_funcs() const {
+        return funcs;
     }
 
-    [[nodiscard]] std::vector<Chunk>& get_chunks() { return chunks; }
+    [[nodiscard]] usize get_entry() const { return entry; }
 };
 
 } // namespace z::bytecode

@@ -11,9 +11,25 @@
 namespace z::bytecode {
 using namespace z;
 
+class Chunk {
+    u32 idx;
+    std::vector<Instruction> insts;
+
+public:
+    explicit Chunk(u32 idx) : idx(idx) {}
+    void add_inst(Instruction inst) { insts.push_back(inst); }
+
+    [[nodiscard]] u32 get_idx() const { return idx; }
+    [[nodiscard]] const std::vector<Instruction>& get_insts() const {
+        return insts;
+    }
+    [[nodiscard]] std::vector<Instruction>& get_insts() { return insts; }
+};
+
 class Builder {
     std::vector<Function> funcs;
     Function* current_func = nullptr;
+    std::vector<Chunk> chunks;
     Chunk* current_chunk = nullptr;
     ZContext* ctxt;
     u32 arg_index = 0;
@@ -49,6 +65,8 @@ class Builder {
 
     void fixup_branches();
 
+    void flatten_chunks();
+
     static u8 lower_vreg(ir::VReg vreg) {
         expect(vreg.id <= UINT8_MAX, "");
         return static_cast<u8>(vreg.id);
@@ -69,6 +87,6 @@ class Builder {
 
 public:
     explicit Builder(ZContext& ctxt) : ctxt(&ctxt) {}
-    std::vector<Function> lower_file(const ir::IRFile& file);
+    File lower_file(const ir::IRFile& file);
 };
 } // namespace z::bytecode

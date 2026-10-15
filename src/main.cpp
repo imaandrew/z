@@ -184,9 +184,7 @@ int main(int argc, const char* const* argv) {
 
     if (dump_bytecode) {
         auto printer = bytecode::Printer(ctxt, std::cout);
-        for (const auto& func : bc) {
-            printer.print_func(func);
-        }
+        printer.print_file(bc);
     }
 }
 

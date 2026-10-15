@@ -98,8 +98,8 @@ public:
     explicit Printer(const ZContext& ctxt, std::ostream& os)
         : ctxt(&ctxt), os(os) {}
 
+    void print_file(const File& file);
     void print_func(const Function& func);
-    void print_chunk(const Chunk& chunk);
     void print_inst(const Instruction& inst);
     void print_op(Op op);
     void print_reg(u8 reg);

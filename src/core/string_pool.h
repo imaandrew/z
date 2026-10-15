@@ -18,11 +18,13 @@ class StringPool {
 
 public:
     static constexpr StringID UNDERSCORE = StringID{0};
+    static constexpr StringID MAIN = StringID{1};
 
     StringPool() {
         strings.emplace_back("_");
-        const auto id = StringID(current_id++);
-        map.insert({std::string_view(strings[id.id]), id});
+        strings.emplace_back("main");
+        map.insert({std::string_view(strings[0]), StringID(current_id++)});
+        map.insert({std::string_view(strings[1]), StringID(current_id++)});
     }
 
     StringID intern(std::string_view s) {
