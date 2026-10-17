@@ -6,7 +6,7 @@ sources = files(
   'ir/analysis/maxlive.cpp',
   'ir/analysis/verifier.cpp',
   'ir/ir_builder.cpp',
-  'ir/ir_printer.cpp', 
+  'ir/ir_printer.cpp',
   'lexer/lexer.cpp',
   'parser/const_eval.cpp',
   'parser/parser.cpp',
@@ -15,14 +15,8 @@ sources = files(
   'sema/sym_table.cpp',
   'type/constraint_gen.cpp',
   'type/constraint_solve.cpp',
-  'type/type_res.cpp',
   'type/type.cpp',
+  'type/type_res.cpp',
 )
 
-
-zlib = library(
-  'z',
-  sources,
-  cpp_args: args,
-  dependencies : deps
-)
+zlib = library('z', sources, cpp_args: args, dependencies: deps)

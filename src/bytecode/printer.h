@@ -9,6 +9,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 namespace z::bytecode {
 // unused operand slot in byte_ops.def
 struct _ {};
@@ -93,6 +94,10 @@ constexpr const OpInfo& op_info(Op op) {
 class Printer {
     const ZContext* ctxt;
     std::ostream& os;
+    const File* file = nullptr;
+
+    std::vector<i32> labels;
+    void make_labels(const Function& func);
 
 public:
     explicit Printer(const ZContext& ctxt, std::ostream& os)
@@ -100,7 +105,7 @@ public:
 
     void print_file(const File& file);
     void print_func(const Function& func);
-    void print_inst(const Instruction& inst);
+    void print_inst(const Instruction& inst, usize id);
     void print_op(Op op);
     void print_reg(u8 reg);
     void print_imm8(i8 imm, bool is_signed);

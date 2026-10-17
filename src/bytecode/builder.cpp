@@ -26,7 +26,7 @@ File Builder::lower_file(const ir::IRFile& file) {
             entry = func.id.id;
     }
 
-    expect(!entry, "main function not found");
+    expect(entry.has_value(), "main function not found");
     return File(std::move(funcs), entry.value());
 }
 

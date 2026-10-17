@@ -3,6 +3,7 @@
 #include "bytecode/byte_ops.h"
 #include "core/string_pool.h"
 #include "core/types.h"
+#include <optional>
 #include <utility>
 #include <vector>
 namespace z::bytecode {
@@ -85,6 +86,12 @@ public:
 
     [[nodiscard]] const std::vector<Instruction>& get_insts() const {
         return insts;
+    }
+
+    [[nodiscard]] std::optional<u64> get_constant(u16 idx) const {
+        if (idx < constants.size())
+            return constants[idx];
+        return std::nullopt;
     }
 };
 

@@ -22,6 +22,7 @@
 #include "parser/parser.h"
 #include "sema/sem.h"
 #include "type/type_res.h"
+#include "vm/vm.h"
 #include <argparse/argparse.hpp>
 #include <exception>
 #include <iostream>
@@ -40,6 +41,7 @@ int main(int argc, const char* const* argv) {
     bool no_colour = false;
     bool opt = false;
     bool show_inst_ids = false;
+    bool run = false;
     std::string print_ir;
     std::string print_ir_before;
     std::string print_ir_after;
@@ -93,6 +95,7 @@ int main(int argc, const char* const* argv) {
             .help("disable colored output")
             .flag()
             .store_into(no_colour);
+        z.add_argument("--run").help("run code").flag().store_into(run);
         z.parse_args(argc, argv);
         print_ir = z.get("--print-ir");
     } catch (const std::exception& err) {
@@ -185,6 +188,11 @@ int main(int argc, const char* const* argv) {
     if (dump_bytecode) {
         auto printer = bytecode::Printer(ctxt, std::cout);
         printer.print_file(bc);
+    }
+
+    if (run) {
+        auto v = vm::VM(bc);
+        return v.run();
     }
 }
 
