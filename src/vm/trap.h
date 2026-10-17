@@ -1,6 +1,5 @@
 #pragma once
 
-#include "bytecode/byte_ops.h"
 #include "bytecode/bytecode.h"
 #include "core/types.h"
 #include <string_view>
@@ -13,6 +12,8 @@ enum class Error : u8 {
     ShiftTooLarge,
     IntegerOutOfRange,
     ConstIdxOutOfBounds,
+    InvalidOp,
+    StackOverflow,
 };
 
 static constexpr std::string_view err_to_string(Error e) {
@@ -27,17 +28,18 @@ static constexpr std::string_view err_to_string(Error e) {
         return "integer out of range";
     case Error::ConstIdxOutOfBounds:
         return "const index out of bounds";
+    case Error::InvalidOp:
+        return "invalid opcode";
+    case Error::StackOverflow:
+        return "register stack overflow";
     }
 
     std::unreachable();
 }
 
 struct Trap {
-    bytecode::Op op;
-    u64 pc;
+    const bytecode::Instruction* inst;
     const bytecode::Function* func;
     Error err;
-    Trap(bytecode::Op op, u64 pc, const bytecode::Function* func, Error err)
-        : op(op), pc(pc), func(func), err(err) {}
 };
 } // namespace z::vm

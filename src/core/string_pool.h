@@ -38,6 +38,6 @@ public:
         return id;
     }
 
-    std::string_view get_string(StringID id) { return strings[id.id]; }
+    std::string_view get_string(StringID id) const { return strings[id.id]; }
 };
 } // namespace z

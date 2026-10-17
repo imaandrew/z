@@ -48,6 +48,8 @@ void Printer::print_func(const Function& func) {
 }
 
 void Printer::print_inst(const Instruction& inst, usize id) {
+    std::print(os, "{}/* 0x{:04x} {:08x} */ {}", colour::GRAY, id, inst.raw,
+               colour::RESET);
     print_op(inst.op());
 
     const auto& info = op_info(inst.op());
@@ -108,7 +110,7 @@ void Printer::print_inst(const Instruction& inst, usize id) {
 }
 
 void Printer::print_op(Op op) {
-    std::print(os, "  {}{:8}{}", colour::MAGENTA, byte_op_to_string(op),
+    std::print(os, "{}{:8}{}", colour::MAGENTA, byte_op_to_string(op),
                colour::RESET);
 }
 

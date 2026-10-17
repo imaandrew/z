@@ -114,6 +114,7 @@ inline std::expected<u64, Error> sra(u64 a, u64 b) {
     if (b >= 64) {
         return std::unexpected(Error::ShiftTooLarge);
     }
+    // NOLINTNEXTLINE(bugprone-signed-bitwise)
     return static_cast<u64>(static_cast<i64>(a) >> b);
 }
 } // namespace z::vm::alu

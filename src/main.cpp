@@ -191,8 +191,8 @@ int main(int argc, const char* const* argv) {
     }
 
     if (run) {
-        auto v = vm::VM(bc);
-        return v.run();
+        auto v = vm::VM(bc, *ctxt.strings);
+        return static_cast<int>(v.run());
     }
 }
 

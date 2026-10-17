@@ -1,50 +1,102 @@
 #pragma once
 
+#include "bytecode/byte_ops.h"
 #include "bytecode/bytecode.h"
+#include "core/string_pool.h"
 #include "core/types.h"
 #include "vm/trap.h"
-#include <expected>
+#include <array>
+#include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 
 namespace z::vm {
+using namespace bytecode;
 
 class VM {
-    const bytecode::File& file;
-    std::vector<u64> regs;
-    u64 pc = 0;
-    u32 base = 0;
-    const bytecode::Function* cur_func = nullptr;
+    const File& file;
+    const StringPool& strings;
+    const Function* cur_func = nullptr;
+
+    struct RegStack {
+        static constexpr usize N = 1000000;
+        std::unique_ptr<std::array<u64, N>> p =
+            std::make_unique_for_overwrite<std::array<u64, N>>();
+        [[nodiscard]] u64* data() const { return p->data(); }
+        static usize size() { return N; }
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+        u64& operator[](usize i) const { return (*p)[i]; }
+    };
+    RegStack regs;
 
     struct Frame {
-        const bytecode::Function* func;
-        u64 return_pc;
-        u32 base;
+        const Function* func;
+        const Instruction* return_ip;
+        u64* base;
     };
-
     std::vector<Frame> frames;
 
-    void ensure_stack(usize size) {
-        if (size > regs.size())
-            regs.resize(size);
+    void call(const Instruction* return_ip, u64* base, u16 callee) {
+        frames.emplace_back(cur_func, return_ip, base);
+        cur_func = &file.get_funcs()[callee];
     }
 
-    static void report(const Trap& t);
+    void pop_frame() {
+        cur_func = frames.back().func;
+        frames.pop_back();
+    }
 
-    enum class ExitType : u8 {
-        RetVoid,
-        Ret,
-        NoReturn,
+    void report(const Trap& t);
+
+    enum class Status : u8 {
+        Halt,
+        Trap,
     };
 
-    std::expected<ExitType, Trap> exec_inst();
-    u64 read_reg(u8 idx);
-    void write_reg(u8 idx, u64 val);
+    std::optional<Trap> trap_;
+
+    [[nodiscard]] Status trap(Error err, const Instruction* ip) {
+        trap_ = {.inst = ip, .func = cur_func, .err = err};
+        return Status::Trap;
+    };
+
+#ifdef __has_cpp_attribute
+#if __has_cpp_attribute(clang::preserve_none)
+#define PRESERVE_NONE [[clang::preserve_none]]
+#endif
+#endif
+
+#ifndef PRESERVE_NONE
+#define PRESERVE_NONE
+#endif
+
+#define BYTE_OP(name, mnemonic, ...)                                           \
+    PRESERVE_NONE static Status op_##name(VM& vm, const Instruction* ip,       \
+                                          u64* r);
+#include "bytecode/byte_ops.def"
+    PRESERVE_NONE static Status op_invalid(VM& vm, const Instruction* ip,
+                                           u64* r);
+
+    using Handler = Status (*)(VM& vm, const Instruction* ip,
+                               u64* r) PRESERVE_NONE;
+
+    static constexpr auto table = [] {
+        std::array<Handler, 256> t{};
+        for (auto& i : t) {
+            i = &op_invalid;
+        }
+#define BYTE_OP(name, mnemonic, class, ...)                                    \
+    t[std::to_underlying(Op::name)] = &VM::op_##name;
+#include "bytecode/byte_ops.def"
+
+        return t;
+    }();
 
 public:
-    explicit VM(const bytecode::File& file)
-        : file(file), cur_func(&file.get_funcs()[file.get_entry()]) {
-        ensure_stack(cur_func->get_nregs());
-    }
+    explicit VM(const File& file, const StringPool& strings)
+        : file(file), strings(strings),
+          cur_func(&file.get_funcs()[file.get_entry()]), regs() {}
     i64 run();
 };
 } // namespace z::vm

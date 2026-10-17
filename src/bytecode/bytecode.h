@@ -7,10 +7,9 @@
 #include <utility>
 #include <vector>
 namespace z::bytecode {
-class Instruction {
+struct Instruction {
     u32 raw;
 
-public:
     explicit Instruction(u32 inst) : raw(inst) {}
 
     static Instruction R(Op op, u8 rd, u8 rs, u8 rt) {
