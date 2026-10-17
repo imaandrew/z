@@ -1,5 +1,4 @@
 sources = files(
-    'alu.cpp',
     'vm.cpp',
 )
 

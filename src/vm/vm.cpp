@@ -22,14 +22,14 @@ i64 VM::run() {
             return 1;
         }
 
-        if (frames.empty()) {
+        if (r.value() != ExitType::NoReturn) {
             switch (r.value()) {
             case ExitType::RetVoid:
                 return 0;
             case ExitType::Ret:
                 return static_cast<i64>(regs[0]);
             case ExitType::NoReturn:
-                break;
+                std::unreachable();
             }
         }
     }
@@ -52,89 +52,174 @@ std::expected<VM::ExitType, Trap> VM::exec_inst() {
     const auto imm16u = static_cast<u64>(inst.imm16u());
     const auto imm8 = static_cast<u64>(static_cast<i64>(inst.imm8()));
     const auto imm8u = static_cast<u64>(inst.imm8u());
-    bool overflow = false;
-    bool div_zero = false;
-    bool shift_undefined = false;
-    bool int_out_of_range = false;
-    bool const_idx_oob = false;
 
     auto exit_type = ExitType::NoReturn;
 
+    const auto trap = [&](Error err) {
+        return std::unexpected(Trap(inst.op(), old_pc, cur_func, err));
+    };
+
     switch (inst.op()) {
     case Op::SAdd:
-        write_reg(rd, ALU::iadd(read_reg(rs), read_reg(rt), true, overflow));
+        if (const auto v = alu::sadd(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UAdd:
-        write_reg(rd, ALU::iadd(read_reg(rs), read_reg(rt), false, overflow));
+        if (const auto v = alu::uadd(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SAddi:
-        write_reg(rd, ALU::iadd(read_reg(rd), imm16, true, overflow));
+        if (const auto v = alu::sadd(read_reg(rd), imm16)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UAddi:
-        write_reg(rd, ALU::iadd(read_reg(rd), imm16u, false, overflow));
+        if (const auto v = alu::uadd(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SAddq:
-        write_reg(rd, ALU::iadd(read_reg(rs), imm8, true, overflow));
+        if (const auto v = alu::sadd(read_reg(rs), imm8)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UAddq:
-        write_reg(rd, ALU::iadd(read_reg(rs), imm8u, false, overflow));
+        if (const auto v = alu::uadd(read_reg(rs), imm8u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SSub:
-        write_reg(rd, ALU::isub(read_reg(rs), read_reg(rt), true, overflow));
+        if (const auto v = alu::ssub(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::USub:
-        write_reg(rd, ALU::isub(read_reg(rs), read_reg(rt), false, overflow));
+        if (const auto v = alu::usub(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SSubi:
-        write_reg(rd, ALU::isub(read_reg(rd), imm16, true, overflow));
+        if (const auto v = alu::ssub(read_reg(rd), imm16)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::USubi:
-        write_reg(rd, ALU::isub(read_reg(rd), imm16u, false, overflow));
+        if (const auto v = alu::usub(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SMul:
-        write_reg(rd, ALU::imul(read_reg(rs), read_reg(rt), true, overflow));
+        if (const auto v = alu::smul(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UMul:
-        write_reg(rd, ALU::imul(read_reg(rs), read_reg(rt), false, overflow));
+        if (const auto v = alu::umul(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SMuli:
-        write_reg(rd, ALU::imul(read_reg(rd), imm16, true, overflow));
+        if (const auto v = alu::smul(read_reg(rd), imm16)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UMuli:
-        write_reg(rd, ALU::imul(read_reg(rd), imm16u, false, overflow));
+        if (const auto v = alu::umul(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SDiv:
-        write_reg(rd, ALU::idiv(read_reg(rs), read_reg(rt), true, overflow,
-                                div_zero));
+        if (const auto v = alu::sdiv(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UDiv:
-        write_reg(rd, ALU::idiv(read_reg(rs), read_reg(rt), false, overflow,
-                                div_zero));
+        if (const auto v = alu::udiv(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SDivi:
-        write_reg(rd, ALU::idiv(read_reg(rd), imm16, true, overflow, div_zero));
+        if (const auto v = alu::sdiv(read_reg(rd), imm16)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::UDivi:
-        write_reg(rd,
-                  ALU::idiv(read_reg(rd), imm16u, false, overflow, div_zero));
+        if (const auto v = alu::udiv(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SRem:
-        write_reg(rd, ALU::irem(read_reg(rs), read_reg(rt), true, overflow,
-                                div_zero));
+        if (const auto v = alu::srem(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::URem:
-        write_reg(rd, ALU::irem(read_reg(rs), read_reg(rt), false, overflow,
-                                div_zero));
+        if (const auto v = alu::urem(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::SRemi:
-        write_reg(rd, ALU::irem(read_reg(rd), imm16, true, overflow, div_zero));
+        if (const auto v = alu::srem(read_reg(rd), imm16)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::URemi:
-        write_reg(rd,
-                  ALU::irem(read_reg(rd), imm16u, false, overflow, div_zero));
+        if (const auto v = alu::urem(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::Neg:
-        write_reg(rd, ALU::ineg(read_reg(rs), overflow));
+        if (const auto v = alu::neg(read_reg(rs))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::And:
         write_reg(rd, read_reg(rs) & read_reg(rt));
@@ -161,46 +246,76 @@ std::expected<VM::ExitType, Trap> VM::exec_inst() {
         write_reg(rd, ~read_reg(rs) & ((1ULL << imm8u) - 1));
         break;
     case Op::Shl:
-        write_reg(rd, ALU::sll(read_reg(rs), read_reg(rt), shift_undefined));
+        if (const auto v = alu::sll(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::Shli:
-        write_reg(rd, ALU::sll(read_reg(rd), imm16u, shift_undefined));
+        if (const auto v = alu::sll(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::Lsr:
-        write_reg(rd, ALU::srl(read_reg(rs), read_reg(rt), shift_undefined));
+        if (const auto v = alu::srl(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::Lsri:
-        write_reg(rd, ALU::srl(read_reg(rd), imm16u, shift_undefined));
+        if (const auto v = alu::srl(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::Asr:
-        write_reg(rd, ALU::sra(read_reg(rs), read_reg(rt), shift_undefined));
+        if (const auto v = alu::sra(read_reg(rs), read_reg(rt))) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::Asri:
-        write_reg(rd, ALU::sra(read_reg(rd), imm16u, shift_undefined));
+        if (const auto v = alu::sra(read_reg(rd), imm16u)) [[likely]] {
+            write_reg(rd, v.value());
+        } else {
+            return trap(v.error());
+        }
         break;
     case Op::ChkS8:
-        int_out_of_range = !std::in_range<i8>(static_cast<i64>(read_reg(rs)));
+        if (!std::in_range<i8>(static_cast<i64>(read_reg(rs))))
+            return trap(Error::IntegerOutOfRange);
         break;
     case Op::ChkU8:
-        int_out_of_range = !std::in_range<u8>(read_reg(rs));
+        if (!std::in_range<u8>(read_reg(rs)))
+            return trap(Error::IntegerOutOfRange);
         break;
     case Op::ChkS16:
-        int_out_of_range = !std::in_range<i16>(static_cast<i64>(read_reg(rs)));
+        if (!std::in_range<i16>(static_cast<i64>(read_reg(rs))))
+            return trap(Error::IntegerOutOfRange);
         break;
     case Op::ChkU16:
-        int_out_of_range = !std::in_range<u16>(read_reg(rs));
+        if (!std::in_range<u16>(read_reg(rs)))
+            return trap(Error::IntegerOutOfRange);
         break;
     case Op::ChkS32:
-        int_out_of_range = !std::in_range<i32>(static_cast<i64>(read_reg(rs)));
+        if (!std::in_range<i32>(static_cast<i64>(read_reg(rs))))
+            return trap(Error::IntegerOutOfRange);
         break;
     case Op::ChkU32:
-        int_out_of_range = !std::in_range<u32>(read_reg(rs));
+        if (!std::in_range<u32>(read_reg(rs)))
+            return trap(Error::IntegerOutOfRange);
         break;
     case Op::LoadConst:
         if (auto c = cur_func->get_constant(imm16u)) {
             write_reg(rd, c.value());
         } else {
-            const_idx_oob = true;
+            return trap(Error::ConstIdxOutOfBounds);
         }
         break;
     case Op::LoadImm:
@@ -279,32 +394,9 @@ std::expected<VM::ExitType, Trap> VM::exec_inst() {
         cur_func = f.func;
         pc = f.return_pc;
         base = f.base;
+        exit_type = ExitType::NoReturn;
         break;
     }
-    }
-
-    const auto err = [&](Error err) {
-        return std::unexpected(Trap(inst.op(), old_pc, cur_func, err));
-    };
-
-    if (div_zero) {
-        return err(Error::DivisionByZero);
-    }
-
-    if (shift_undefined) {
-        return err(Error::ShiftTooLarge);
-    }
-
-    if (overflow) {
-        return err(Error::IntegerOverflow);
-    }
-
-    if (int_out_of_range) {
-        return err(Error::IntegerOutOfRange);
-    }
-
-    if (const_idx_oob) {
-        return err(Error::ConstIdxOutOfBounds);
     }
 
     return exit_type;

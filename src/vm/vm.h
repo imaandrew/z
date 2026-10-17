@@ -42,7 +42,9 @@ class VM {
 
 public:
     explicit VM(const bytecode::File& file)
-        : file(file), cur_func(&file.get_funcs()[file.get_entry()]) {}
+        : file(file), cur_func(&file.get_funcs()[file.get_entry()]) {
+        ensure_stack(cur_func->get_nregs());
+    }
     i64 run();
 };
 } // namespace z::vm
